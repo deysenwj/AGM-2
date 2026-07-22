@@ -862,7 +862,7 @@ export default function App() {
                       )}
                     </div>
                     
-                    <div className="p-3 sm:p-4 flex justify-between items-start gap-2 flex-grow">
+                    <div className="p-3 sm:p-4 flex flex-col justify-between flex-grow">
                       <div className="space-y-1 min-w-0">
                         <h3 className="font-bold text-sm text-primary uppercase tracking-tight truncate" title={p.name}>{p.name}</h3>
                         <p className="text-xs text-secondary truncate" title={p.description}>{p.description}</p>
@@ -895,9 +895,10 @@ export default function App() {
                         )}
                       </div>
                       
-                      <div className="flex flex-col items-end shrink-0 text-right">
+                      {/* Availability status: row on mobile, col on desktop */}
+                      <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-1 mt-3 pt-2 border-t border-border-light/40">
                         {getStockLabel(p.stock)}
-                        <span className="text-[10px] text-secondary mt-0.5">{p.stock} {p.unit}</span>
+                        <span className="text-[10px] text-secondary font-semibold">{p.stock} {p.unit}</span>
                       </div>
                     </div>
 
