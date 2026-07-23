@@ -15,72 +15,6 @@ interface Product {
   arrivalType?: 'BARANG BARU' | 'EKSKLUSIF' | 'PRE-ORDER' | '';
 }
 
-interface TransactionItem {
-  productId: string;
-  name: string;
-  qty: number;
-  price: number;
-}
-
-interface Transaction {
-  id: string;
-  invoiceNo: string;
-  customerName: string;
-  totalAmount: number;
-  status: 'LUNAS' | 'PENDING' | 'PROSES';
-  date: string;
-  items: TransactionItem[];
-}
-
-const INITIAL_TRANSACTIONS: Transaction[] = [
-  {
-    id: 'tx-1',
-    invoiceNo: 'INV/20260723/001',
-    customerName: 'Budi Santoso',
-    totalAmount: 12500000,
-    status: 'LUNAS',
-    date: new Date().toISOString().split('T')[0],
-    items: [{ productId: '1', name: 'KONTUR LOUNGE', qty: 1, price: 12500000 }]
-  },
-  {
-    id: 'tx-2',
-    invoiceNo: 'INV/20260723/002',
-    customerName: 'Siti Rahma',
-    totalAmount: 4000000,
-    status: 'LUNAS',
-    date: new Date().toISOString().split('T')[0],
-    items: [{ productId: '2', name: 'SONUS HUB', qty: 1, price: 4000000 }]
-  },
-  {
-    id: 'tx-3',
-    invoiceNo: 'INV/20260722/003',
-    customerName: 'Ahmad Ketapang',
-    totalAmount: 8900000,
-    status: 'PROSES',
-    date: '2026-07-22',
-    items: [{ productId: '3', name: 'MEJA AXIS', qty: 1, price: 8900000 }]
-  },
-  {
-    id: 'tx-4',
-    invoiceNo: 'INV/20260721/004',
-    customerName: 'Dewi Lestari',
-    totalAmount: 6000000,
-    status: 'LUNAS',
-    date: '2026-07-21',
-    items: [{ productId: '4', name: 'MEJA STUDIO', qty: 1, price: 6000000 }]
-  },
-  {
-    id: 'tx-5',
-    invoiceNo: 'INV/20260720/005',
-    customerName: 'Heri Wijaya',
-    totalAmount: 3350000,
-    status: 'PENDING',
-    date: '2026-07-20',
-    items: [{ productId: '6', name: 'HEADPHONE AURA', qty: 1, price: 3350000 }]
-  }
-];
-
-
 const FURNITURE_SUBCATEGORIES = [
   'Meja tv',
   'Backdrop meja tv',
@@ -243,61 +177,6 @@ export default function App() {
 
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState('');
-
-  // Transactions State
-  const [transactions, setTransactions] = useState<Transaction[]>(() => {
-    const saved = localStorage.getItem('agm2_transactions');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
-    }
-    return INITIAL_TRANSACTIONS;
-  });
-
-  useEffect(() => {
-    localStorage.setItem('agm2_transactions', JSON.stringify(transactions));
-  }, [transactions]);
-
-  // Transaction Modal States
-  const [isTxModalOpen, setIsTxModalOpen] = useState(false);
-  const [txCustomer, setTxCustomer] = useState('');
-  const [txProductId, setTxProductId] = useState('');
-  const [txQty, setTxQty] = useState('1');
-  const [txStatus, setTxStatus] = useState<'LUNAS' | 'PENDING' | 'PROSES'>('LUNAS');
-
-  // Report Printable Modal State
-  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-
-  const handleCreateTransaction = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!txCustomer.trim() || !txProductId) return;
-
-    const targetP = products.find(p => p.id === txProductId);
-    if (!targetP) return;
-
-    const qtyNum = Math.max(1, parseInt(txQty) || 1);
-    const finalPrice = targetP.price - targetP.discount;
-    const total = finalPrice * qtyNum;
-    const now = new Date();
-    const dateStr = now.toISOString().split('T')[0];
-    const invNo = `INV/${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}/${Math.floor(100 + Math.random() * 900)}`;
-
-    const newTx: Transaction = {
-      id: 'tx-' + Date.now(),
-      invoiceNo: invNo,
-      customerName: txCustomer,
-      totalAmount: total,
-      status: txStatus,
-      date: dateStr,
-      items: [{ productId: targetP.id, name: targetP.name, qty: qtyNum, price: finalPrice }]
-    };
-
-    setTransactions(prev => [newTx, ...prev]);
-    adjustStock(targetP.id, -qtyNum);
-    setIsTxModalOpen(false);
-    setTxCustomer('');
-    setTxQty('1');
-    triggerToast('Transaksi Baru Berhasil Dibuat!');
-  };
 
 
   // Helper to map DB row to Product interface
@@ -1176,369 +1055,196 @@ export default function App() {
           </section>
         )}
 
-        {/* ── ANALYTICS / DASHBOARD VIEW ── */}
+        {/* ── ANALYTICS / DASHBOARD VIEW (SUPABASE SYNC) ── */}
         {currentView === 'dashboard' && isAdmin && (() => {
-          const todayStr = new Date().toISOString().split('T')[0];
-          const monthStr = new Date().toISOString().slice(0, 7);
-
-          const todayTransactions = transactions.filter(t => t.date === todayStr);
-          const todaySales = todayTransactions.reduce((acc, t) => acc + (t.status === 'LUNAS' ? t.totalAmount : 0), 0);
-
-          const monthTransactions = transactions.filter(t => t.date.startsWith(monthStr));
-          const monthSales = monthTransactions.reduce((acc, t) => acc + (t.status === 'LUNAS' ? t.totalAmount : 0), 0);
-
-          const totalCustomers = new Set(transactions.map(t => t.customerName.trim().toLowerCase())).size;
           const totalInventoryValue = products.reduce((acc, p) => acc + ((p.price - p.discount) * p.stock), 0);
-          
-          const totalItemsSold = transactions.reduce((acc, t) => {
-            return acc + t.items.reduce((sum, item) => sum + item.qty, 0);
-          }, 0);
+          const totalUnits = products.reduce((acc, p) => acc + p.stock, 0);
 
           const lowStockProducts = products.filter(p => p.stock > 0 && p.stock <= 3);
           const outOfStockProducts = products.filter(p => p.stock === 0);
           const healthyStockCount = products.filter(p => p.stock > 3).length;
           const stockIntegrityRatio = products.length > 0 ? Math.round((healthyStockCount / products.length) * 100) : 0;
 
-          // Best Selling Products Aggregation
-          const bestSellersMap: { [name: string]: { name: string; qty: number; omzet: number } } = {};
-          transactions.forEach(t => {
-            t.items.forEach(item => {
-              if (!bestSellersMap[item.name]) {
-                bestSellersMap[item.name] = { name: item.name, qty: 0, omzet: 0 };
-              }
-              bestSellersMap[item.name].qty += item.qty;
-              bestSellersMap[item.name].omzet += (item.qty * item.price);
-            });
-          });
-          const bestSellersList = Object.values(bestSellersMap).sort((a, b) => b.qty - a.qty).slice(0, 5);
+          const furnitureProducts = products.filter(p => p.category === 'furniture');
+          const electronicsProducts = products.filter(p => p.category === 'electronics');
 
-          // Category Sales Aggregation
-          let furnitureOmzet = 0;
-          let electronicsOmzet = 0;
-          transactions.forEach(t => {
-            t.items.forEach(item => {
-              const p = products.find(prod => prod.name.toLowerCase() === item.name.toLowerCase() || prod.id === item.productId);
-              const cat = p ? p.category : (item.name.toLowerCase().includes('tv') || item.name.toLowerCase().includes('sonus') || item.name.toLowerCase().includes('headphone') ? 'electronics' : 'furniture');
-              if (cat === 'electronics') {
-                electronicsOmzet += item.qty * item.price;
-              } else {
-                furnitureOmzet += item.qty * item.price;
-              }
-            });
-          });
-          const totalOmzetAll = furnitureOmzet + electronicsOmzet || 1;
-          const furniturePercent = Math.round((furnitureOmzet / totalOmzetAll) * 100);
-          const electronicsPercent = Math.round((electronicsOmzet / totalOmzetAll) * 100);
+          const furnitureVal = furnitureProducts.reduce((acc, p) => acc + ((p.price - p.discount) * p.stock), 0);
+          const electronicsVal = electronicsProducts.reduce((acc, p) => acc + ((p.price - p.discount) * p.stock), 0);
 
-          // Sales Chart Mock/Calculated Data for 7 days
-          const salesChartData = [
-            { day: 'Sen', val: 12500000 },
-            { day: 'Sel', val: 8900000 },
-            { day: 'Rab', val: 15400000 },
-            { day: 'Kam', val: 6000000 },
-            { day: 'Jum', val: 18200000 },
-            { day: 'Sab', val: 24500000 },
-            { day: 'Min', val: todaySales || 16500000 }
-          ];
-          const maxChartVal = Math.max(...salesChartData.map(d => d.val)) || 1;
+          const totalValAll = totalInventoryValue || 1;
+          const furnitureValPercent = Math.round((furnitureVal / totalValAll) * 100);
+          const electronicsValPercent = Math.round((electronicsVal / totalValAll) * 100);
 
           return (
             <section className="px-margin-mobile lg:px-margin-desktop py-8 max-w-container-max mx-auto w-full flex-grow">
               
-              {/* Header Title & Date */}
+              {/* Header Title & Supabase Status Badge */}
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                 <div>
-                  <h2 className="font-headline-lg text-headline-lg text-primary">Dasbor Penjualan &amp; Operasional</h2>
-                  <p className="text-xs text-secondary mt-1">Ringkasan performa toko real-time AGM 2 Ketapang</p>
+                  <h2 className="font-headline-lg text-headline-lg text-primary">Dasbor Analisis Inventaris</h2>
+                  <p className="text-xs text-secondary mt-1">Ringkasan stok dan aset toko tersinkronisasi langsung dengan Supabase Database</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-xs font-bold text-secondary bg-surface-container px-3 py-1.5 rounded-full border border-border-light">
-                    📅 {new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                  <span className={`text-xs font-bold px-3 py-1.5 rounded-full border flex items-center gap-1.5 ${
+                    isSupabaseConfigured 
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                      : 'bg-amber-50 text-amber-700 border-amber-200'
+                  }`}>
+                    <span className={`w-2 h-2 rounded-full ${isSupabaseConfigured ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                    {isSupabaseConfigured ? 'Terhubung ke Supabase' : 'Mode Local Storage'}
                   </span>
                 </div>
               </div>
 
-              {/* ── 1. RINGKASAN KPI (10 STATISTIK UTAMA) ── */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-8">
-                <div className="p-4 bg-pure-white border border-border-light rounded-xl shadow-xs hover:border-primary/40 transition-all">
+              {/* ── 1. RINGKASAN KPI UTAMA INVENTARIS ── */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                <div className="p-5 bg-pure-white border border-border-light rounded-xl shadow-xs hover:border-primary/40 transition-all">
                   <div className="flex items-center justify-between text-secondary mb-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider">Omzet Hari Ini</span>
-                    <span className="text-lg">💰</span>
+                    <span className="text-xs font-bold uppercase tracking-wider">Total Nilai Inventaris</span>
+                    <span className="text-xl">💵</span>
                   </div>
-                  <div className="text-base sm:text-lg font-bold text-primary truncate" title={`Rp ${todaySales.toLocaleString('id-ID')}`}>
-                    Rp {todaySales.toLocaleString('id-ID')}
-                  </div>
-                  <span className="text-[10px] text-emerald-600 font-semibold mt-1 block">Real-time update</span>
-                </div>
-
-                <div className="p-4 bg-pure-white border border-border-light rounded-xl shadow-xs hover:border-primary/40 transition-all">
-                  <div className="flex items-center justify-between text-secondary mb-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider">Omzet Bulan Ini</span>
-                    <span className="text-lg">📅</span>
-                  </div>
-                  <div className="text-base sm:text-lg font-bold text-primary truncate" title={`Rp ${monthSales.toLocaleString('id-ID')}`}>
-                    Rp {monthSales.toLocaleString('id-ID')}
-                  </div>
-                  <span className="text-[10px] text-secondary font-semibold mt-1 block">Bulan Berjalan</span>
-                </div>
-
-                <div className="p-4 bg-pure-white border border-border-light rounded-xl shadow-xs hover:border-primary/40 transition-all">
-                  <div className="flex items-center justify-between text-secondary mb-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider">Total Transaksi</span>
-                    <span className="text-lg">🧾</span>
-                  </div>
-                  <div className="text-base sm:text-lg font-bold text-status-blue">
-                    {transactions.length} Transaksi
-                  </div>
-                  <span className="text-[10px] text-secondary font-semibold mt-1 block">Terdaftar di sistem</span>
-                </div>
-
-                <div className="p-4 bg-pure-white border border-border-light rounded-xl shadow-xs hover:border-primary/40 transition-all">
-                  <div className="flex items-center justify-between text-secondary mb-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider">Total Produk</span>
-                    <span className="text-lg">📦</span>
-                  </div>
-                  <div className="text-base sm:text-lg font-bold text-primary">
-                    {products.length} SKU
-                  </div>
-                  <span className="text-[10px] text-secondary font-semibold mt-1 block">Katalog Aktif</span>
-                </div>
-
-                <div className="p-4 bg-pure-white border border-border-light rounded-xl shadow-xs hover:border-primary/40 transition-all">
-                  <div className="flex items-center justify-between text-secondary mb-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider">Total Pelanggan</span>
-                    <span className="text-lg">👥</span>
-                  </div>
-                  <div className="text-base sm:text-lg font-bold text-indigo-600">
-                    {totalCustomers} Pelanggan
-                  </div>
-                  <span className="text-[10px] text-secondary font-semibold mt-1 block">Pelanggan Unik</span>
-                </div>
-
-                <div className="p-4 bg-pure-white border border-border-light rounded-xl shadow-xs hover:border-primary/40 transition-all">
-                  <div className="flex items-center justify-between text-secondary mb-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider">Nilai Inventaris</span>
-                    <span className="text-lg">💵</span>
-                  </div>
-                  <div className="text-base sm:text-lg font-bold text-primary truncate" title={`Rp ${totalInventoryValue.toLocaleString('id-ID')}`}>
+                  <div className="text-xl sm:text-2xl font-bold text-primary truncate" title={`Rp ${totalInventoryValue.toLocaleString('id-ID')}`}>
                     Rp {totalInventoryValue.toLocaleString('id-ID')}
                   </div>
-                  <span className="text-[10px] text-secondary font-semibold mt-1 block">Akumulasi Aset</span>
+                  <span className="text-xs text-secondary mt-1 block">Akumulasi nilai aset di gudang</span>
                 </div>
 
-                <div className="p-4 bg-pure-white border border-border-light rounded-xl shadow-xs hover:border-primary/40 transition-all">
+                <div className="p-5 bg-pure-white border border-border-light rounded-xl shadow-xs hover:border-primary/40 transition-all">
                   <div className="flex items-center justify-between text-secondary mb-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider">Barang Terjual</span>
-                    <span className="text-lg">📈</span>
+                    <span className="text-xs font-bold uppercase tracking-wider">Total Produk Aktif</span>
+                    <span className="text-xl">📦</span>
                   </div>
-                  <div className="text-base sm:text-lg font-bold text-emerald-600">
-                    {totalItemsSold} Unit
+                  <div className="text-xl sm:text-2xl font-bold text-primary">
+                    {products.length} SKU
                   </div>
-                  <span className="text-[10px] text-secondary font-semibold mt-1 block">Volume Keluar</span>
+                  <span className="text-xs text-secondary mt-1 block">{furnitureProducts.length} Furniture / {electronicsProducts.length} Elektronik</span>
                 </div>
 
-                <div className="p-4 bg-pure-white border border-border-light rounded-xl shadow-xs hover:border-primary/40 transition-all">
+                <div className="p-5 bg-pure-white border border-border-light rounded-xl shadow-xs hover:border-primary/40 transition-all">
                   <div className="flex items-center justify-between text-secondary mb-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider">Stok Menipis</span>
-                    <span className="text-lg">⚠️</span>
+                    <span className="text-xs font-bold uppercase tracking-wider">Total Fisik Unit</span>
+                    <span className="text-xl">🔢</span>
                   </div>
-                  <div className="text-base sm:text-lg font-bold text-warning">
-                    {lowStockProducts.length} SKU
+                  <div className="text-xl sm:text-2xl font-bold text-status-blue">
+                    {totalUnits} Unit
                   </div>
-                  <span className="text-[10px] text-warning font-semibold mt-1 block">&lt;= 3 Unit Tersisa</span>
+                  <span className="text-xs text-secondary mt-1 block">Total unit barang tersimpan</span>
                 </div>
 
-                <div className="p-4 bg-pure-white border border-border-light rounded-xl shadow-xs hover:border-primary/40 transition-all">
+                <div className="p-5 bg-pure-white border border-border-light rounded-xl shadow-xs hover:border-primary/40 transition-all">
                   <div className="flex items-center justify-between text-secondary mb-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider">Stok Habis</span>
-                    <span className="text-lg">❌</span>
+                    <span className="text-xs font-bold uppercase tracking-wider">Stok Kritis / Habis</span>
+                    <span className="text-xl">⚠️</span>
                   </div>
-                  <div className="text-base sm:text-lg font-bold text-error">
-                    {outOfStockProducts.length} SKU
+                  <div className="text-xl sm:text-2xl font-bold text-error">
+                    {lowStockProducts.length + outOfStockProducts.length} SKU
                   </div>
-                  <span className="text-[10px] text-error font-semibold mt-1 block">Perlu Restok</span>
-                </div>
-
-                <div className="p-4 bg-pure-white border border-border-light rounded-xl shadow-xs hover:border-primary/40 transition-all">
-                  <div className="flex items-center justify-between text-secondary mb-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider">Integritas Stok</span>
-                    <span className="text-lg">📊</span>
-                  </div>
-                  <div className="text-base sm:text-lg font-bold text-status-blue">
-                    {stockIntegrityRatio}%
-                  </div>
-                  <span className="text-[10px] text-secondary font-semibold mt-1 block">Rasio Sehat</span>
+                  <span className="text-xs text-error font-semibold mt-1 block">{outOfStockProducts.length} Habis / {lowStockProducts.length} Menipis</span>
                 </div>
               </div>
 
-              {/* ── 2. GRAFIK ── */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                {/* Grafik Penjualan (Harian) */}
-                <div className="lg:col-span-2 bg-pure-white border border-border-light p-6 rounded-xl shadow-sm flex flex-col justify-between">
-                  <div className="flex justify-between items-center mb-6">
-                    <div>
-                      <h3 className="font-bold text-base text-primary">Grafik Tren Penjualan Harian</h3>
-                      <p className="text-xs text-secondary">Estimasi omzet penjualan dalam 7 hari terakhir</p>
-                    </div>
-                    <span className="text-xs font-bold text-status-blue bg-status-blue/10 px-3 py-1 rounded-full">Bulanan &amp; Harian</span>
-                  </div>
-
-                  <div className="h-48 flex items-end justify-between gap-3 pt-6 pb-2 px-2 border-b border-border-light">
-                    {salesChartData.map((item, idx) => {
-                      const heightPercent = Math.max(12, Math.round((item.val / maxChartVal) * 100));
-                      return (
-                        <div key={idx} className="flex-1 flex flex-col items-center gap-2 group relative">
-                          <div className="text-[10px] font-bold text-secondary opacity-0 group-hover:opacity-100 transition-opacity absolute -top-6 bg-primary text-pure-white px-1.5 py-0.5 rounded whitespace-nowrap z-10">
-                            Rp {(item.val / 1000000).toFixed(1)}M
-                          </div>
-                          <div 
-                            className="w-full bg-primary/80 group-hover:bg-primary rounded-t transition-all duration-300 relative overflow-hidden"
-                            style={{ height: `${heightPercent}%` }}
-                          >
-                            <div className="absolute inset-0 bg-gradient-to-t from-transparent to-white/20" />
-                          </div>
-                          <span className="text-xs font-bold text-secondary">{item.day}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Grafik Penjualan per Kategori */}
+              {/* ── 2. ANALISIS KATEGORI & INTEGRITAS STOK ── */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                {/* Distribusi Nilai per Kategori */}
                 <div className="bg-pure-white border border-border-light p-6 rounded-xl shadow-sm flex flex-col justify-between">
                   <div>
                     <div className="flex justify-between items-center mb-4">
-                      <h3 className="font-bold text-base text-primary">Penjualan per Kategori</h3>
-                      <span className="material-symbols-outlined text-secondary">pie_chart</span>
+                      <h3 className="font-bold text-base text-primary flex items-center gap-2">
+                        <span className="material-symbols-outlined text-primary">pie_chart</span> Distribusi Kategori Produk
+                      </h3>
+                      <span className="text-xs text-secondary font-medium">Berdasarkan Nilai Aset</span>
                     </div>
-                    <p className="text-xs text-secondary mb-6">Distribusi omzet antara Furniture &amp; Elektronik</p>
+                    <p className="text-xs text-secondary mb-6">Proporsi nilai barang tersimpan di database Supabase</p>
                   </div>
 
                   <div className="space-y-6">
                     <div>
                       <div className="flex justify-between text-xs font-bold mb-2">
                         <span className="text-primary flex items-center gap-1.5">
-                          <span className="w-3 h-3 rounded-full bg-primary inline-block" /> Furniture
+                          <span className="w-3 h-3 rounded-full bg-primary inline-block" /> Furniture ({furnitureProducts.length} SKU)
                         </span>
-                        <span>{furniturePercent}% (Rp {furnitureOmzet.toLocaleString('id-ID')})</span>
+                        <span>{furnitureValPercent}% (Rp {furnitureVal.toLocaleString('id-ID')})</span>
                       </div>
                       <div className="w-full bg-surface-container h-3 rounded-full overflow-hidden">
-                        <div className="bg-primary h-full transition-all duration-500" style={{ width: `${furniturePercent}%` }} />
+                        <div className="bg-primary h-full transition-all duration-500" style={{ width: `${furnitureValPercent}%` }} />
                       </div>
                     </div>
 
                     <div>
                       <div className="flex justify-between text-xs font-bold mb-2">
                         <span className="text-status-blue flex items-center gap-1.5">
-                          <span className="w-3 h-3 rounded-full bg-status-blue inline-block" /> Elektronik
+                          <span className="w-3 h-3 rounded-full bg-status-blue inline-block" /> Elektronik ({electronicsProducts.length} SKU)
                         </span>
-                        <span>{electronicsPercent}% (Rp {electronicsOmzet.toLocaleString('id-ID')})</span>
+                        <span>{electronicsValPercent}% (Rp {electronicsVal.toLocaleString('id-ID')})</span>
                       </div>
                       <div className="w-full bg-surface-container h-3 rounded-full overflow-hidden">
-                        <div className="bg-status-blue h-full transition-all duration-500" style={{ width: `${electronicsPercent}%` }} />
+                        <div className="bg-status-blue h-full transition-all duration-500" style={{ width: `${electronicsValPercent}%` }} />
                       </div>
                     </div>
+                  </div>
+                </div>
 
-                    <div className="p-3 bg-surface-container-low rounded-lg text-xs text-secondary font-medium">
-                      💡 Furniture menyumbang <strong className="text-primary">{furniturePercent}%</strong> dari total transaksi.
+                {/* Rasio Integritas Stok */}
+                <div className="bg-pure-white border border-border-light p-6 rounded-xl shadow-sm flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="font-bold text-base text-primary flex items-center gap-2">
+                        <span className="material-symbols-outlined text-primary">assessment</span> Rasio Kesehatan Stok
+                      </h3>
+                      <span className="text-xs font-bold text-status-blue bg-status-blue/10 px-2.5 py-1 rounded-full">
+                        {stockIntegrityRatio}% Sehat
+                      </span>
+                    </div>
+                    <p className="text-xs text-secondary mb-6">Persentase tingkat ketersediaan stok fisik barang</p>
+                  </div>
+
+                  <div>
+                    <div className="h-4 w-full bg-surface-container rounded-full overflow-hidden flex mb-4">
+                      <div 
+                        className="bg-emerald-500 h-full transition-all duration-500"
+                        style={{ width: `${products.length > 0 ? (healthyStockCount / products.length) * 100 : 0}%` }}
+                        title="Tersedia Sehat"
+                      />
+                      <div 
+                        className="bg-amber-500 h-full transition-all duration-500"
+                        style={{ width: `${products.length > 0 ? (lowStockProducts.length / products.length) * 100 : 0}%` }}
+                        title="Stok Menipis"
+                      />
+                      <div 
+                        className="bg-red-500 h-full transition-all duration-500"
+                        style={{ width: `${products.length > 0 ? (outOfStockProducts.length / products.length) * 100 : 0}%` }}
+                        title="Stok Habis"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 text-center text-xs font-bold">
+                      <div className="p-2 bg-emerald-50 text-emerald-800 rounded-lg border border-emerald-200">
+                        <span className="block text-[10px] text-emerald-600 font-semibold">Tersedia (&gt;3)</span>
+                        {healthyStockCount} SKU
+                      </div>
+                      <div className="p-2 bg-amber-50 text-amber-800 rounded-lg border border-amber-200">
+                        <span className="block text-[10px] text-amber-600 font-semibold">Menipis (1-3)</span>
+                        {lowStockProducts.length} SKU
+                      </div>
+                      <div className="p-2 bg-red-50 text-red-800 rounded-lg border border-red-200">
+                        <span className="block text-[10px] text-red-600 font-semibold">Habis (0)</span>
+                        {outOfStockProducts.length} SKU
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* ── 3. TRANSAKSI TERBARU & 4. PRODUK TERLARIS ── */}
+              {/* ── 3. DAFTAR PERINGATAN RESTOK & NOTIFIKASI REAL-TIME ── */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                {/* 3. Transaksi Terbaru */}
+                {/* Tabel Stok Menipis & Restok Cepat */}
                 <div className="bg-pure-white border border-border-light p-6 rounded-xl shadow-sm">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="font-bold text-base text-primary flex items-center gap-2">
-                      <span className="material-symbols-outlined text-primary">receipt_long</span> Transaksi Terbaru
-                    </h3>
-                    <button onClick={() => setIsTxModalOpen(true)} className="text-xs font-bold text-primary hover:underline">
-                      + Tambah
-                    </button>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs border-collapse">
-                      <thead>
-                        <tr className="border-b border-border-light text-secondary uppercase font-semibold bg-surface-container-low">
-                          <th className="py-2.5 px-3">Invoice</th>
-                          <th className="py-2.5 px-3">Pelanggan</th>
-                          <th className="py-2.5 px-3">Total</th>
-                          <th className="py-2.5 px-3">Status</th>
-                          <th className="py-2.5 px-3 text-right">Tanggal</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border-light">
-                        {transactions.slice(0, 5).map(tx => (
-                          <tr key={tx.id} className="hover:bg-surface-container-low/50">
-                            <td className="py-3 px-3 font-bold text-primary">{tx.invoiceNo}</td>
-                            <td className="py-3 px-3 text-secondary font-medium">{tx.customerName}</td>
-                            <td className="py-3 px-3 font-bold text-primary">Rp {tx.totalAmount.toLocaleString('id-ID')}</td>
-                            <td className="py-3 px-3">
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                                tx.status === 'LUNAS' ? 'bg-emerald-100 text-emerald-800' :
-                                tx.status === 'PENDING' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
-                              }`}>
-                                {tx.status}
-                              </span>
-                            </td>
-                            <td className="py-3 px-3 text-right text-secondary">{tx.date}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* 4. Produk Terlaris */}
-                <div className="bg-pure-white border border-border-light p-6 rounded-xl shadow-sm">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-base text-primary flex items-center gap-2">
-                      <span className="material-symbols-outlined text-primary">star</span> Produk Terlaris
-                    </h3>
-                    <span className="text-xs text-secondary font-medium">Top 5 SKU</span>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs border-collapse">
-                      <thead>
-                        <tr className="border-b border-border-light text-secondary uppercase font-semibold bg-surface-container-low">
-                          <th className="py-2.5 px-3">Nama Produk</th>
-                          <th className="py-2.5 px-3 text-center">Jumlah Terjual</th>
-                          <th className="py-2.5 px-3 text-right">Total Omzet</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border-light">
-                        {bestSellersList.length === 0 ? (
-                          <tr><td colSpan={3} className="py-4 text-center text-secondary">Belum ada transaksi recorded.</td></tr>
-                        ) : (
-                          bestSellersList.map((bs, idx) => (
-                            <tr key={idx} className="hover:bg-surface-container-low/50">
-                              <td className="py-3 px-3 font-bold text-primary flex items-center gap-2">
-                                <span className="w-5 h-5 rounded-full bg-surface-container-highest flex items-center justify-center text-[10px] font-bold text-secondary">{idx + 1}</span>
-                                {bs.name}
-                              </td>
-                              <td className="py-3 px-3 text-center font-bold text-emerald-600">{bs.qty} Unit</td>
-                              <td className="py-3 px-3 text-right font-bold text-primary">Rp {bs.omzet.toLocaleString('id-ID')}</td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-
-              {/* ── 5. STOK MENIPIS & 6. NOTIFIKASI ── */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                {/* 5. Stok Menipis */}
-                <div className="bg-pure-white border border-border-light p-6 rounded-xl shadow-sm">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-base text-primary flex items-center gap-2">
-                      <span className="material-symbols-outlined text-warning">warning</span> Peringatan Stok Menipis
+                      <span className="material-symbols-outlined text-warning">warning</span> Peringatan Restok Stok Menipis
                     </h3>
                     <button onClick={() => setCurrentView('stock')} className="text-xs font-bold text-primary hover:underline">
-                      Restok Sekarang →
+                      Ke Kontrol Stok →
                     </button>
                   </div>
                   <div className="overflow-x-auto">
@@ -1548,14 +1254,14 @@ export default function App() {
                           <th className="py-2.5 px-3">Nama Produk</th>
                           <th className="py-2.5 px-3 text-center">Stok Saat Ini</th>
                           <th className="py-2.5 px-3 text-center">Batas Minimum</th>
-                          <th className="py-2.5 px-3 text-right">Aksi</th>
+                          <th className="py-2.5 px-3 text-right">Aksi Restok</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border-light">
                         {lowStockProducts.length === 0 && outOfStockProducts.length === 0 ? (
-                          <tr><td colSpan={4} className="py-4 text-center text-emerald-600 font-semibold">Semua stok aman (&gt; 3 Unit).</td></tr>
+                          <tr><td colSpan={4} className="py-4 text-center text-emerald-600 font-semibold">Semua stok produk dalam kondisi sehat.</td></tr>
                         ) : (
-                          [...outOfStockProducts, ...lowStockProducts].slice(0, 5).map(p => (
+                          [...outOfStockProducts, ...lowStockProducts].slice(0, 6).map(p => (
                             <tr key={p.id} className="hover:bg-surface-container-low/50">
                               <td className="py-3 px-3 font-bold text-primary">{p.name}</td>
                               <td className="py-3 px-3 text-center font-bold text-error">{p.stock} {p.unit}</td>
@@ -1563,7 +1269,7 @@ export default function App() {
                               <td className="py-3 px-3 text-right">
                                 <button 
                                   onClick={() => adjustStock(p.id, 5)} 
-                                  className="px-2 py-1 bg-primary text-pure-white text-[10px] font-bold rounded hover:bg-opacity-80 transition-all"
+                                  className="px-2.5 py-1 bg-primary text-pure-white text-[10px] font-bold rounded hover:bg-opacity-80 transition-all active:scale-95"
                                 >
                                   + Restok 5
                                 </button>
@@ -1576,13 +1282,13 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* 6. Notifikasi System */}
+                {/* Notifikasi Real-time System */}
                 <div className="bg-pure-white border border-border-light p-6 rounded-xl shadow-sm">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="font-bold text-base text-primary flex items-center gap-2">
-                      <span className="material-symbols-outlined text-primary">notifications</span> Center Notifikasi
+                      <span className="material-symbols-outlined text-primary">notifications</span> Notifikasi Sistem Supabase
                     </h3>
-                    <span className="text-xs font-bold text-secondary bg-surface-container px-2 py-0.5 rounded">Operasional</span>
+                    <span className="text-xs font-bold text-secondary bg-surface-container px-2 py-0.5 rounded">Live Realtime</span>
                   </div>
 
                   <div className="space-y-3">
@@ -1591,7 +1297,7 @@ export default function App() {
                         <span className="material-symbols-outlined text-error text-base shrink-0 mt-0.5">cancel</span>
                         <div>
                           <strong className="text-error block">Stok Habis!</strong>
-                          <span className="text-secondary">Produk <strong>{p.name}</strong> memiliki 0 stok tersisa. Segera tambah inventaris.</span>
+                          <span className="text-secondary">Produk <strong>{p.name}</strong> saat ini 0 unit tersisa. Klik Restok untuk menambah stok di Supabase.</span>
                         </div>
                       </div>
                     ))}
@@ -1600,18 +1306,8 @@ export default function App() {
                       <div key={'notif-low-' + p.id} className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3 text-xs">
                         <span className="material-symbols-outlined text-amber-600 text-base shrink-0 mt-0.5">error</span>
                         <div>
-                          <strong className="text-amber-800 block">Stok Menipis</strong>
+                          <strong className="text-amber-800 block">Peringatan Stok Menipis</strong>
                           <span className="text-secondary">Produk <strong>{p.name}</strong> sisa {p.stock} {p.unit} (di bawah batas minimum 3 Unit).</span>
-                        </div>
-                      </div>
-                    ))}
-
-                    {transactions.filter(t => t.status === 'PENDING').map(t => (
-                      <div key={'notif-pending-' + t.id} className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3 text-xs">
-                        <span className="material-symbols-outlined text-blue-600 text-base shrink-0 mt-0.5">schedule</span>
-                        <div>
-                          <strong className="text-blue-800 block">Transaksi Pending</strong>
-                          <span className="text-secondary">Invoice <strong>{t.invoiceNo}</strong> ({t.customerName}) menunggu konfirmasi pembayaran.</span>
                         </div>
                       </div>
                     ))}
@@ -1619,90 +1315,9 @@ export default function App() {
                     <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-start gap-3 text-xs">
                       <span className="material-symbols-outlined text-emerald-600 text-base shrink-0 mt-0.5">check_circle</span>
                       <div>
-                        <strong className="text-emerald-800 block">Status Retur &amp; Garansi</strong>
-                        <span className="text-secondary">Tidak ada klaim retur pending. Sistem layanan berjalan normal.</span>
+                        <strong className="text-emerald-800 block">Sistem Sinkronisasi Supabase Aktif</strong>
+                        <span className="text-secondary">Setiap perubahan stok atau penambahan produk akan langsung tersinkronisasi di seluruh perangkat secara real-time.</span>
                       </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* ── 7. QUICK ACTION & 8. RINGKASAN LAPORAN ── */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                {/* 7. Quick Action */}
-                <div className="bg-pure-white border border-border-light p-6 rounded-xl shadow-sm flex flex-col justify-between">
-                  <div>
-                    <h3 className="font-bold text-base text-primary mb-4 flex items-center gap-2">
-                      <span className="material-symbols-outlined text-primary">bolt</span> Quick Action
-                    </h3>
-                    <p className="text-xs text-secondary mb-4">Akses cepat ke aksi operasional harian admin</p>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-3">
-                    <button 
-                      onClick={openAdd}
-                      className="p-3 bg-primary text-pure-white rounded-lg text-xs font-bold hover:bg-opacity-90 transition-all flex flex-col items-center gap-1.5 text-center active:scale-95"
-                    >
-                      <span className="material-symbols-outlined text-lg">add_box</span>
-                      Tambah Produk
-                    </button>
-                    <button 
-                      onClick={() => setIsTxModalOpen(true)}
-                      className="p-3 bg-status-blue text-pure-white rounded-lg text-xs font-bold hover:bg-opacity-90 transition-all flex flex-col items-center gap-1.5 text-center active:scale-95"
-                    >
-                      <span className="material-symbols-outlined text-lg">point_of_sale</span>
-                      Tambah Transaksi
-                    </button>
-                    <button 
-                      onClick={() => setCurrentView('stock')}
-                      className="p-3 bg-surface-container-highest text-primary border border-border-light rounded-lg text-xs font-bold hover:bg-surface-container transition-all flex flex-col items-center gap-1.5 text-center active:scale-95"
-                    >
-                      <span className="material-symbols-outlined text-lg">inventory_2</span>
-                      Kelola Stok
-                    </button>
-                    <button 
-                      onClick={() => setIsReportModalOpen(true)}
-                      className="p-3 bg-surface-container-highest text-primary border border-border-light rounded-lg text-xs font-bold hover:bg-surface-container transition-all flex flex-col items-center gap-1.5 text-center active:scale-95"
-                    >
-                      <span className="material-symbols-outlined text-lg">print</span>
-                      Cetak Laporan
-                    </button>
-                  </div>
-                </div>
-
-                {/* 8. Ringkasan Laporan Operasional */}
-                <div className="lg:col-span-2 bg-pure-white border border-border-light p-6 rounded-xl shadow-sm flex flex-col justify-between">
-                  <div>
-                    <h3 className="font-bold text-base text-primary mb-4 flex items-center gap-2">
-                      <span className="material-symbols-outlined text-primary">assessment</span> Ringkasan Laporan Penjualan &amp; Inventaris
-                    </h3>
-                    <p className="text-xs text-secondary mb-6">Konsolidasi data finansial dan inventaris toko AGM 2</p>
-                  </div>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-surface-container-low p-5 rounded-xl border border-border-light">
-                    <div>
-                      <span className="text-[11px] text-secondary font-bold uppercase block mb-1">Omzet Hari Ini</span>
-                      <span className="text-base font-bold text-primary block truncate" title={`Rp ${todaySales.toLocaleString('id-ID')}`}>
-                        Rp {todaySales.toLocaleString('id-ID')}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[11px] text-secondary font-bold uppercase block mb-1">Omzet Bulan Ini</span>
-                      <span className="text-base font-bold text-primary block truncate" title={`Rp ${monthSales.toLocaleString('id-ID')}`}>
-                        Rp {monthSales.toLocaleString('id-ID')}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[11px] text-secondary font-bold uppercase block mb-1">Barang Terjual</span>
-                      <span className="text-base font-bold text-emerald-600 block">
-                        {totalItemsSold} Unit
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[11px] text-secondary font-bold uppercase block mb-1">Nilai Inventaris</span>
-                      <span className="text-base font-bold text-status-blue block truncate" title={`Rp ${totalInventoryValue.toLocaleString('id-ID')}`}>
-                        Rp {totalInventoryValue.toLocaleString('id-ID')}
-                      </span>
                     </div>
                   </div>
                 </div>
@@ -1723,140 +1338,7 @@ export default function App() {
         </footer>
       </main>
 
-      {/* ── MODAL TAMBAH TRANSAKSI (QUICK ACTION) ── */}
-      {isTxModalOpen && isAdmin && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface/90 backdrop-blur-md animate-fade-in" onClick={() => setIsTxModalOpen(false)}>
-          <div className="w-full max-w-[480px] bg-pure-white border border-border-light rounded-xl p-6 sm:p-8 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-6">
-              <h2 className="font-headline-lg text-headline-lg text-primary mb-1">Pencatatan Transaksi Baru</h2>
-              <p className="text-xs text-secondary">Masukkan detail penjualan produk untuk memperbarui stok otomatis.</p>
-            </div>
-
-            <form onSubmit={handleCreateTransaction} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-secondary mb-1">Nama Pelanggan</label>
-                <input
-                  type="text"
-                  required
-                  className="w-full bg-surface-container-low border border-border-light rounded-lg px-4 py-2.5 text-sm focus:ring-1 focus:ring-primary"
-                  placeholder="cth: Budi Santoso"
-                  value={txCustomer}
-                  onChange={(e) => setTxCustomer(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-secondary mb-1">Pilih Produk</label>
-                <select
-                  required
-                  className="w-full bg-surface-container-low border border-border-light rounded-lg px-4 py-2.5 text-sm focus:ring-1 focus:ring-primary"
-                  value={txProductId}
-                  onChange={(e) => setTxProductId(e.target.value)}
-                >
-                  <option value="">-- Pilih Produk Katalog --</option>
-                  {products.map(p => (
-                    <option key={p.id} value={p.id} disabled={p.stock === 0}>
-                      {p.name} (Stok: {p.stock} {p.unit}) - Rp {(p.price - p.discount).toLocaleString('id-ID')}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-secondary mb-1">Jumlah Qty</label>
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    className="w-full bg-surface-container-low border border-border-light rounded-lg px-4 py-2.5 text-sm focus:ring-1 focus:ring-primary"
-                    value={txQty}
-                    onChange={(e) => setTxQty(e.target.value)}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-secondary mb-1">Status Pembayaran</label>
-                  <select
-                    className="w-full bg-surface-container-low border border-border-light rounded-lg px-4 py-2.5 text-sm focus:ring-1 focus:ring-primary font-bold"
-                    value={txStatus}
-                    onChange={(e) => setTxStatus(e.target.value as any)}
-                  >
-                    <option value="LUNAS">LUNAS</option>
-                    <option value="PENDING">PENDING</option>
-                    <option value="PROSES">PROSES</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex gap-4 pt-4">
-                <button type="button" onClick={() => setIsTxModalOpen(false)} className="flex-1 py-3 border border-border-light text-secondary font-button text-xs uppercase rounded-lg hover:border-primary">
-                  Batal
-                </button>
-                <button type="submit" className="flex-grow py-3 bg-primary text-pure-white font-button text-xs uppercase rounded-lg hover:bg-opacity-90">
-                  Simpan Transaksi
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ── MODAL CETAK LAPORAN ── */}
-      {isReportModalOpen && isAdmin && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface/90 backdrop-blur-md animate-fade-in" onClick={() => setIsReportModalOpen(false)}>
-          <div className="w-full max-w-[650px] bg-pure-white border border-border-light rounded-xl p-6 sm:p-8 shadow-xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-start border-b border-border-light pb-4 mb-6">
-              <div>
-                <h2 className="font-bold text-xl text-primary">LAPORAN OPERASIONAL &amp; PENJUALAN AGM 2</h2>
-                <p className="text-xs text-secondary mt-1">Dicetak pada: {new Date().toLocaleString('id-ID')}</p>
-              </div>
-              <button onClick={() => window.print()} className="px-4 py-2 bg-primary text-pure-white text-xs font-bold rounded-lg flex items-center gap-1.5 hover:bg-opacity-90">
-                <span className="material-symbols-outlined text-base">print</span> Cetak
-              </button>
-            </div>
-
-            <div className="space-y-6 text-xs text-primary">
-              <div className="grid grid-cols-2 gap-4 bg-surface-container-low p-4 rounded-lg border border-border-light">
-                <div>
-                  <span className="text-secondary block">Total Nilai Inventaris Saat Ini:</span>
-                  <strong className="text-sm">Rp {products.reduce((acc, p) => acc + ((p.price - p.discount) * p.stock), 0).toLocaleString('id-ID')}</strong>
-                </div>
-                <div>
-                  <span className="text-secondary block">Total Unit Fisik Tersimpan:</span>
-                  <strong className="text-sm">{products.reduce((acc, p) => acc + p.stock, 0)} Unit</strong>
-                </div>
-                <div>
-                  <span className="text-secondary block">Total Transaksi Recorded:</span>
-                  <strong className="text-sm">{transactions.length} Transaksi</strong>
-                </div>
-                <div>
-                  <span className="text-secondary block">Total Pelanggan Terdaftar:</span>
-                  <strong className="text-sm">{new Set(transactions.map(t => t.customerName)).size} Pelanggan</strong>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-bold text-sm mb-2 text-secondary uppercase">Stok Memerlukan Perhatian (&lt;= 3 Unit)</h4>
-                <ul className="divide-y divide-border-light border border-border-light rounded-lg overflow-hidden">
-                  {products.filter(p => p.stock <= 3).map(p => (
-                    <li key={p.id} className="p-2.5 flex justify-between items-center bg-pure-white">
-                      <span><strong>{p.name}</strong> ({p.category})</span>
-                      <span className={`font-bold ${p.stock === 0 ? 'text-error' : 'text-warning'}`}>
-                        {p.stock === 0 ? 'STOK HABIS (0 Unit)' : `Sisa ${p.stock} ${p.unit}`}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-
-            <button onClick={() => setIsReportModalOpen(false)} className="w-full mt-6 py-2.5 border border-border-light text-secondary font-bold text-xs uppercase rounded-lg hover:border-primary text-center">
-              Tutup
-            </button>
-          </div>
-        </div>
-      )}
+ 
 
 
 
