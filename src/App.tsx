@@ -61,86 +61,7 @@ const formatRupiahInput = (val: string) => {
   return parseInt(clean).toLocaleString('id-ID');
 };
 
-const INITIAL_PRODUCTS: Product[] = [
-  {
-    id: '1',
-    name: 'KONTUR LOUNGE',
-    category: 'furniture',
-    subcategory: 'Lainnya',
-    description: 'Seri 04 / Serat Karbon & Wol',
-    price: 12500000,
-    stock: 15,
-    unit: 'Unit',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCLqfouC_Emhb4NeCQFgmRI1Ch0btCmOjlzFJMCCY5MO-CpM_ONHrEIV4YV1jImdJvueYL6b6lUsL2RV5Pf8Q290QU4P-XQtJKfdw1zT6C1pHiVdSBkhhigi24FQyo_VMTx3RH7sfMIZXKbrGR3jxYDRcm-jZ6-dyd6APR3InViyWeqQ9maoGCp_OGN9wc6H9y5ZTbxCaZtKf2kmWZ8_6SdLi9TDRDyGDDG_v27qIHAvmLPU9Ve4LGBVQ',
-    discount: 0,
-    arrivalType: 'BARANG BARU'
-  },
-  {
-    id: '2',
-    name: 'SONUS HUB',
-    category: 'electronics',
-    subcategory: 'Salon',
-    description: 'Rekayasa Akustik / Audio Spasial',
-    price: 4200000,
-    stock: 8,
-    unit: 'Pcs',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBxU_KBCLIH4LPL-P3gZykkxJ-9cDWvAvi4AEnEQH_bu9rlx4bLmkj7x4B1zO2zB6JOgLssZOSAVSHrXjOdfhh9COMPHPKT_T07yxDO3-pmExICM2uNfWB0FRsS8huyCYK0vuFPFjf7FlElbpi3SNjzgXnlAEeB9S8oFwyos2N4qrlkDGr0Dp2PX-WtCtvPe9Pz7PrSyTGjxQ1I0_xPlSOJvpA8HjNbKeCDExaR2s_24Qw2tLTFFh4A3A',
-    discount: 200000,
-    arrivalType: ''
-  },
-  {
-    id: '3',
-    name: 'MEJA AXIS',
-    category: 'furniture',
-    subcategory: 'Lainnya',
-    description: 'Kayu Ek Putih Solid / Finising Tangan',
-    price: 8900000,
-    stock: 2,
-    unit: 'Unit',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDs5eK3KTkmoEQp9gbywarGN7OyMjKczJYkHkNXJqv7uvrTadV8olpIyfYSkcEOl0RBh6Zgbye-Z15KaP1_dMvZMilRWHpBnNbjoOE1gzLwHMCQqiRNAlsGjPKUIda97wYgdYbH6kHvraN68jzCBVlu7E4UXb55YNW93eKOWsPInb3lSmHvtw3B7E8MH-gUsv_FHdAG-ptNbgqxRCpvAevGqZIZBXHUcNFQr-fKPeap7ABhtdkKgdkfrw',
-    discount: 0,
-    arrivalType: ''
-  },
-  {
-    id: '4',
-    name: 'MEJA STUDIO',
-    category: 'furniture',
-    subcategory: 'Lainnya',
-    description: 'Finising Matte / Rangka Baja Modular',
-    price: 6500000,
-    stock: 5,
-    unit: 'Unit',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAEMABUgX7wwBPr0j9Eh3qNqXVVPeU-zfeX9ieew2p7xtIeVf-KNs2QO4lIsiZrN9Z9lGeIP5L5wzHSAWT5Vmo5u8HwQXA9qnk7ZqiY3pDfmQel3gqMasneJ5sQ6LuRfPK3eulO8lFBkBqjSTwy0BuIH5q9Ex_SHZcflfOJOzEEgsk47_an6mMHRjkc4QEgyiMLh9xc-plgSh7ftkSFtKUPGZ_kzjcZgkVLI0poxjfqRlPAg4AZXfK-Ng',
-    discount: 500000,
-    arrivalType: ''
-  },
-  {
-    id: '5',
-    name: 'OLED VISTA TV',
-    category: 'electronics',
-    subcategory: 'TV',
-    description: 'Resolusi 8K / Prosesor Neural',
-    price: 24000000,
-    stock: 0,
-    unit: 'Pcs',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuASv1r6aHOXHXv96zBjJPjXlsGmHBnD48de66QPfEdecsCEzMdvvKrkco-NZD7A4S0TyrFKzObXEpb--CFXT7bcmy2sK_qteZokD-4xlhFXRGsorBwkVTioVOKSxHWiRdz-88ILx0TLuQ0Qf9JNqjdKI4QeAhPi25oanOMKJAgoPfScK0VDg850B4nymEW_g4QiEYajPqOP2f5yXQuoPfdG_meiH0PeAQ5E0ln48ZWv_qynpWvYBhCWGw',
-    discount: 0,
-    arrivalType: 'EKSKLUSIF'
-  },
-  {
-    id: '6',
-    name: 'HEADPHONE AURA',
-    category: 'electronics',
-    subcategory: 'Salon',
-    description: 'Peredam Kebisingan Aktif / Lossless',
-    price: 3500000,
-    stock: 12,
-    unit: 'Pcs',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuA24_FcFnsn3SXJnJwQoTR_DfjVppu9UE8-QtX7uQQua2_XLsEnaZ1bTK3gKQTSvkxafg_Fa4CcNx9PPm_9p1kqf5cl0IaMJCD1rUoiRvg6rgXKIqmfX7aZfEhvDNJyTaxkBwG_k6UNTlf7-ikFVuCjnvWRtkS1v6v8usqb4uzkxesnOa_ZBJf6MbyWpkQ0hPFu_E-zt5KzzcJNXjqUd-buDPlfOqMrwRSOWcyRjoqhWXO34QudX6jGXw',
-    discount: 150000,
-    arrivalType: ''
-  }
-];
+
 
 const StockControlInput = ({ 
   stock, 
@@ -187,10 +108,13 @@ export default function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        // Only use cache if it does not contain old mock IDs ('1', '2', etc.)
+        if (Array.isArray(parsed) && parsed.length > 0 && !['1','2','3','4','5','6'].includes(String(parsed[0].id))) {
+          return parsed;
+        }
       } catch (e) {}
     }
-    return INITIAL_PRODUCTS;
+    return [];
   });
   const [isFetchingData, setIsFetchingData] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -247,7 +171,7 @@ export default function App() {
     arrivalType: item.arrival_type || ''
   });
 
-  // Load state from Supabase or LocalStorage with 0ms instant cache fallback
+  // Load state from Supabase 100% directly
   const fetchProducts = async () => {
     setIsFetchingData(true);
     if (isSupabaseConfigured) {
@@ -263,6 +187,8 @@ export default function App() {
         setProducts(dbProducts);
         localStorage.setItem('agm2_inventory', JSON.stringify(dbProducts));
       }
+    } else {
+      setProducts([]);
     }
     setIsFetchingData(false);
   };
@@ -1063,7 +989,7 @@ export default function App() {
                       <th className="p-4 font-label-md text-label-md text-secondary uppercase">Diskon</th>
                       <th className="p-4 font-label-md text-label-md text-secondary uppercase">Harga Bersih</th>
                       <th className="p-4 font-label-md text-label-md text-secondary uppercase">Stok &amp; Status</th>
-                      <th className="p-4 font-label-md text-label-md text-secondary uppercase text-center">Kelola Stok &amp; Shortcut</th>
+                      <th className="p-4 font-label-md text-label-md text-secondary uppercase text-center">Kelola Stok (-1 / Input / +1)</th>
                       <th className="p-4 font-label-md text-label-md text-secondary uppercase text-right">Aksi</th>
                     </tr>
                   </thead>
@@ -1103,12 +1029,12 @@ export default function App() {
                           </div>
                         </td>
                         <td className="p-4">
-                          <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
+                          <div className="flex items-center justify-center">
                             {/* Direct Edit Input & +-1 */}
                             <div className="flex items-center border border-border-light rounded-lg overflow-hidden bg-pure-white shadow-xs">
                               <button 
                                 onClick={() => adjustStock(p.id, -1)} 
-                                className="px-2.5 py-1.5 bg-surface-container hover:bg-surface-container-high text-primary font-bold transition-all active:scale-95 text-xs"
+                                className="px-3 py-1.5 bg-surface-container hover:bg-surface-container-high text-primary font-bold transition-all active:scale-95 text-xs"
                                 title="Kurang 1 Unit"
                               >
                                 -1
@@ -1119,35 +1045,10 @@ export default function App() {
                               />
                               <button 
                                 onClick={() => adjustStock(p.id, 1)} 
-                                className="px-2.5 py-1.5 bg-surface-container hover:bg-surface-container-high text-primary font-bold transition-all active:scale-95 text-xs"
+                                className="px-3 py-1.5 bg-surface-container hover:bg-surface-container-high text-primary font-bold transition-all active:scale-95 text-xs"
                                 title="Tambah 1 Unit"
                               >
                                 +1
-                              </button>
-                            </div>
-
-                            {/* Shortcut Restok Pills */}
-                            <div className="flex items-center gap-1">
-                              <button 
-                                onClick={() => adjustStock(p.id, -5)} 
-                                className="px-2 py-1 bg-red-50 text-error border border-red-200 hover:bg-red-100 text-[11px] font-bold rounded transition-all active:scale-95"
-                                title="Kurangi 5 Unit"
-                              >
-                                -5
-                              </button>
-                              <button 
-                                onClick={() => adjustStock(p.id, 5)} 
-                                className="px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 text-[11px] font-bold rounded transition-all active:scale-95"
-                                title="Tambah 5 Unit"
-                              >
-                                +5
-                              </button>
-                              <button 
-                                onClick={() => adjustStock(p.id, 10)} 
-                                className="px-2 py-1 bg-primary text-pure-white hover:bg-opacity-90 text-[11px] font-bold rounded transition-all active:scale-95 shadow-xs"
-                                title="Tambah 10 Unit"
-                              >
-                                +10
                               </button>
                             </div>
                           </div>
