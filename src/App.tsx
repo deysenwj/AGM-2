@@ -178,7 +178,22 @@ export default function App() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState('');
 
-  // Load and save local state or Supabase
+  // Helper to map DB row to Product interface
+  const mapDbToProduct = (item: any): Product => ({
+    id: String(item.id),
+    name: item.name || '',
+    category: item.category || 'furniture',
+    subcategory: item.subcategory || '',
+    description: item.description || '',
+    price: Number(item.price) || 0,
+    discount: Number(item.discount) || 0,
+    stock: Number(item.stock) || 0,
+    unit: item.unit || 'Pcs',
+    image: item.image || '',
+    arrivalType: item.arrival_type || ''
+  });
+
+  // Load state from Supabase or LocalStorage
   const fetchProducts = async () => {
     if (isSupabaseConfigured) {
       const { data, error } = await supabase
@@ -188,7 +203,6 @@ export default function App() {
 
       if (error) {
         console.error('Error mengambil data dari Supabase:', error.message);
-        // Fallback to localStorage
         const saved = localStorage.getItem('agm2_inventory');
         if (saved) {
           try {
@@ -196,20 +210,7 @@ export default function App() {
           } catch (e) {}
         }
       } else if (data) {
-        const mapped: Product[] = data.map((item: any) => ({
-          id: item.id,
-          name: item.name,
-          category: item.category,
-          subcategory: item.subcategory,
-          description: item.description || '',
-          price: Number(item.price) || 0,
-          discount: Number(item.discount) || 0,
-          stock: Number(item.stock) || 0,
-          unit: item.unit || 'Pcs',
-          image: item.image || '',
-          arrivalType: item.arrival_type || ''
-        }));
-        setProducts(mapped);
+        setProducts(data.map(mapDbToProduct));
       }
     } else {
       const saved = localStorage.getItem('agm2_inventory');
@@ -226,13 +227,47 @@ export default function App() {
     }
   };
 
+  // Realtime subscription & initial load
   useEffect(() => {
     fetchProducts();
+
+    let channel: any = null;
+
+    if (isSupabaseConfigured) {
+      channel = supabase
+        .channel('realtime-products-changes')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'products' },
+          (payload) => {
+            if (payload.eventType === 'INSERT') {
+              const newItem = mapDbToProduct(payload.new);
+              setProducts(prev => {
+                if (prev.some(p => p.id === newItem.id)) return prev;
+                return [newItem, ...prev];
+              });
+            } else if (payload.eventType === 'UPDATE') {
+              const updatedItem = mapDbToProduct(payload.new);
+              setProducts(prev => prev.map(p => p.id === updatedItem.id ? { ...p, ...updatedItem } : p));
+            } else if (payload.eventType === 'DELETE') {
+              const deletedId = String(payload.old.id);
+              setProducts(prev => prev.filter(p => p.id !== deletedId));
+            }
+          }
+        )
+        .subscribe();
+    }
 
     const auth = localStorage.getItem('agm2_admin_mode');
     if (auth === 'true') {
       setIsAdmin(true);
     }
+
+    return () => {
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
   }, []);
 
   const saveProducts = (list: Product[]) => {
@@ -292,34 +327,41 @@ export default function App() {
     triggerToast('Berhasil Keluar');
   };
 
-  // CRUD adjustments
+  // Super-Responsive Optimistic Stock Adjustments (0ms delay)
   const adjustStock = async (id: string, amount: number) => {
-    if (isSupabaseConfigured) {
-      const targetProduct = products.find(p => p.id === id);
-      if (!targetProduct) return;
-      const newStock = Math.max(0, targetProduct.stock + amount);
-      
-      const { error } = await supabase
-        .from('products')
-        .update({ stock: newStock })
-        .eq('id', id);
+    let updatedStock = 0;
 
-      if (error) {
-        console.error('Gagal memperbarui stok:', error.message);
-      } else {
-        fetchProducts();
-      }
-    } else {
-      const updated = products.map(p => {
+    // 1. Optimistic Local State Update (Instant UI reaction)
+    setProducts(prev => {
+      const updatedList = prev.map(p => {
         if (p.id === id) {
-          return { ...p, stock: Math.max(0, p.stock + amount) };
+          updatedStock = Math.max(0, p.stock + amount);
+          return { ...p, stock: updatedStock };
         }
         return p;
       });
-      saveProducts(updated);
+      if (!isSupabaseConfigured) {
+        localStorage.setItem('agm2_inventory', JSON.stringify(updatedList));
+      }
+      return updatedList;
+    });
+
+    // 2. Non-blocking Async Sync to Supabase
+    if (isSupabaseConfigured) {
+      const { error } = await supabase
+        .from('products')
+        .update({ stock: updatedStock })
+        .eq('id', id);
+
+      if (error) {
+        console.error('Gagal menyinkronkan stok ke Supabase:', error.message);
+        triggerToast('Gagal menyinkronkan stok ke server.');
+        fetchProducts(); // Re-sync if network fails
+      }
     }
   };
 
+  // Optimistic Add / Edit Form Submission
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName.trim()) return;
@@ -329,8 +371,28 @@ export default function App() {
     const stockVal = parseInt(formStock) || 0;
 
     if (formMode === 'add') {
+      const tempId = 'temp-' + Date.now();
+      const newItem: Product = {
+        id: tempId,
+        name: formName,
+        category: formCategory,
+        subcategory: formSubcategory,
+        description: formDescription,
+        price: priceVal,
+        discount: discountVal,
+        stock: stockVal,
+        unit: formUnit,
+        image: formImage,
+        arrivalType: formArrivalType
+      };
+
+      // Optimistic update
+      setProducts(prev => [newItem, ...prev]);
+      setIsFormOpen(false);
+      triggerToast('Produk ditambahkan!');
+
       if (isSupabaseConfigured) {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('products')
           .insert([{
             name: formName,
@@ -343,32 +405,39 @@ export default function App() {
             unit: formUnit,
             image: formImage,
             arrival_type: formArrivalType
-          }]);
+          }])
+          .select();
 
         if (error) {
-          triggerToast('Gagal menambahkan produk: ' + error.message);
-        } else {
-          fetchProducts();
-          triggerToast('Produk berhasil ditambahkan!');
+          triggerToast('Gagal menyinkronkan ke server: ' + error.message);
+          setProducts(prev => prev.filter(p => p.id !== tempId));
+        } else if (data && data[0]) {
+          const createdItem = mapDbToProduct(data[0]);
+          setProducts(prev => prev.map(p => p.id === tempId ? createdItem : p));
         }
       } else {
-        const newItem: Product = {
-          id: Date.now().toString(),
-          name: formName,
-          category: formCategory,
-          subcategory: formSubcategory,
-          description: formDescription,
-          price: priceVal,
-          discount: discountVal,
-          stock: stockVal,
-          unit: formUnit,
-          image: formImage,
-          arrivalType: formArrivalType
-        };
-        saveProducts([...products, newItem]);
-        triggerToast('Produk berhasil ditambahkan!');
+        saveProducts([newItem, ...products]);
       }
     } else if (formMode === 'edit' && editingId) {
+      const updatedItem: Product = {
+        id: editingId,
+        name: formName,
+        category: formCategory,
+        subcategory: formSubcategory,
+        description: formDescription,
+        price: priceVal,
+        discount: discountVal,
+        stock: stockVal,
+        unit: formUnit,
+        image: formImage,
+        arrivalType: formArrivalType
+      };
+
+      // Optimistic update
+      setProducts(prev => prev.map(p => p.id === editingId ? updatedItem : p));
+      setIsFormOpen(false);
+      triggerToast('Produk diperbarui!');
+
       if (isSupabaseConfigured) {
         const { error } = await supabase
           .from('products')
@@ -387,38 +456,22 @@ export default function App() {
           .eq('id', editingId);
 
         if (error) {
-          triggerToast('Gagal memperbarui produk: ' + error.message);
-        } else {
+          triggerToast('Gagal memperbarui di server: ' + error.message);
           fetchProducts();
-          triggerToast('Produk berhasil diperbarui!');
         }
       } else {
-        const updated = products.map(p => {
-          if (p.id === editingId) {
-            return {
-              ...p,
-              name: formName,
-              category: formCategory,
-              subcategory: formSubcategory,
-              description: formDescription,
-              price: priceVal,
-              discount: discountVal,
-              stock: stockVal,
-              unit: formUnit,
-              image: formImage,
-              arrivalType: formArrivalType
-            };
-          }
-          return p;
-        });
-        saveProducts(updated);
-        triggerToast('Produk berhasil diperbarui!');
+        saveProducts(products.map(p => p.id === editingId ? updatedItem : p));
       }
     }
-    setIsFormOpen(false);
   };
 
+  // Optimistic Product Deletion
   const deleteProduct = async (id: string) => {
+    // Optimistic update
+    setProducts(prev => prev.filter(p => p.id !== id));
+    setDeleteConfirmId(null);
+    triggerToast('Produk dihapus.');
+
     if (isSupabaseConfigured) {
       const { error } = await supabase
         .from('products')
@@ -426,16 +479,12 @@ export default function App() {
         .eq('id', id);
 
       if (error) {
-        triggerToast('Gagal menghapus produk: ' + error.message);
-      } else {
+        triggerToast('Gagal menghapus di server: ' + error.message);
         fetchProducts();
-        triggerToast('Produk dihapus dari database.');
       }
     } else {
       saveProducts(products.filter(p => p.id !== id));
-      triggerToast('Produk dihapus dari inventaris.');
     }
-    setDeleteConfirmId(null);
   };
 
   // Open modal config
