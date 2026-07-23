@@ -1099,7 +1099,7 @@ export default function App() {
               </div>
 
               {/* ── 1. RINGKASAN KPI UTAMA INVENTARIS ── */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                 <div className="p-5 bg-pure-white border border-border-light rounded-xl shadow-xs hover:border-primary/40 transition-all">
                   <div className="flex items-center justify-between text-secondary mb-3">
                     <span className="text-xs font-bold uppercase tracking-wider text-secondary">Total Nilai Inventaris</span>
@@ -1115,28 +1115,16 @@ export default function App() {
 
                 <div className="p-5 bg-pure-white border border-border-light rounded-xl shadow-xs hover:border-primary/40 transition-all">
                   <div className="flex items-center justify-between text-secondary mb-3">
-                    <span className="text-xs font-bold uppercase tracking-wider text-secondary">Total Produk Aktif</span>
+                    <span className="text-xs font-bold uppercase tracking-wider text-secondary">Total Produk &amp; Unit Fisik</span>
                     <div className="w-9 h-9 rounded-lg bg-surface-container flex items-center justify-center text-primary">
                       <span className="material-symbols-outlined text-xl">inventory_2</span>
                     </div>
                   </div>
-                  <div className="text-xl sm:text-2xl font-bold text-primary">
-                    {products.length} SKU
+                  <div className="text-xl sm:text-2xl font-bold text-primary flex items-baseline gap-2 flex-wrap">
+                    <span>{products.length} SKU</span>
+                    <span className="text-base text-status-blue font-bold">({totalUnits} Unit Fisik)</span>
                   </div>
-                  <span className="text-xs text-secondary mt-1 block">{furnitureProducts.length} Furniture / {electronicsProducts.length} Elektronik</span>
-                </div>
-
-                <div className="p-5 bg-pure-white border border-border-light rounded-xl shadow-xs hover:border-primary/40 transition-all">
-                  <div className="flex items-center justify-between text-secondary mb-3">
-                    <span className="text-xs font-bold uppercase tracking-wider text-secondary">Total Fisik Unit</span>
-                    <div className="w-9 h-9 rounded-lg bg-status-blue/10 flex items-center justify-center text-status-blue">
-                      <span className="material-symbols-outlined text-xl">view_in_ar</span>
-                    </div>
-                  </div>
-                  <div className="text-xl sm:text-2xl font-bold text-status-blue">
-                    {totalUnits} Unit
-                  </div>
-                  <span className="text-xs text-secondary mt-1 block">Total unit barang tersimpan</span>
+                  <span className="text-xs text-secondary mt-1 block">{furnitureProducts.length} SKU Furniture / {electronicsProducts.length} SKU Elektronik</span>
                 </div>
 
                 <div className="p-5 bg-pure-white border border-border-light rounded-xl shadow-xs hover:border-primary/40 transition-all">
