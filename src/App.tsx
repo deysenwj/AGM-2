@@ -143,7 +143,17 @@ const INITIAL_PRODUCTS: Product[] = [
 ];
 
 export default function App() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>(() => {
+    const saved = localStorage.getItem('agm2_inventory');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    return INITIAL_PRODUCTS;
+  });
+  const [isFetchingData, setIsFetchingData] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [currentView, setCurrentView] = useState<'catalog' | 'stock' | 'dashboard'>('catalog');
   const [filterCategory, setFilterCategory] = useState<'all' | 'furniture' | 'electronics'>('all');
@@ -198,8 +208,9 @@ export default function App() {
     arrivalType: item.arrival_type || ''
   });
 
-  // Load state from Supabase or LocalStorage
+  // Load state from Supabase or LocalStorage with 0ms instant cache fallback
   const fetchProducts = async () => {
+    setIsFetchingData(true);
     if (isSupabaseConfigured) {
       const { data, error } = await supabase
         .from('products')
@@ -208,28 +219,13 @@ export default function App() {
 
       if (error) {
         console.error('Error mengambil data dari Supabase:', error.message);
-        const saved = localStorage.getItem('agm2_inventory');
-        if (saved) {
-          try {
-            setProducts(JSON.parse(saved));
-          } catch (e) {}
-        }
       } else if (data) {
-        setProducts(data.map(mapDbToProduct));
-      }
-    } else {
-      const saved = localStorage.getItem('agm2_inventory');
-      if (saved) {
-        try {
-          setProducts(JSON.parse(saved));
-        } catch (e) {
-          setProducts(INITIAL_PRODUCTS);
-        }
-      } else {
-        setProducts(INITIAL_PRODUCTS);
-        localStorage.setItem('agm2_inventory', JSON.stringify(INITIAL_PRODUCTS));
+        const dbProducts = data.map(mapDbToProduct);
+        setProducts(dbProducts);
+        localStorage.setItem('agm2_inventory', JSON.stringify(dbProducts));
       }
     }
+    setIsFetchingData(false);
   };
 
   // Realtime subscription & initial load
@@ -1092,8 +1088,8 @@ export default function App() {
                       ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
                       : 'bg-amber-50 text-amber-700 border-amber-200'
                   }`}>
-                    <span className={`w-2 h-2 rounded-full ${isSupabaseConfigured ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
-                    {isSupabaseConfigured ? 'Terhubung ke Supabase' : 'Mode Local Storage'}
+                    <span className={`w-2 h-2 rounded-full ${isFetchingData ? 'bg-emerald-500 animate-ping' : isSupabaseConfigured ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                    {isFetchingData ? 'Menyinkronkan Data...' : (isSupabaseConfigured ? 'Terhubung ke Supabase' : 'Mode Local Storage')}
                   </span>
                 </div>
               </div>
@@ -1233,88 +1229,71 @@ export default function App() {
                 </div>
               </div>
 
-              {/* ── 3. DAFTAR PERINGATAN RESTOK & NOTIFIKASI REAL-TIME ── */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                {/* Tabel Stok Menipis & Restok Cepat */}
-                <div className="bg-pure-white border border-border-light p-6 rounded-xl shadow-sm">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-base text-primary flex items-center gap-2">
-                      <span className="material-symbols-outlined text-warning">warning</span> Peringatan Restok Stok Menipis
-                    </h3>
-                    <button onClick={() => setCurrentView('stock')} className="text-xs font-bold text-primary hover:underline flex items-center gap-1">
-                      Ke Kontrol Stok <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                    </button>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs border-collapse">
-                      <thead>
-                        <tr className="border-b border-border-light text-secondary uppercase font-semibold bg-surface-container-low">
-                          <th className="py-2.5 px-3">Nama Produk</th>
-                          <th className="py-2.5 px-3 text-center">Stok Saat Ini</th>
-                          <th className="py-2.5 px-3 text-center">Batas Minimum</th>
-                          <th className="py-2.5 px-3 text-right">Aksi Restok</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border-light">
-                        {lowStockProducts.length === 0 && outOfStockProducts.length === 0 ? (
-                          <tr><td colSpan={4} className="py-4 text-center text-emerald-600 font-semibold">Semua stok produk dalam kondisi sehat.</td></tr>
-                        ) : (
-                          [...outOfStockProducts, ...lowStockProducts].slice(0, 6).map(p => (
-                            <tr key={p.id} className="hover:bg-surface-container-low/50">
-                              <td className="py-3 px-3 font-bold text-primary">{p.name}</td>
-                              <td className="py-3 px-3 text-center font-bold text-error">{p.stock} {p.unit}</td>
-                              <td className="py-3 px-3 text-center text-secondary font-medium">3 Unit</td>
-                              <td className="py-3 px-3 text-right">
-                                <button 
-                                  onClick={() => adjustStock(p.id, 5)} 
-                                  className="px-2.5 py-1 bg-primary text-pure-white text-[10px] font-bold rounded hover:bg-opacity-80 transition-all active:scale-95 inline-flex items-center gap-1"
-                                >
-                                  <span className="material-symbols-outlined text-[12px]">add</span> Restok 5
-                                </button>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
+              {/* ── 3. NOTIFIKASI SYSTEM REAL-TIME & LINK KONTROL STOK ── */}
+              <div className="grid grid-cols-1 gap-6 mb-8">
                 {/* Notifikasi Real-time System */}
                 <div className="bg-pure-white border border-border-light p-6 rounded-xl shadow-sm">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-base text-primary flex items-center gap-2">
-                      <span className="material-symbols-outlined text-primary">notifications</span> Notifikasi Sistem Supabase
-                    </h3>
-                    <span className="text-xs font-bold text-secondary bg-surface-container px-2 py-0.5 rounded">Live Realtime</span>
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-6 pb-3 border-b border-border-light">
+                    <div>
+                      <h3 className="font-bold text-base text-primary flex items-center gap-2">
+                        <span className="material-symbols-outlined text-primary">notifications</span> Notifikasi System &amp; Status Stok
+                      </h3>
+                      <p className="text-xs text-secondary mt-0.5">Pemantauan otomatis stok barang dari database Supabase</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-bold text-secondary bg-surface-container px-2.5 py-1 rounded-md">Live Realtime</span>
+                      <button 
+                        onClick={() => setCurrentView('stock')} 
+                        className="px-3 py-1.5 bg-primary text-pure-white text-xs font-bold rounded-lg hover:bg-opacity-90 transition-all flex items-center gap-1 shadow-xs active:scale-95"
+                      >
+                        <span className="material-symbols-outlined text-sm">inventory_2</span>
+                        Buka Kontrol Stok
+                      </button>
+                    </div>
                   </div>
 
                   <div className="space-y-3">
                     {outOfStockProducts.map(p => (
-                      <div key={'notif-out-' + p.id} className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3 text-xs">
-                        <span className="material-symbols-outlined text-error text-base shrink-0 mt-0.5">cancel</span>
-                        <div>
-                          <strong className="text-error block">Stok Habis!</strong>
-                          <span className="text-secondary">Produk <strong>{p.name}</strong> saat ini 0 unit tersisa. Klik Restok untuk menambah stok di Supabase.</span>
+                      <div key={'notif-out-' + p.id} className="p-3.5 bg-red-50 border border-red-200 rounded-lg flex items-start justify-between gap-3 text-xs">
+                        <div className="flex items-start gap-3">
+                          <span className="material-symbols-outlined text-error text-base shrink-0 mt-0.5">cancel</span>
+                          <div>
+                            <strong className="text-error block">Stok Habis (0 Unit)</strong>
+                            <span className="text-secondary">Produk <strong>{p.name}</strong> saat ini 0 unit tersisa. Silakan lakukan restok melalui menu Kontrol Stok.</span>
+                          </div>
                         </div>
+                        <button 
+                          onClick={() => setCurrentView('stock')} 
+                          className="px-2.5 py-1 bg-error text-pure-white text-[10px] font-bold rounded hover:opacity-90 shrink-0"
+                        >
+                          Kelola Stok
+                        </button>
                       </div>
                     ))}
 
                     {lowStockProducts.map(p => (
-                      <div key={'notif-low-' + p.id} className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3 text-xs">
-                        <span className="material-symbols-outlined text-amber-600 text-base shrink-0 mt-0.5">error</span>
-                        <div>
-                          <strong className="text-amber-800 block">Peringatan Stok Menipis</strong>
-                          <span className="text-secondary">Produk <strong>{p.name}</strong> sisa {p.stock} {p.unit} (di bawah batas minimum 3 Unit).</span>
+                      <div key={'notif-low-' + p.id} className="p-3.5 bg-amber-50 border border-amber-200 rounded-lg flex items-start justify-between gap-3 text-xs">
+                        <div className="flex items-start gap-3">
+                          <span className="material-symbols-outlined text-amber-600 text-base shrink-0 mt-0.5">error</span>
+                          <div>
+                            <strong className="text-amber-800 block">Peringatan Stok Menipis</strong>
+                            <span className="text-secondary">Produk <strong>{p.name}</strong> sisa {p.stock} {p.unit} (di bawah batas minimum 3 Unit).</span>
+                          </div>
                         </div>
+                        <button 
+                          onClick={() => setCurrentView('stock')} 
+                          className="px-2.5 py-1 bg-amber-600 text-pure-white text-[10px] font-bold rounded hover:opacity-90 shrink-0"
+                        >
+                          Kelola Stok
+                        </button>
                       </div>
                     ))}
 
-                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-start gap-3 text-xs">
+                    <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-lg flex items-start gap-3 text-xs">
                       <span className="material-symbols-outlined text-emerald-600 text-base shrink-0 mt-0.5">check_circle</span>
                       <div>
                         <strong className="text-emerald-800 block">Sistem Sinkronisasi Supabase Aktif</strong>
-                        <span className="text-secondary">Setiap perubahan stok atau penambahan produk akan langsung tersinkronisasi di seluruh perangkat secara real-time.</span>
+                        <span className="text-secondary">Kelola stok dan penambahan produk dilakukan secara terpusat di menu <strong>Kontrol Stok</strong>. Perubahan akan tersinkronisasi di seluruh perangkat secara real-time.</span>
                       </div>
                     </div>
                   </div>
