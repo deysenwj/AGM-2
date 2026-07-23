@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
 interface Product {
@@ -71,12 +71,16 @@ const StockControlInput = ({
   onCommit: (val: number) => void; 
 }) => {
   const [localVal, setLocalVal] = useState(String(stock));
+  const isFocusedRef = useRef(false);
 
   useEffect(() => {
-    setLocalVal(String(stock));
+    if (!isFocusedRef.current) {
+      setLocalVal(String(stock));
+    }
   }, [stock]);
 
   const handleBlurOrSubmit = () => {
+    isFocusedRef.current = false;
     const parsed = parseInt(localVal, 10);
     const safeVal = isNaN(parsed) ? 0 : Math.max(0, parsed);
     setLocalVal(String(safeVal));
@@ -90,11 +94,12 @@ const StockControlInput = ({
       type="number"
       min="0"
       value={localVal}
+      onFocus={() => { isFocusedRef.current = true; }}
       onChange={(e) => setLocalVal(e.target.value)}
       onBlur={handleBlurOrSubmit}
       onKeyDown={(e) => {
         if (e.key === 'Enter') {
-          handleBlurOrSubmit();
+          (e.target as HTMLInputElement).blur();
         }
       }}
       className="w-14 text-center font-bold text-sm text-primary py-1 bg-transparent border-none focus:ring-0 outline-none"
@@ -103,6 +108,7 @@ const StockControlInput = ({
 };
 
 export default function App() {
+  const lastLocalStockEditsRef = React.useRef<{ [id: string]: { stock: number; time: number } }>({});
   const [products, setProducts] = useState<Product[]>(() => {
     const saved = localStorage.getItem('agm2_inventory');
     if (saved) {
@@ -214,6 +220,16 @@ export default function App() {
               });
             } else if (payload.eventType === 'UPDATE') {
               const updatedItem = mapDbToProduct(payload.new);
+              const localEdit = lastLocalStockEditsRef.current[updatedItem.id];
+
+              // Block stale WebSocket echoes from overwriting recent local edits (< 3500ms)
+              if (localEdit && (Date.now() - localEdit.time < 3500)) {
+                if (updatedItem.stock === localEdit.stock) {
+                  delete lastLocalStockEditsRef.current[updatedItem.id];
+                }
+                return;
+              }
+
               setProducts(prev => prev.map(p => p.id === updatedItem.id ? { ...p, ...updatedItem } : p));
             } else if (payload.eventType === 'DELETE') {
               const deletedId = String(payload.old.id);
@@ -304,6 +320,9 @@ export default function App() {
         }
         return p;
       });
+
+      lastLocalStockEditsRef.current[id] = { stock: updatedStock, time: Date.now() };
+
       try {
         localStorage.setItem('agm2_inventory', JSON.stringify(updatedList));
       } catch (e) {}
@@ -331,6 +350,9 @@ export default function App() {
 
     setProducts(prev => {
       const updatedList = prev.map(p => p.id === id ? { ...p, stock: sanitizedStock } : p);
+      
+      lastLocalStockEditsRef.current[id] = { stock: sanitizedStock, time: Date.now() };
+
       try {
         localStorage.setItem('agm2_inventory', JSON.stringify(updatedList));
       } catch (e) {}
