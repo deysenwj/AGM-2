@@ -1101,9 +1101,11 @@ export default function App() {
               {/* ── 1. RINGKASAN KPI UTAMA INVENTARIS ── */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                 <div className="p-5 bg-pure-white border border-border-light rounded-xl shadow-xs hover:border-primary/40 transition-all">
-                  <div className="flex items-center justify-between text-secondary mb-2">
-                    <span className="text-xs font-bold uppercase tracking-wider">Total Nilai Inventaris</span>
-                    <span className="text-xl">💵</span>
+                  <div className="flex items-center justify-between text-secondary mb-3">
+                    <span className="text-xs font-bold uppercase tracking-wider text-secondary">Total Nilai Inventaris</span>
+                    <div className="w-9 h-9 rounded-lg bg-surface-container flex items-center justify-center text-primary">
+                      <span className="material-symbols-outlined text-xl">payments</span>
+                    </div>
                   </div>
                   <div className="text-xl sm:text-2xl font-bold text-primary truncate" title={`Rp ${totalInventoryValue.toLocaleString('id-ID')}`}>
                     Rp {totalInventoryValue.toLocaleString('id-ID')}
@@ -1112,9 +1114,11 @@ export default function App() {
                 </div>
 
                 <div className="p-5 bg-pure-white border border-border-light rounded-xl shadow-xs hover:border-primary/40 transition-all">
-                  <div className="flex items-center justify-between text-secondary mb-2">
-                    <span className="text-xs font-bold uppercase tracking-wider">Total Produk Aktif</span>
-                    <span className="text-xl">📦</span>
+                  <div className="flex items-center justify-between text-secondary mb-3">
+                    <span className="text-xs font-bold uppercase tracking-wider text-secondary">Total Produk Aktif</span>
+                    <div className="w-9 h-9 rounded-lg bg-surface-container flex items-center justify-center text-primary">
+                      <span className="material-symbols-outlined text-xl">inventory_2</span>
+                    </div>
                   </div>
                   <div className="text-xl sm:text-2xl font-bold text-primary">
                     {products.length} SKU
@@ -1123,9 +1127,11 @@ export default function App() {
                 </div>
 
                 <div className="p-5 bg-pure-white border border-border-light rounded-xl shadow-xs hover:border-primary/40 transition-all">
-                  <div className="flex items-center justify-between text-secondary mb-2">
-                    <span className="text-xs font-bold uppercase tracking-wider">Total Fisik Unit</span>
-                    <span className="text-xl">🔢</span>
+                  <div className="flex items-center justify-between text-secondary mb-3">
+                    <span className="text-xs font-bold uppercase tracking-wider text-secondary">Total Fisik Unit</span>
+                    <div className="w-9 h-9 rounded-lg bg-status-blue/10 flex items-center justify-center text-status-blue">
+                      <span className="material-symbols-outlined text-xl">view_in_ar</span>
+                    </div>
                   </div>
                   <div className="text-xl sm:text-2xl font-bold text-status-blue">
                     {totalUnits} Unit
@@ -1134,9 +1140,11 @@ export default function App() {
                 </div>
 
                 <div className="p-5 bg-pure-white border border-border-light rounded-xl shadow-xs hover:border-primary/40 transition-all">
-                  <div className="flex items-center justify-between text-secondary mb-2">
-                    <span className="text-xs font-bold uppercase tracking-wider">Stok Kritis / Habis</span>
-                    <span className="text-xl">⚠️</span>
+                  <div className="flex items-center justify-between text-secondary mb-3">
+                    <span className="text-xs font-bold uppercase tracking-wider text-secondary">Stok Kritis / Habis</span>
+                    <div className="w-9 h-9 rounded-lg bg-error/10 flex items-center justify-center text-error">
+                      <span className="material-symbols-outlined text-xl">warning_amber</span>
+                    </div>
                   </div>
                   <div className="text-xl sm:text-2xl font-bold text-error">
                     {lowStockProducts.length + outOfStockProducts.length} SKU
@@ -1245,8 +1253,8 @@ export default function App() {
                     <h3 className="font-bold text-base text-primary flex items-center gap-2">
                       <span className="material-symbols-outlined text-warning">warning</span> Peringatan Restok Stok Menipis
                     </h3>
-                    <button onClick={() => setCurrentView('stock')} className="text-xs font-bold text-primary hover:underline">
-                      Ke Kontrol Stok →
+                    <button onClick={() => setCurrentView('stock')} className="text-xs font-bold text-primary hover:underline flex items-center gap-1">
+                      Ke Kontrol Stok <span className="material-symbols-outlined text-sm">arrow_forward</span>
                     </button>
                   </div>
                   <div className="overflow-x-auto">
@@ -1271,9 +1279,9 @@ export default function App() {
                               <td className="py-3 px-3 text-right">
                                 <button 
                                   onClick={() => adjustStock(p.id, 5)} 
-                                  className="px-2.5 py-1 bg-primary text-pure-white text-[10px] font-bold rounded hover:bg-opacity-80 transition-all active:scale-95"
+                                  className="px-2.5 py-1 bg-primary text-pure-white text-[10px] font-bold rounded hover:bg-opacity-80 transition-all active:scale-95 inline-flex items-center gap-1"
                                 >
-                                  + Restok 5
+                                  <span className="material-symbols-outlined text-[12px]">add</span> Restok 5
                                 </button>
                               </td>
                             </tr>
