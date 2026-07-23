@@ -25,53 +25,7 @@ interface SaleRecord {
   saleDate: string; // YYYY-MM-DD
 }
 
-const INITIAL_SALES_HISTORY: SaleRecord[] = [
-  {
-    id: 's-1',
-    invoiceNo: 'INV-20260723-01',
-    customerName: 'Budi Santoso',
-    productName: 'KONTUR LOUNGE',
-    qty: 1,
-    totalPrice: 12500000,
-    saleDate: new Date().toISOString().split('T')[0]
-  },
-  {
-    id: 's-2',
-    invoiceNo: 'INV-20260723-02',
-    customerName: 'Siti Rahma',
-    productName: 'SONUS HUB',
-    qty: 1,
-    totalPrice: 4000000,
-    saleDate: new Date().toISOString().split('T')[0]
-  },
-  {
-    id: 's-3',
-    invoiceNo: 'INV-20260722-03',
-    customerName: 'Ahmad Ketapang',
-    productName: 'MEJA AXIS',
-    qty: 1,
-    totalPrice: 8900000,
-    saleDate: '2026-07-22'
-  },
-  {
-    id: 's-4',
-    invoiceNo: 'INV-20260721-04',
-    customerName: 'Dewi Lestari',
-    productName: 'MEJA STUDIO',
-    qty: 1,
-    totalPrice: 6000000,
-    saleDate: '2026-07-21'
-  },
-  {
-    id: 's-5',
-    invoiceNo: 'INV-20260720-05',
-    customerName: 'Heri Wijaya',
-    productName: 'HEADPHONE AURA',
-    qty: 2,
-    totalPrice: 6700000,
-    saleDate: '2026-07-20'
-  }
-];
+ 
 
 
 const FURNITURE_SUBCATEGORIES = [
@@ -237,14 +191,8 @@ export default function App() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState('');
 
-  // Sales History & Date Filter States
-  const [salesHistory, setSalesHistory] = useState<SaleRecord[]>(() => {
-    const saved = localStorage.getItem('agm2_sales_history');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
-    }
-    return INITIAL_SALES_HISTORY;
-  });
+  // Sales History & Date Filter States (100% DB Driven)
+  const [salesHistory, setSalesHistory] = useState<SaleRecord[]>([]);
 
   const [salesPeriodFilter, setSalesPeriodFilter] = useState<'7days' | 'thisMonth' | 'all' | 'custom'>('7days');
   const [startDateFilter, setStartDateFilter] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -279,8 +227,18 @@ export default function App() {
         .select('*')
         .order('sale_date', { ascending: false });
 
-      if (!error && data && data.length > 0) {
+      if (!error && data) {
         setSalesHistory(data.map(mapDbToSaleRecord));
+      } else {
+        const saved = localStorage.getItem('agm2_sales_history');
+        if (saved) {
+          try { setSalesHistory(JSON.parse(saved)); } catch (e) { setSalesHistory([]); }
+        }
+      }
+    } else {
+      const saved = localStorage.getItem('agm2_sales_history');
+      if (saved) {
+        try { setSalesHistory(JSON.parse(saved)); } catch (e) { setSalesHistory([]); }
       }
     }
   };
@@ -1229,9 +1187,22 @@ export default function App() {
         {/* ── ANALYTICS / DASHBOARD VIEW (SUPABASE SYNC + SALES CHART & HISTORY) ── */}
         {currentView === 'dashboard' && isAdmin && (() => {
           const totalInventoryValue = products.reduce((acc, p) => acc + ((p.price - p.discount) * p.stock), 0);
+          const totalUnits = products.reduce((acc, p) => acc + p.stock, 0);
 
           const lowStockProducts = products.filter(p => p.stock > 0 && p.stock <= 3);
           const outOfStockProducts = products.filter(p => p.stock === 0);
+          const healthyStockCount = products.filter(p => p.stock > 3).length;
+          const stockIntegrityRatio = products.length > 0 ? Math.round((healthyStockCount / products.length) * 100) : 0;
+
+          const furnitureProducts = products.filter(p => p.category === 'furniture');
+          const electronicsProducts = products.filter(p => p.category === 'electronics');
+
+          const furnitureVal = furnitureProducts.reduce((acc, p) => acc + ((p.price - p.discount) * p.stock), 0);
+          const electronicsVal = electronicsProducts.reduce((acc, p) => acc + ((p.price - p.discount) * p.stock), 0);
+
+          const totalValAll = totalInventoryValue || 1;
+          const furnitureValPercent = Math.round((furnitureVal / totalValAll) * 100);
+          const electronicsValPercent = Math.round((electronicsVal / totalValAll) * 100);
 
           // Filtering Sales History by Date Range & Search
           const now = new Date();
@@ -1269,7 +1240,7 @@ export default function App() {
             dateMap[s.saleDate] = (dateMap[s.saleDate] || 0) + s.totalPrice;
           });
 
-          // Ensure last 7 days are displayed if 7days or fallback
+          // Chart Days representation
           const chartDays = Object.keys(dateMap).sort().slice(-7);
           if (chartDays.length === 0) {
             chartDays.push(todayStr);
@@ -1283,8 +1254,8 @@ export default function App() {
               {/* Header Title & Date / Supabase Badge */}
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                 <div>
-                  <h2 className="font-headline-lg text-headline-lg text-primary">Dasbor Penjualan &amp; Inventaris</h2>
-                  <p className="text-xs text-secondary mt-1">Ringkasan grafik omzet, riwayat penjualan, dan stok tersinkronisasi Supabase</p>
+                  <h2 className="font-headline-lg text-headline-lg text-primary">Dasbor Penjualan &amp; Operasional</h2>
+                  <p className="text-xs text-secondary mt-1">Ringkasan grafik omzet, riwayat penjualan, dan inventaris tersinkronisasi Supabase</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   <span className={`text-xs font-bold px-3 py-1.5 rounded-full border flex items-center gap-1.5 ${
@@ -1293,7 +1264,7 @@ export default function App() {
                       : 'bg-amber-50 text-amber-700 border-amber-200'
                   }`}>
                     <span className={`w-2 h-2 rounded-full ${isSupabaseConfigured ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
-                    {isSupabaseConfigured ? 'Supabase Sync Aktif' : 'Mode Local Storage'}
+                    {isSupabaseConfigured ? 'Terhubung ke Supabase' : 'Mode Local Storage'}
                   </span>
                   <button 
                     onClick={() => setIsSaleModalOpen(true)}
@@ -1326,7 +1297,7 @@ export default function App() {
                   <div className="text-xl sm:text-2xl font-bold text-primary truncate" title={`Rp ${totalInventoryValue.toLocaleString('id-ID')}`}>
                     Rp {totalInventoryValue.toLocaleString('id-ID')}
                   </div>
-                  <span className="text-xs text-secondary mt-1 block">Aset {products.length} SKU Tersimpan</span>
+                  <span className="text-xs text-secondary mt-1 block">Aset {products.length} SKU ({totalUnits} Unit)</span>
                 </div>
 
                 <div className="p-5 bg-pure-white border border-border-light rounded-xl shadow-xs hover:border-primary/40 transition-all">
@@ -1352,90 +1323,149 @@ export default function App() {
                 </div>
               </div>
 
-              {/* ── 2. FILTER TANGGAL PERIODE & GRAFIK TREN PENJUALAN ── */}
-              <div className="bg-pure-white border border-border-light p-6 rounded-xl shadow-sm mb-8">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 pb-4 border-b border-border-light">
+              {/* ── 2. GRAFIK TREN PENJUALAN + DISTRIBUSI KATEGORI & KESEHATAN STOK ── */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                {/* Grafik Tren Penjualan Harian/Bulanan (2 Columns) */}
+                <div className="lg:col-span-2 bg-pure-white border border-border-light p-6 rounded-xl shadow-sm flex flex-col justify-between">
                   <div>
-                    <h3 className="font-bold text-base text-primary flex items-center gap-2">
-                      <span className="material-symbols-outlined text-primary">bar_chart</span> Grafik Tren Penjualan Harian / Bulanan
-                    </h3>
-                    <p className="text-xs text-secondary">Visualisasi omzet penjualan berdasarkan riwayat dan tanggal terpilih</p>
-                  </div>
-
-                  {/* Date Filter Bar */}
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-bold text-secondary">Filter Periode:</span>
-                    <select
-                      className="bg-surface-container-low border border-border-light rounded-lg px-3 py-1.5 text-xs font-bold text-primary focus:ring-1 focus:ring-primary"
-                      value={salesPeriodFilter}
-                      onChange={(e) => setSalesPeriodFilter(e.target.value as any)}
-                    >
-                      <option value="7days">7 Hari Terakhir</option>
-                      <option value="thisMonth">Bulan Ini</option>
-                      <option value="all">Semua Riwayat</option>
-                      <option value="custom">Pilih Tanggal Kustom...</option>
-                    </select>
-
-                    {salesPeriodFilter === 'custom' && (
-                      <div className="flex items-center gap-2 bg-surface-container-low p-1 rounded-lg border border-border-light">
-                        <input
-                          type="date"
-                          className="bg-pure-white border border-border-light rounded px-2 py-1 text-xs text-primary font-medium"
-                          value={startDateFilter}
-                          onChange={(e) => setStartDateFilter(e.target.value)}
-                        />
-                        <span className="text-xs text-secondary font-bold">s/d</span>
-                        <input
-                          type="date"
-                          className="bg-pure-white border border-border-light rounded px-2 py-1 text-xs text-primary font-medium"
-                          value={endDateFilter}
-                          onChange={(e) => setEndDateFilter(e.target.value)}
-                        />
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 pb-3 border-b border-border-light">
+                      <div>
+                        <h3 className="font-bold text-base text-primary flex items-center gap-2">
+                          <span className="material-symbols-outlined text-primary">bar_chart</span> Grafik Tren Penjualan Harian / Bulanan
+                        </h3>
+                        <p className="text-xs text-secondary">Visualisasi omzet dari database Supabase (`sales_history`)</p>
                       </div>
-                    )}
-                  </div>
-                </div>
 
-                {/* Grafik Bar Visual */}
-                <div className="h-56 flex items-end justify-between gap-3 pt-6 pb-2 px-2 border-b border-border-light">
-                  {chartDays.map((dateStrKey, idx) => {
-                    const omzetVal = dateMap[dateStrKey] || 0;
-                    const heightPercent = Math.max(10, Math.round((omzetVal / maxChartVal) * 100));
-                    const displayLabel = new Date(dateStrKey).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
-
-                    return (
-                      <div key={idx} className="flex-1 flex flex-col items-center gap-2 group relative">
-                        <div className="text-[10px] font-bold text-secondary opacity-0 group-hover:opacity-100 transition-opacity absolute -top-8 bg-primary text-pure-white px-2 py-1 rounded shadow-md whitespace-nowrap z-10">
-                          {dateStrKey}: Rp {omzetVal.toLocaleString('id-ID')}
-                        </div>
-                        <div 
-                          className="w-full bg-primary/80 group-hover:bg-primary rounded-t transition-all duration-300 relative overflow-hidden"
-                          style={{ height: `${heightPercent}%` }}
+                      {/* Date Filter Bar */}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <select
+                          className="bg-surface-container-low border border-border-light rounded-lg px-3 py-1.5 text-xs font-bold text-primary focus:ring-1 focus:ring-primary"
+                          value={salesPeriodFilter}
+                          onChange={(e) => setSalesPeriodFilter(e.target.value as any)}
                         >
-                          <div className="absolute inset-0 bg-gradient-to-t from-transparent to-white/20" />
-                        </div>
-                        <span className="text-[11px] font-bold text-secondary">{displayLabel}</span>
+                          <option value="7days">7 Hari Terakhir</option>
+                          <option value="thisMonth">Bulan Ini</option>
+                          <option value="all">Semua Riwayat</option>
+                          <option value="custom">Pilih Tanggal Kustom...</option>
+                        </select>
+
+                        {salesPeriodFilter === 'custom' && (
+                          <div className="flex items-center gap-2 bg-surface-container-low p-1 rounded-lg border border-border-light">
+                            <input
+                              type="date"
+                              className="bg-pure-white border border-border-light rounded px-2 py-1 text-xs text-primary font-medium"
+                              value={startDateFilter}
+                              onChange={(e) => setStartDateFilter(e.target.value)}
+                            />
+                            <span className="text-xs text-secondary font-bold">s/d</span>
+                            <input
+                              type="date"
+                              className="bg-pure-white border border-border-light rounded px-2 py-1 text-xs text-primary font-medium"
+                              value={endDateFilter}
+                              onChange={(e) => setEndDateFilter(e.target.value)}
+                            />
+                          </div>
+                        )}
                       </div>
-                    );
-                  })}
+                    </div>
+
+                    {/* Dynamic Bar Chart */}
+                    <div className="h-48 flex items-end justify-between gap-3 pt-6 pb-2 px-2 border-b border-border-light">
+                      {chartDays.map((dateStrKey, idx) => {
+                        const omzetVal = dateMap[dateStrKey] || 0;
+                        const heightPercent = maxChartVal > 0 && omzetVal > 0 ? Math.max(12, Math.round((omzetVal / maxChartVal) * 100)) : 8;
+                        const displayLabel = new Date(dateStrKey).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+
+                        return (
+                          <div key={idx} className="flex-1 flex flex-col items-center gap-2 group relative">
+                            <div className="text-[10px] font-bold text-secondary opacity-0 group-hover:opacity-100 transition-opacity absolute -top-8 bg-primary text-pure-white px-2 py-1 rounded shadow-md whitespace-nowrap z-10">
+                              {dateStrKey}: Rp {omzetVal.toLocaleString('id-ID')}
+                            </div>
+                            <div 
+                              className={`w-full rounded-t transition-all duration-300 relative overflow-hidden ${
+                                omzetVal > 0 ? 'bg-primary/80 group-hover:bg-primary' : 'bg-surface-container'
+                              }`}
+                              style={{ height: `${heightPercent}%` }}
+                            />
+                            <span className="text-[11px] font-bold text-secondary">{displayLabel}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center mt-3 text-xs text-secondary font-medium">
+                    <span>Omzet Terpilih: <strong className="text-primary">Rp {filteredTotalOmzet.toLocaleString('id-ID')}</strong></span>
+                    <span>Rata-rata: <strong className="text-emerald-600">Rp {Math.round(filteredTotalOmzet / (chartDays.length || 1)).toLocaleString('id-ID')} / Hari</strong></span>
+                  </div>
                 </div>
-                
-                <div className="flex justify-between items-center mt-3 text-xs text-secondary font-medium">
-                  <span>Omzet Periode Terpilih: <strong className="text-primary">Rp {filteredTotalOmzet.toLocaleString('id-ID')}</strong></span>
-                  <span>Rata-rata Penjualan / Hari: <strong className="text-emerald-600">Rp {Math.round(filteredTotalOmzet / (chartDays.length || 1)).toLocaleString('id-ID')}</strong></span>
+
+                {/* Kategori & Rasio Kesehatan Stok (1 Column) */}
+                <div className="bg-pure-white border border-border-light p-6 rounded-xl shadow-sm flex flex-col justify-between space-y-6">
+                  <div>
+                    <h3 className="font-bold text-base text-primary flex items-center gap-2 mb-1">
+                      <span className="material-symbols-outlined text-primary">pie_chart</span> Distribusi Kategori
+                    </h3>
+                    <p className="text-xs text-secondary mb-4">Proporsi nilai barang di gudang</p>
+                    <div className="space-y-4">
+                      <div>
+                        <div className="flex justify-between text-xs font-bold mb-1">
+                          <span className="text-primary">Furniture ({furnitureProducts.length} SKU)</span>
+                          <span>{furnitureValPercent}%</span>
+                        </div>
+                        <div className="w-full bg-surface-container h-2.5 rounded-full overflow-hidden">
+                          <div className="bg-primary h-full transition-all duration-500" style={{ width: `${furnitureValPercent}%` }} />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex justify-between text-xs font-bold mb-1">
+                          <span className="text-status-blue">Elektronik ({electronicsProducts.length} SKU)</span>
+                          <span>{electronicsValPercent}%</span>
+                        </div>
+                        <div className="w-full bg-surface-container h-2.5 rounded-full overflow-hidden">
+                          <div className="bg-status-blue h-full transition-all duration-500" style={{ width: `${electronicsValPercent}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <h4 className="font-bold text-xs text-primary">Rasio Kesehatan Stok</h4>
+                      <span className="text-[10px] font-bold text-status-blue bg-status-blue/10 px-2 py-0.5 rounded-full">
+                        {stockIntegrityRatio}% Sehat
+                      </span>
+                    </div>
+                    <div className="h-3 w-full bg-surface-container rounded-full overflow-hidden flex mb-3">
+                      <div className="bg-emerald-500 h-full" style={{ width: `${products.length > 0 ? (healthyStockCount / products.length) * 100 : 0}%` }} />
+                      <div className="bg-amber-500 h-full" style={{ width: `${products.length > 0 ? (lowStockProducts.length / products.length) * 100 : 0}%` }} />
+                      <div className="bg-red-500 h-full" style={{ width: `${products.length > 0 ? (outOfStockProducts.length / products.length) * 100 : 0}%` }} />
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5 text-center text-[10px] font-bold">
+                      <div className="p-1.5 bg-emerald-50 text-emerald-800 rounded border border-emerald-200">
+                        Tersedia: {healthyStockCount} SKU
+                      </div>
+                      <div className="p-1.5 bg-amber-50 text-amber-800 rounded border border-amber-200">
+                        Menipis: {lowStockProducts.length} SKU
+                      </div>
+                      <div className="p-1.5 bg-red-50 text-red-800 rounded border border-red-200">
+                        Habis: {outOfStockProducts.length} SKU
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* ── 3. TABEL RIWAYAT PENJUALAN LENGKAP & KONTROL STOK ── */}
+              {/* ── 3. TABEL RIWAYAT PENJUALAN & PERINGATAN RESTOK / NOTIFIKASI ── */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
                 {/* Tabel Riwayat Penjualan (2 Columns) */}
                 <div className="lg:col-span-2 bg-pure-white border border-border-light p-6 rounded-xl shadow-sm">
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
                     <div>
                       <h3 className="font-bold text-base text-primary flex items-center gap-2">
-                        <span className="material-symbols-outlined text-primary">history</span> Tabel Riwayat Penjualan
+                        <span className="material-symbols-outlined text-primary">history</span> Tabel Riwayat Penjualan Supabase
                       </h3>
-                      <p className="text-xs text-secondary">Daftar transaksi penjualan terdaftar (Sinkron Supabase)</p>
+                      <p className="text-xs text-secondary">Daftar transaksi tersimpan di database (`sales_history`)</p>
                     </div>
 
                     <div className="w-full sm:w-64">
@@ -1449,7 +1479,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="overflow-x-auto max-h-[380px] overflow-y-auto border border-border-light rounded-lg">
+                  <div className="overflow-x-auto max-h-[360px] overflow-y-auto border border-border-light rounded-lg">
                     <table className="w-full text-left text-xs border-collapse">
                       <thead className="sticky top-0 bg-surface-container-low z-10 border-b border-border-light text-secondary uppercase font-semibold">
                         <tr>
@@ -1463,7 +1493,15 @@ export default function App() {
                       </thead>
                       <tbody className="divide-y divide-border-light">
                         {filteredSales.length === 0 ? (
-                          <tr><td colSpan={6} className="py-6 text-center text-secondary">Tidak ada riwayat penjualan pada periode ini.</td></tr>
+                          <tr>
+                            <td colSpan={6} className="py-8 text-center text-secondary">
+                              <div className="flex flex-col items-center gap-2">
+                                <span className="material-symbols-outlined text-3xl text-secondary/50">receipt_long</span>
+                                <span className="font-semibold text-primary">Belum ada transaksi penjualan di database Supabase.</span>
+                                <span className="text-[11px] text-secondary">Klik tombol "+ Catat Penjualan Baru" di kanan atas untuk menambahkan transaksi.</span>
+                              </div>
+                            </td>
+                          </tr>
                         ) : (
                           filteredSales.map((s, idx) => (
                             <tr key={s.id || idx} className="hover:bg-surface-container-low/50">
@@ -1481,48 +1519,52 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Tabel Stok Menipis & Restok (1 Column) */}
+                {/* Restok & Notifikasi System (1 Column) */}
                 <div className="bg-pure-white border border-border-light p-6 rounded-xl shadow-sm flex flex-col justify-between">
                   <div>
                     <div className="flex justify-between items-center mb-4">
                       <h3 className="font-bold text-base text-primary flex items-center gap-2">
-                        <span className="material-symbols-outlined text-warning">warning</span> Peringatan Stok Menipis
+                        <span className="material-symbols-outlined text-warning">warning</span> Peringatan Restok Stok
                       </h3>
                       <button onClick={() => setCurrentView('stock')} className="text-xs font-bold text-primary hover:underline">
                         Ke Stok →
                       </button>
                     </div>
-                    <div className="overflow-x-auto max-h-[300px] overflow-y-auto border border-border-light rounded-lg mb-4">
+                    <div className="overflow-x-auto max-h-[260px] overflow-y-auto border border-border-light rounded-lg mb-4">
                       <table className="w-full text-left text-xs border-collapse">
                         <thead className="sticky top-0 bg-surface-container-low z-10 border-b border-border-light text-secondary uppercase font-semibold">
                           <tr>
-                            <th className="py-2.5 px-3">Produk</th>
-                            <th className="py-2.5 px-3 text-center">Stok</th>
-                            <th className="py-2.5 px-3 text-right">Aksi</th>
+                            <th className="py-2 px-3">Produk</th>
+                            <th className="py-2 px-3 text-center">Stok</th>
+                            <th className="py-2 px-3 text-right">Aksi</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border-light">
-                          {[...outOfStockProducts, ...lowStockProducts].slice(0, 8).map(p => (
-                            <tr key={p.id} className="hover:bg-surface-container-low/50">
-                              <td className="py-2.5 px-3 font-bold text-primary">{p.name}</td>
-                              <td className="py-2.5 px-3 text-center font-bold text-error">{p.stock}</td>
-                              <td className="py-2.5 px-3 text-right">
-                                <button 
-                                  onClick={() => adjustStock(p.id, 5)} 
-                                  className="px-2 py-1 bg-primary text-pure-white text-[10px] font-bold rounded hover:bg-opacity-80 active:scale-95"
-                                >
-                                  + Restok 5
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
+                          {lowStockProducts.length === 0 && outOfStockProducts.length === 0 ? (
+                            <tr><td colSpan={3} className="py-4 text-center text-emerald-600 font-semibold">Semua stok produk sehat (&gt;3 Unit).</td></tr>
+                          ) : (
+                            [...outOfStockProducts, ...lowStockProducts].slice(0, 6).map(p => (
+                              <tr key={p.id} className="hover:bg-surface-container-low/50">
+                                <td className="py-2 px-3 font-bold text-primary truncate max-w-[120px]" title={p.name}>{p.name}</td>
+                                <td className="py-2 px-3 text-center font-bold text-error">{p.stock}</td>
+                                <td className="py-2 px-3 text-right">
+                                  <button 
+                                    onClick={() => adjustStock(p.id, 5)} 
+                                    className="px-2 py-0.5 bg-primary text-pure-white text-[10px] font-bold rounded hover:bg-opacity-80 active:scale-95"
+                                  >
+                                    + Restok 5
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          )}
                         </tbody>
                       </table>
                     </div>
                   </div>
 
                   <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800">
-                    💡 <strong>Realtime Supabase Sync:</strong> Perubahan stok dan pencatatan riwayat akan langsung ter-update di seluruh perangkat secara otomatis.
+                    💡 <strong>Sinkronisasi Database 100%:</strong> Riwayat penjualan &amp; stok tersinkron secara real-time langsung ke Supabase tanpa dummy data.
                   </div>
                 </div>
               </div>
