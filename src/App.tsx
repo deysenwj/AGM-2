@@ -142,6 +142,45 @@ const INITIAL_PRODUCTS: Product[] = [
   }
 ];
 
+const StockControlInput = ({ 
+  stock, 
+  onCommit 
+}: { 
+  stock: number; 
+  onCommit: (val: number) => void; 
+}) => {
+  const [localVal, setLocalVal] = useState(String(stock));
+
+  useEffect(() => {
+    setLocalVal(String(stock));
+  }, [stock]);
+
+  const handleBlurOrSubmit = () => {
+    const parsed = parseInt(localVal, 10);
+    const safeVal = isNaN(parsed) ? 0 : Math.max(0, parsed);
+    setLocalVal(String(safeVal));
+    if (safeVal !== stock) {
+      onCommit(safeVal);
+    }
+  };
+
+  return (
+    <input
+      type="number"
+      min="0"
+      value={localVal}
+      onChange={(e) => setLocalVal(e.target.value)}
+      onBlur={handleBlurOrSubmit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          handleBlurOrSubmit();
+        }
+      }}
+      className="w-14 text-center font-bold text-sm text-primary py-1 bg-transparent border-none focus:ring-0 outline-none"
+    />
+  );
+};
+
 export default function App() {
   const [products, setProducts] = useState<Product[]>(() => {
     const saved = localStorage.getItem('agm2_inventory');
@@ -202,7 +241,7 @@ export default function App() {
     description: item.description || '',
     price: Number(item.price) || 0,
     discount: Number(item.discount) || 0,
-    stock: Number(item.stock) || 0,
+    stock: isNaN(Number(item.stock)) ? 0 : Math.max(0, Number(item.stock)),
     unit: item.unit || 'Pcs',
     image: item.image || '',
     arrivalType: item.arrival_type || ''
@@ -326,36 +365,64 @@ export default function App() {
     triggerToast('Berhasil Keluar');
   };
 
-  // Super-Responsive Optimistic Stock Adjustments (0ms delay)
+  // Super-Responsive Stock Update Functions (0ms optimistic delay)
   const adjustStock = async (id: string, amount: number) => {
     let updatedStock = 0;
 
-    // 1. Optimistic Local State Update (Instant UI reaction)
     setProducts(prev => {
       const updatedList = prev.map(p => {
         if (p.id === id) {
-          updatedStock = Math.max(0, p.stock + amount);
+          const current = typeof p.stock === 'number' && !isNaN(p.stock) ? p.stock : (parseInt(String(p.stock)) || 0);
+          updatedStock = Math.max(0, current + amount);
           return { ...p, stock: updatedStock };
         }
         return p;
       });
-      if (!isSupabaseConfigured) {
+      try {
         localStorage.setItem('agm2_inventory', JSON.stringify(updatedList));
-      }
+      } catch (e) {}
       return updatedList;
     });
 
-    // 2. Non-blocking Async Sync to Supabase
     if (isSupabaseConfigured) {
-      const { error } = await supabase
-        .from('products')
-        .update({ stock: updatedStock })
-        .eq('id', id);
+      try {
+        const { error } = await supabase
+          .from('products')
+          .update({ stock: updatedStock })
+          .eq('id', id);
 
-      if (error) {
-        console.error('Gagal menyinkronkan stok ke Supabase:', error.message);
-        triggerToast('Gagal menyinkronkan stok ke server.');
-        fetchProducts(); // Re-sync if network fails
+        if (error) {
+          console.warn('Sync notice:', error.message);
+        }
+      } catch (e) {
+        console.warn('Sync notice:', e);
+      }
+    }
+  };
+
+  const setDirectStock = async (id: string, newStockVal: number) => {
+    const sanitizedStock = isNaN(newStockVal) ? 0 : Math.max(0, Math.floor(Number(newStockVal) || 0));
+
+    setProducts(prev => {
+      const updatedList = prev.map(p => p.id === id ? { ...p, stock: sanitizedStock } : p);
+      try {
+        localStorage.setItem('agm2_inventory', JSON.stringify(updatedList));
+      } catch (e) {}
+      return updatedList;
+    });
+
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase
+          .from('products')
+          .update({ stock: sanitizedStock })
+          .eq('id', id);
+
+        if (error) {
+          console.warn('Sync notice:', error.message);
+        }
+      } catch (e) {
+        console.warn('Sync notice:', e);
       }
     }
   };
@@ -545,8 +612,9 @@ export default function App() {
   });
 
   const getStockLabel = (stock: number) => {
-    if (stock === 0) return <span className="font-label-md text-label-md text-error flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">cancel</span> HABIS</span>;
-    if (stock <= 3) return <span className="font-label-md text-label-md text-warning flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">error</span> TERBATAS</span>;
+    const s = isNaN(stock) ? 0 : Math.max(0, Number(stock) || 0);
+    if (s === 0) return <span className="font-label-md text-label-md text-error flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">cancel</span> HABIS</span>;
+    if (s <= 3) return <span className="font-label-md text-label-md text-warning flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">error</span> TERBATAS</span>;
     return <span className="font-label-md text-label-md text-status-blue flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">check_circle</span> TERSEDIA</span>;
   };
 
@@ -994,8 +1062,8 @@ export default function App() {
                       <th className="p-4 font-label-md text-label-md text-secondary uppercase">Harga Dasar</th>
                       <th className="p-4 font-label-md text-label-md text-secondary uppercase">Diskon</th>
                       <th className="p-4 font-label-md text-label-md text-secondary uppercase">Harga Bersih</th>
-                      <th className="p-4 font-label-md text-label-md text-secondary uppercase">Tingkat Stok</th>
-                      <th className="p-4 font-label-md text-label-md text-secondary uppercase">Kelola</th>
+                      <th className="p-4 font-label-md text-label-md text-secondary uppercase">Stok &amp; Status</th>
+                      <th className="p-4 font-label-md text-label-md text-secondary uppercase text-center">Kelola Stok &amp; Shortcut</th>
                       <th className="p-4 font-label-md text-label-md text-secondary uppercase text-right">Aksi</th>
                     </tr>
                   </thead>
@@ -1004,9 +1072,9 @@ export default function App() {
                       <tr key={p.id} className="border-b border-border-light hover:bg-surface-container-low transition-colors">
                         <td className="p-4">
                           {p.image ? (
-                            <img src={p.image} className="w-16 h-12 object-cover border border-border-light" alt={p.name} />
+                            <img src={p.image} className="w-16 h-12 object-cover border border-border-light rounded" alt={p.name} />
                           ) : (
-                            <div className="w-16 h-12 bg-surface-container flex items-center justify-center border border-border-light text-secondary text-xs">TIDAK ADA FOTO</div>
+                            <div className="w-16 h-12 bg-surface-container flex items-center justify-center border border-border-light text-secondary text-xs rounded">TIDAK ADA FOTO</div>
                           )}
                         </td>
                         <td className="p-4">
@@ -1023,15 +1091,65 @@ export default function App() {
                             )}
                           </div>
                         </td>
-                        <td className="p-4">Rp {p.price.toLocaleString('id-ID')}</td>
-                        <td className="p-4 text-error">{p.discount > 0 ? `-Rp ${p.discount.toLocaleString('id-ID')}` : '-'}</td>
+                        <td className="p-4 font-medium">Rp {p.price.toLocaleString('id-ID')}</td>
+                        <td className="p-4 text-error font-medium">{p.discount > 0 ? `-Rp ${p.discount.toLocaleString('id-ID')}` : '-'}</td>
                         <td className="p-4 font-bold text-primary">Rp {(p.price - p.discount).toLocaleString('id-ID')}</td>
-                        <td className="p-4">{p.stock} {p.unit}</td>
                         <td className="p-4">
-                          <div className="flex items-center gap-1">
-                            <button onClick={() => adjustStock(p.id, -1)} className="w-8 h-8 border border-border-light text-primary hover:bg-surface-container-high transition-colors font-bold">-</button>
-                            <span className="w-8 text-center text-body-md font-bold">{p.stock}</span>
-                            <button onClick={() => adjustStock(p.id, 1)} className="w-8 h-8 border border-border-light text-primary hover:bg-surface-container-high transition-colors font-bold">+</button>
+                          <div className="flex flex-col gap-1">
+                            <div className="font-bold text-sm text-primary flex items-center gap-1">
+                              <span>{p.stock} {p.unit}</span>
+                            </div>
+                            {getStockLabel(p.stock)}
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
+                            {/* Direct Edit Input & +-1 */}
+                            <div className="flex items-center border border-border-light rounded-lg overflow-hidden bg-pure-white shadow-xs">
+                              <button 
+                                onClick={() => adjustStock(p.id, -1)} 
+                                className="px-2.5 py-1.5 bg-surface-container hover:bg-surface-container-high text-primary font-bold transition-all active:scale-95 text-xs"
+                                title="Kurang 1 Unit"
+                              >
+                                -1
+                              </button>
+                              <StockControlInput 
+                                stock={p.stock} 
+                                onCommit={(newVal) => setDirectStock(p.id, newVal)} 
+                              />
+                              <button 
+                                onClick={() => adjustStock(p.id, 1)} 
+                                className="px-2.5 py-1.5 bg-surface-container hover:bg-surface-container-high text-primary font-bold transition-all active:scale-95 text-xs"
+                                title="Tambah 1 Unit"
+                              >
+                                +1
+                              </button>
+                            </div>
+
+                            {/* Shortcut Restok Pills */}
+                            <div className="flex items-center gap-1">
+                              <button 
+                                onClick={() => adjustStock(p.id, -5)} 
+                                className="px-2 py-1 bg-red-50 text-error border border-red-200 hover:bg-red-100 text-[11px] font-bold rounded transition-all active:scale-95"
+                                title="Kurangi 5 Unit"
+                              >
+                                -5
+                              </button>
+                              <button 
+                                onClick={() => adjustStock(p.id, 5)} 
+                                className="px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 text-[11px] font-bold rounded transition-all active:scale-95"
+                                title="Tambah 5 Unit"
+                              >
+                                +5
+                              </button>
+                              <button 
+                                onClick={() => adjustStock(p.id, 10)} 
+                                className="px-2 py-1 bg-primary text-pure-white hover:bg-opacity-90 text-[11px] font-bold rounded transition-all active:scale-95 shadow-xs"
+                                title="Tambah 10 Unit"
+                              >
+                                +10
+                              </button>
+                            </div>
                           </div>
                         </td>
                         <td className="p-4 text-right">
@@ -1055,12 +1173,12 @@ export default function App() {
 
         {/* ── ANALYTICS / DASHBOARD VIEW (SUPABASE LIVE SYNC) ── */}
         {currentView === 'dashboard' && isAdmin && (() => {
-          const totalInventoryValue = products.reduce((acc, p) => acc + ((p.price - p.discount) * p.stock), 0);
-          const totalUnits = products.reduce((acc, p) => acc + p.stock, 0);
+          const totalInventoryValue = products.reduce((acc, p) => acc + (((Number(p.price) || 0) - (Number(p.discount) || 0)) * (Number(p.stock) || 0)), 0);
+          const totalUnits = products.reduce((acc, p) => acc + (Number(p.stock) || 0), 0);
 
-          const lowStockProducts = products.filter(p => p.stock > 0 && p.stock <= 3);
-          const outOfStockProducts = products.filter(p => p.stock === 0);
-          const healthyStockCount = products.filter(p => p.stock > 3).length;
+          const lowStockProducts = products.filter(p => (Number(p.stock) || 0) > 0 && (Number(p.stock) || 0) <= 3);
+          const outOfStockProducts = products.filter(p => (Number(p.stock) || 0) === 0);
+          const healthyStockCount = products.filter(p => (Number(p.stock) || 0) > 3).length;
           const stockIntegrityRatio = products.length > 0 ? Math.round((healthyStockCount / products.length) * 100) : 0;
 
           const furnitureProducts = products.filter(p => p.category === 'furniture');
@@ -1229,7 +1347,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* ── 3. NOTIFIKASI SYSTEM REAL-TIME & LINK KONTROL STOK ── */}
+              {/* ── 3. NOTIFIKASI SYSTEM REAL-TIME (READ-ONLY ANALYTICS) ── */}
               <div className="grid grid-cols-1 gap-6 mb-8">
                 {/* Notifikasi Real-time System */}
                 <div className="bg-pure-white border border-border-light p-6 rounded-xl shadow-sm">
@@ -1238,54 +1356,29 @@ export default function App() {
                       <h3 className="font-bold text-base text-primary flex items-center gap-2">
                         <span className="material-symbols-outlined text-primary">notifications</span> Notifikasi System &amp; Status Stok
                       </h3>
-                      <p className="text-xs text-secondary mt-0.5">Pemantauan otomatis stok barang dari database Supabase</p>
+                      <p className="text-xs text-secondary mt-0.5">Pemantauan otomatis stok barang dari database Supabase (Analisis Read-Only)</p>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-bold text-secondary bg-surface-container px-2.5 py-1 rounded-md">Live Realtime</span>
-                      <button 
-                        onClick={() => setCurrentView('stock')} 
-                        className="px-3 py-1.5 bg-primary text-pure-white text-xs font-bold rounded-lg hover:bg-opacity-90 transition-all flex items-center gap-1 shadow-xs active:scale-95"
-                      >
-                        <span className="material-symbols-outlined text-sm">inventory_2</span>
-                        Buka Kontrol Stok
-                      </button>
-                    </div>
+                    <span className="text-xs font-bold text-secondary bg-surface-container px-2.5 py-1 rounded-md">Live Realtime</span>
                   </div>
 
                   <div className="space-y-3">
                     {outOfStockProducts.map(p => (
-                      <div key={'notif-out-' + p.id} className="p-3.5 bg-red-50 border border-red-200 rounded-lg flex items-start justify-between gap-3 text-xs">
-                        <div className="flex items-start gap-3">
-                          <span className="material-symbols-outlined text-error text-base shrink-0 mt-0.5">cancel</span>
-                          <div>
-                            <strong className="text-error block">Stok Habis (0 Unit)</strong>
-                            <span className="text-secondary">Produk <strong>{p.name}</strong> saat ini 0 unit tersisa. Silakan lakukan restok melalui menu Kontrol Stok.</span>
-                          </div>
+                      <div key={'notif-out-' + p.id} className="p-3.5 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3 text-xs">
+                        <span className="material-symbols-outlined text-error text-base shrink-0 mt-0.5">cancel</span>
+                        <div>
+                          <strong className="text-error block">Stok Habis (0 Unit)</strong>
+                          <span className="text-secondary">Produk <strong>{p.name}</strong> saat ini 0 unit tersisa. Silakan kelola stok melalui menu <strong>Kontrol Stok</strong>.</span>
                         </div>
-                        <button 
-                          onClick={() => setCurrentView('stock')} 
-                          className="px-2.5 py-1 bg-error text-pure-white text-[10px] font-bold rounded hover:opacity-90 shrink-0"
-                        >
-                          Kelola Stok
-                        </button>
                       </div>
                     ))}
 
                     {lowStockProducts.map(p => (
-                      <div key={'notif-low-' + p.id} className="p-3.5 bg-amber-50 border border-amber-200 rounded-lg flex items-start justify-between gap-3 text-xs">
-                        <div className="flex items-start gap-3">
-                          <span className="material-symbols-outlined text-amber-600 text-base shrink-0 mt-0.5">error</span>
-                          <div>
-                            <strong className="text-amber-800 block">Peringatan Stok Menipis</strong>
-                            <span className="text-secondary">Produk <strong>{p.name}</strong> sisa {p.stock} {p.unit} (di bawah batas minimum 3 Unit).</span>
-                          </div>
+                      <div key={'notif-low-' + p.id} className="p-3.5 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3 text-xs">
+                        <span className="material-symbols-outlined text-amber-600 text-base shrink-0 mt-0.5">error</span>
+                        <div>
+                          <strong className="text-amber-800 block">Peringatan Stok Menipis</strong>
+                          <span className="text-secondary">Produk <strong>{p.name}</strong> sisa {p.stock} {p.unit} (di bawah batas minimum 3 Unit).</span>
                         </div>
-                        <button 
-                          onClick={() => setCurrentView('stock')} 
-                          className="px-2.5 py-1 bg-amber-600 text-pure-white text-[10px] font-bold rounded hover:opacity-90 shrink-0"
-                        >
-                          Kelola Stok
-                        </button>
                       </div>
                     ))}
 
@@ -1293,7 +1386,7 @@ export default function App() {
                       <span className="material-symbols-outlined text-emerald-600 text-base shrink-0 mt-0.5">check_circle</span>
                       <div>
                         <strong className="text-emerald-800 block">Sistem Sinkronisasi Supabase Aktif</strong>
-                        <span className="text-secondary">Kelola stok dan penambahan produk dilakukan secara terpusat di menu <strong>Kontrol Stok</strong>. Perubahan akan tersinkronisasi di seluruh perangkat secara real-time.</span>
+                        <span className="text-secondary">Kelola stok dan penambahan produk dilakukan secara terpusat di menu <strong>Kontrol Stok</strong>.</span>
                       </div>
                     </div>
                   </div>
