@@ -114,9 +114,9 @@ export default function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        // Only use cache if it does not contain old mock IDs ('1', '2', etc.)
-        if (Array.isArray(parsed) && parsed.length > 0 && !['1','2','3','4','5','6'].includes(String(parsed[0].id))) {
-          return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const filtered = parsed.filter(p => !['1','2','3','4','5','6'].includes(String(p.id)));
+          return filtered;
         }
       } catch (e) {}
     }
@@ -177,24 +177,26 @@ export default function App() {
     arrivalType: item.arrival_type || ''
   });
 
-  // Load state from Supabase 100% directly
+  // Load state from Supabase 100% directly with safe local cache preservation
   const fetchProducts = async () => {
     setIsFetchingData(true);
     if (isSupabaseConfigured) {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .order('created_at', { ascending: false });
+      try {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error mengambil data dari Supabase:', error.message);
-      } else if (data) {
-        const dbProducts = data.map(mapDbToProduct);
-        setProducts(dbProducts);
-        localStorage.setItem('agm2_inventory', JSON.stringify(dbProducts));
+        if (error) {
+          console.error('Error mengambil data dari Supabase:', error.message);
+        } else if (data) {
+          const dbProducts = data.map(mapDbToProduct);
+          setProducts(dbProducts);
+          localStorage.setItem('agm2_inventory', JSON.stringify(dbProducts));
+        }
+      } catch (err) {
+        console.error('Network error fetching products from Supabase:', err);
       }
-    } else {
-      setProducts([]);
     }
     setIsFetchingData(false);
   };
@@ -1000,7 +1002,77 @@ export default function App() {
               </button>
             </div>
 
-            <div className="bg-pure-white border border-border-light rounded-sm overflow-hidden shadow-sm">
+            {/* Mobile Responsive View (< md) */}
+            <div className="md:hidden space-y-3">
+              {filteredProducts.length === 0 ? (
+                <div className="text-center py-12 bg-pure-white border border-border-light rounded-lg text-secondary">
+                  <span className="material-symbols-outlined text-3xl block mb-1">inventory_2</span>
+                  <p className="text-xs">Tidak ada data produk tersimpan.</p>
+                </div>
+              ) : (
+                filteredProducts.map(p => (
+                  <div key={'mob-stock-' + p.id} className="p-4 bg-pure-white border border-border-light rounded-lg shadow-xs flex flex-col gap-3">
+                    <div className="flex gap-3 items-start">
+                      {p.image ? (
+                        <img src={p.image} className="w-16 h-16 object-cover border border-border-light rounded-md shrink-0" alt={p.name} />
+                      ) : (
+                        <div className="w-16 h-16 bg-surface-container flex items-center justify-center border border-border-light text-secondary text-[10px] rounded-md shrink-0 font-bold">NO FOTO</div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-sm text-primary uppercase truncate">{p.name}</h4>
+                        <p className="text-xs text-secondary truncate">{p.description}</p>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          <span className="text-[9px] bg-surface-container-highest text-secondary px-1.5 py-0.5 rounded font-bold uppercase">{p.category}</span>
+                          {p.subcategory && <span className="text-[9px] bg-primary-fixed text-primary px-1.5 py-0.5 rounded font-bold uppercase">{p.subcategory}</span>}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-border-light/60 text-xs">
+                      <div>
+                        <span className="text-secondary block text-[10px] font-semibold">Harga Net</span>
+                        <strong className="text-primary text-sm font-bold">Rp {(p.price - p.discount).toLocaleString('id-ID')}</strong>
+                      </div>
+                      <div>
+                        {getStockLabel(p.stock)}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-border-light/60 gap-2">
+                      <div className="flex items-center border border-border-light rounded-lg overflow-hidden bg-pure-white shadow-xs">
+                        <button 
+                          onClick={() => adjustStock(p.id, -1)} 
+                          className="px-3 py-1.5 bg-surface-container hover:bg-surface-container-high text-primary font-bold text-xs active:scale-95"
+                          title="Kurang 1 Unit"
+                        >
+                          -1
+                        </button>
+                        <StockControlInput stock={p.stock} onCommit={(newVal) => setDirectStock(p.id, newVal)} />
+                        <button 
+                          onClick={() => adjustStock(p.id, 1)} 
+                          className="px-3 py-1.5 bg-surface-container hover:bg-surface-container-high text-primary font-bold text-xs active:scale-95"
+                          title="Tambah 1 Unit"
+                        >
+                          +1
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <button onClick={() => openEdit(p)} className="p-2 border border-border-light rounded-md text-secondary hover:text-primary transition-colors">
+                          <span className="material-symbols-outlined text-[18px]">edit</span>
+                        </button>
+                        <button onClick={() => setDeleteConfirmId(p.id)} className="p-2 border border-border-light rounded-md text-error hover:bg-error/10 transition-colors">
+                          <span className="material-symbols-outlined text-[18px]">delete</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Desktop Table View (>= md) */}
+            <div className="hidden md:block bg-pure-white border border-border-light rounded-sm overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse min-w-[700px]">
                   <thead>
