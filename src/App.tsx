@@ -215,6 +215,17 @@ export default function App() {
     arrivalType: item.arrival_type || ''
   });
 
+
+  // Helper to map DB row to Transaction interface
+  const mapDbToTransaction = (item: any): Transaction => ({
+    id: item.id,
+    customerName: item.customer_name,
+    customerPhone: item.customer_phone || undefined,
+    customerAddress: item.customer_address || undefined,
+    totalPrice: Number(item.total_price),
+    items: typeof item.items === 'string' ? JSON.parse(item.items) : item.items,
+    date: new Date(item.created_at).toLocaleString('id-ID'),
+  });
   // Load state from Supabase with retry logic
   const fetchProducts = async (maxRetries = 2, showSpinner = true) => {
     if (showSpinner) setIsFetchingData(true);
@@ -364,7 +375,9 @@ export default function App() {
   // Setup realtime subscription (called after initial fetch succeeds)
   const setupRealtime = () => {
     if (!isSupabaseConfigured) return null;
-    return supabase
+
+    // Product Listener
+    const productChannel = supabase
       .channel('realtime-products-changes')
       .on(
         'postgres_changes',
@@ -397,9 +410,44 @@ export default function App() {
       )
       .subscribe((status, err) => {
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.warn('Realtime channel warning:', status, err);
+          console.warn('Realtime product channel warning:', status, err);
         }
       });
+
+    // Transaction Listener
+    const transactionChannel = supabase
+      .channel('realtime-transactions-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'transactions' },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const newTx = mapDbToTransaction(payload.new);
+            setTransactions(prev => {
+              if (prev.some(tx => tx.id === newTx.id)) return prev;
+              return [newTx, ...prev];
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedTx = mapDbToTransaction(payload.new);
+            setTransactions(prev => prev.map(tx => tx.id === updatedTx.id ? { ...tx, ...updatedTx } : tx));
+          } else if (payload.eventType === 'DELETE') {
+            const deletedId = String(payload.old.id);
+            setTransactions(prev => prev.filter(tx => tx.id !== deletedId));
+          }
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn('Realtime transaction channel warning:', status, err);
+        }
+      });
+
+    // Return an unsubscribe function
+    return () => {
+      productChannel.unsubscribe();
+      transactionChannel.unsubscribe();
+      console.log('Realtime channels unsubscribed.');
+    };
   };
 
   // Initial load: fetch data THEN connect realtime; re-sync on visibility change (mobile tab resume)
