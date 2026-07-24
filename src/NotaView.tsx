@@ -368,7 +368,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
                   <tbody className="divide-y divide-border-light">
                     {filteredProducts.map(p => (
                       <tr key={p.id}>
-                        <td className="px-3 py-2 text-sm text-on-surface max-w-[80px] sm:max-w-none truncate">{p.name}</td>
+                        <td className="px-3 py-2 text-sm text-on-surface overflow-hidden break-words">{p.name}</td>
                         <td className="px-3 py-2 text-sm text-on-surface">{formatCurrency(p.price - p.discount)}</td>
                         <td className="px-3 py-2 text-sm text-center">
                           <span className={`${p.stock <= 3 && p.stock > 0 ? 'text-warning' : p.stock === 0 ? 'text-error' : 'text-primary'}`}>
@@ -446,7 +446,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
                   ) : (
                     selectedProducts.map(item => (
                       <tr key={item.product.id}>
-                        <td className="px-3 py-2 text-sm text-on-surface max-w-[80px] sm:max-w-none truncate">{item.product.name}</td>
+                        <td className="px-3 py-2 text-sm text-on-surface overflow-hidden break-words">{item.product.name}</td>
                         <td className="px-3 py-2 text-sm text-on-surface">
                           <input
                             type="number"
