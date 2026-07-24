@@ -946,6 +946,13 @@ export default function App() {
                       <span className="material-symbols-outlined text-[20px]">dashboard</span>
                       <span className="font-body-md text-body-md">Dasbor</span>
                     </button>
+                    <button
+                      onClick={() => { setCurrentView('nota'); setIsSidebarOpen(false); }}
+                      className={`w-full text-left flex items-center gap-3 p-3 rounded-lg transition-all ${currentView === 'nota' ? 'bg-secondary-container text-primary font-semibold' : 'text-on-surface-variant hover:bg-surface-container-high'}`}
+                    >
+                      <span className="material-symbols-outlined text-[20px]">receipt_long</span>
+                      <span className="font-body-md text-body-md">Buat Nota</span>
+                    </button>
                   </>
                 )}
               </div>
@@ -1811,7 +1818,7 @@ export default function App() {
                               <td className="p-3">
                                 <div className="space-y-0.5">
                                   {tx.items.map((item, index) => (
-                                    <div key={tx.id + '-item-' + index} className="text-[10px] text-on-surface">
+                                    <div key={tx.id + '-item-' + index} className="text-[10px] text-on-surface truncate max-w-[150px]">
                                       • {item.productName} <span className="text-secondary">(x{item.quantity})</span>
                                     </div>
                                   ))}
@@ -1870,7 +1877,7 @@ export default function App() {
                 {/* Items */}
                 <div>
                   <span className="text-secondary font-bold uppercase tracking-wider text-[9px] block mb-1">Item yang Dibeli</span>
-                  <div className="max-h-36 overflow-y-auto border border-border-light rounded-lg">
+                  <div className="overflow-x-auto max-h-36 overflow-y-auto border border-border-light rounded-lg">
                     <table className="w-full text-left border-collapse text-[11px]">
                       <thead>
                         <tr className="bg-surface-container text-[9px] font-bold text-secondary border-b border-border-light uppercase">

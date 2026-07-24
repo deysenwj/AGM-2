@@ -356,7 +356,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
             ) : filteredProducts.length === 0 && !searchTerm ? (
               <div className="text-center py-8 text-secondary">Tambahkan produk di menu Inventaris.</div>
             ) : (
-              <div className="max-h-96 overflow-y-auto border border-border-light rounded-lg">
+              <div className="flex-grow overflow-x-auto max-h-96 overflow-y-auto border border-border-light rounded-lg">
                 <table className="min-w-full divide-y divide-border-light">
                   <thead className="bg-surface-container-low sticky top-0">
                     <tr>
@@ -423,7 +423,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
               </div>
             </div>
 
-            <div className="flex-grow max-h-80 overflow-y-auto mb-4 border border-border-light rounded-lg">
+            <div className="flex-grow overflow-x-auto max-h-80 overflow-y-auto mb-4 border border-border-light rounded-lg">
               <table className="min-w-full divide-y divide-border-light">
                 <thead className="bg-surface-container-low sticky top-0">
                   <tr>
