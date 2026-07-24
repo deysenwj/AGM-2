@@ -125,255 +125,413 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
     setIsConfirming(true);
   };
 
-  const executePrintAndSync = async () => {
+  const executePrintAndSync = async (printType: 'pdf' | 'image') => {
     setIsProcessingPrint(true);
     const notaId = `NOTA-${Date.now()}`;
     const dateStr = new Date().toLocaleString('id-ID');
     const totalVal = calculateTotal();
 
+    // Temporarily hide buttons or other interactive elements that should not be in the image
+    const buttonsToHide = document.querySelectorAll('.print-hidden-button'); // Use a specific class for buttons to hide
+
+    if (printType === 'image') {
+      buttonsToHide.forEach(button => (button as HTMLElement).style.display = 'none');
+    }
+
+    // 1. Decrement stock from Supabase Database ONLY on final confirmation
     // 1. Decrement stock from Supabase Database ONLY on final confirmation
     try {
       for (const item of selectedProducts) {
         await adjustStock(item.product.id, -item.quantity);
       }
-    } catch (err) {
-      console.error('Failed to sync stock database:', err);
-      triggerToast('Gagal memproses data stok database.');
-      setIsProcessingPrint(false);
-      return;
-    }
 
-    // 1.5 Save transaction history
-    const txItems = selectedProducts.map(item => ({
-      productId: item.product.id,
-      productName: item.product.name,
-      quantity: item.quantity,
-      price: item.product.price - item.product.discount,
-    }));
+      // 1.5 Save transaction history
+      const txItems = selectedProducts.map(item => ({
+        productId: item.product.id,
+        productName: item.product.name,
+        quantity: item.quantity,
+        price: item.product.price - item.product.discount,
+      }));
 
-    const newTx = {
-      id: notaId,
-      customerName: customerName.trim(),
-      customerPhone: customerPhone.trim() || undefined,
-      customerAddress: customerAddress.trim() || undefined,
-      totalPrice: totalVal,
-      items: txItems,
-      date: dateStr,
-    };
+      const newTx = {
+        id: notaId,
+        customerName: customerName.trim(),
+        customerPhone: customerPhone.trim() || undefined,
+        customerAddress: customerAddress.trim() || undefined,
+        totalPrice: totalVal,
+        items: txItems,
+        date: dateStr,
+      };
 
-    try {
       await addTransaction(newTx);
-    } catch (e) {
-      console.warn('Failed to record transaction history locally/remotely:', e);
+
+      // 2. Perform print action based on type
+      if (printType === 'pdf') {
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+          const itemsHtml = selectedProducts.map(item => {
+            const discountedPrice = item.product.price - item.product.discount;
+            const subtotal = discountedPrice * item.quantity;
+            return `
+              <tr>
+                <td style="padding: 4px 0; max-width: 180px; word-wrap: break-word;">${item.product.name}</td>
+                <td style="padding: 4px 0; text-align: center;">${item.quantity}</td>
+                <td style="padding: 4px 0; text-align: right;">${formatCurrency(discountedPrice)}</td>
+                <td style="padding: 4px 0; text-align: right;">${formatCurrency(subtotal)}</td>
+              </tr>
+            `;
+          }).join('');
+
+          printWindow.document.write(`
+            <html>
+              <head>
+                <title>${notaId}</title>
+                <style>
+                  @page {
+                    size: 110mm auto;
+                    margin: 0;
+                  }
+                  body {
+                    width: 100mm;
+                    margin: 0 auto;
+                    padding: 10px;
+                    font-family: 'Courier New', Courier, monospace;
+                    font-size: 11pt;
+                    line-height: 1.4;
+                    color: #000;
+                  }
+                  .header {
+                    text-align: center;
+                    margin-bottom: 15px;
+                  }
+                  .store-name {
+                    font-size: 16pt;
+                    font-weight: bold;
+                    margin-bottom: 2px;
+                  }
+                  .store-address {
+                    font-size: 8pt;
+                    color: #555;
+                  }
+                  .divider {
+                    border-top: 1px dashed #000;
+                    margin: 10px 0;
+                  }
+                  .info-table, .items-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-size: 10pt;
+                  }
+                  .info-table td {
+                    padding: 2px 0;
+                  }
+                  .items-table th {
+                    border-bottom: 1px dashed #000;
+                    padding-bottom: 5px;
+                    font-weight: bold;
+                  }
+                  .total-row {
+                    font-weight: bold;
+                    font-size: 12pt;
+                  }
+                  @media print {
+                    body {
+                      padding: 0;
+                    }
+                  }
+                </style>
+              </head>
+              <body>
+                <div class="header">
+                  <div class="store-name">AGM 2</div>
+                  <div class="store-address">Jalan Rahadi Ismail, Desa Padang,<br>Kec. Benua Kayong, Kab. Ketapang</div>
+                  <div class="store-address" style="margin-top: 4px; font-weight: bold;">WhatsApp: 082351623939</div>
+                </div>
+                
+                <div class="divider"></div>
+                
+                <table class="info-table">
+                  <tr>
+                    <td>No Nota:</td>
+                    <td style="text-align: right;">${notaId}</td>
+                  </tr>
+                  <tr>
+                    <td>Tanggal:</td>
+                    <td style="text-align: right;">${dateStr}</td>
+                  </tr>
+                  <tr style="border-top: 1px solid #eee;">
+                    <td style="font-weight: bold; padding-top: 4px;">Pelanggan:</td>
+                    <td style="text-align: right; padding-top: 4px; font-weight: bold;">${customerName}</td>
+                  </tr>
+                  ${customerPhone.trim() ? `
+                  <tr>
+                    <td>No. HP:</td>
+                    <td style="text-align: right;">${customerPhone}</td>
+                  </tr>` : ''}
+                  ${customerAddress.trim() ? `
+                  <tr>
+                    <td>Alamat:</td>
+                    <td style="text-align: right; max-width: 180px; word-wrap: break-word;">${customerAddress}</td>
+                  </tr>` : ''}
+                </table>
+                
+                <div class="divider"></div>
+                
+                <table class="items-table">
+                  <thead>
+                    <tr>
+                      <th style="text-align: left;">Item</th>
+                      <th style="text-align: center; width: 40px;">Qty</th>
+                      <th style="text-align: right; width: 90px;">Harga</th>
+                      <th style="text-align: right; width: 100px;">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${itemsHtml}
+                  </tbody>
+                </table>
+                
+                <div class="divider"></div>
+                
+                <table class="info-table">
+                  <tr class="total-row">
+                    <td>GRAND TOTAL:</td>
+                    <td style="text-align: right;">${formatCurrency(totalVal)}</td>
+                  </tr>
+                </table>
+                
+                <div class="divider" style="margin-top: 15px;"></div>
+                
+                <div style="text-align: center; font-size: 9pt; margin-top: 10px;">
+                  Terima Kasih atas Kunjungan Anda!<br>
+                  Barang yang sudah dibeli tidak dapat ditukar/dikembalikan.
+                </div>
+                
+                <script>
+                  window.onload = function() {
+                    window.print();
+                    setTimeout(function() { window.close(); }, 500);
+                  };
+                </script>
+              </body>
+            </html>
+          `);
+          printWindow.document.close();
+          triggerToast('Nota berhasil dicetak / diunduh PDF!');
+        } else {
+          triggerToast('Gagal memproses cetak. Izinkan pop-up browser Anda.');
+        }
+      } else { // printType === 'image'
+        await handlePrintAsImageInternal(notaId, totalVal, customerName, customerPhone, customerAddress, selectedProducts);
+      }
+
+    } catch (err) {
+      console.error('Failed to process print/image or sync:', err);
+      triggerToast('Gagal memproses nota.');
+    } finally {
+      // Restore hidden elements
+      buttonsToHide.forEach(button => (button as HTMLElement).style.display = ''); // Restore buttons
+      // Reset Form
+      setSelectedProducts([]);
+      setCustomerName('');
+      setCustomerPhone('');
+      setCustomerAddress('');
+      setIsConfirming(false);
+      setIsProcessingPrint(false);
     }
-
-    // 2. Open pop-up window formatted for 110mm thermal width
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      const itemsHtml = selectedProducts.map(item => {
-        const discountedPrice = item.product.price - item.product.discount;
-        const subtotal = discountedPrice * item.quantity;
-        return `
-          <tr>
-            <td style="padding: 4px 0; max-width: 180px; word-wrap: break-word;">${item.product.name}</td>
-            <td style="padding: 4px 0; text-align: center;">${item.quantity}</td>
-            <td style="padding: 4px 0; text-align: right;">${formatCurrency(discountedPrice)}</td>
-            <td style="padding: 4px 0; text-align: right;">${formatCurrency(subtotal)}</td>
-          </tr>
-        `;
-      }).join('');
-
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>${notaId}</title>
-            <style>
-              @page {
-                size: 110mm auto;
-                margin: 0;
-              }
-              body {
-                width: 100mm;
-                margin: 0 auto;
-                padding: 10px;
-                font-family: 'Courier New', Courier, monospace;
-                font-size: 11pt;
-                line-height: 1.4;
-                color: #000;
-              }
-              .header {
-                text-align: center;
-                margin-bottom: 15px;
-              }
-              .store-name {
-                font-size: 16pt;
-                font-weight: bold;
-                margin-bottom: 2px;
-              }
-              .store-address {
-                font-size: 8pt;
-                color: #555;
-              }
-              .divider {
-                border-top: 1px dashed #000;
-                margin: 10px 0;
-              }
-              .info-table, .items-table {
-                width: 100%;
-                border-collapse: collapse;
-                font-size: 10pt;
-              }
-              .info-table td {
-                padding: 2px 0;
-              }
-              .items-table th {
-                border-bottom: 1px dashed #000;
-                padding-bottom: 5px;
-                font-weight: bold;
-              }
-              .total-row {
-                font-weight: bold;
-                font-size: 12pt;
-              }
-              @media print {
-                body {
-                  padding: 0;
-                }
-              }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <div class="store-name">AGM 2</div>
-              <div class="store-address">Jalan Rahadi Ismail, Desa Padang,<br>Kec. Benua Kayong, Kab. Ketapang</div>
-              <div class="store-address" style="margin-top: 4px; font-weight: bold;">WhatsApp: 082351623939</div>
-            </div>
-            
-            <div class="divider"></div>
-            
-            <table class="info-table">
-              <tr>
-                <td>No Nota:</td>
-                <td style="text-align: right;">${notaId}</td>
-              </tr>
-              <tr>
-                <td>Tanggal:</td>
-                <td style="text-align: right;">${dateStr}</td>
-              </tr>
-              <tr style="border-top: 1px solid #eee;">
-                <td style="font-weight: bold; padding-top: 4px;">Pelanggan:</td>
-                <td style="text-align: right; padding-top: 4px; font-weight: bold;">${customerName}</td>
-              </tr>
-              ${customerPhone.trim() ? `
-              <tr>
-                <td>No. HP:</td>
-                <td style="text-align: right;">${customerPhone}</td>
-              </tr>` : ''}
-              ${customerAddress.trim() ? `
-              <tr>
-                <td>Alamat:</td>
-                <td style="text-align: right; max-width: 180px; word-wrap: break-word;">${customerAddress}</td>
-              </tr>` : ''}
-            </table>
-            
-            <div class="divider"></div>
-            
-            <table class="items-table">
-              <thead>
-                <tr>
-                  <th style="text-align: left;">Item</th>
-                  <th style="text-align: center; width: 40px;">Qty</th>
-                  <th style="text-align: right; width: 90px;">Harga</th>
-                  <th style="text-align: right; width: 100px;">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${itemsHtml}
-              </tbody>
-            </table>
-            
-            <div class="divider"></div>
-            
-            <table class="info-table">
-              <tr class="total-row">
-                <td>GRAND TOTAL:</td>
-                <td style="text-align: right;">${formatCurrency(totalVal)}</td>
-              </tr>
-            </table>
-            
-            <div class="divider" style="margin-top: 15px;"></div>
-            
-            <div style="text-align: center; font-size: 9pt; margin-top: 10px;">
-              Terima Kasih atas Kunjungan Anda!<br>
-              Barang yang sudah dibeli tidak dapat ditukar/dikembalikan.
-            </div>
-            
-            <script>
-              window.onload = function() {
-                window.print();
-                setTimeout(function() { window.close(); }, 500);
-              };
-            </script>
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
-      triggerToast('Nota berhasil dicetak / diunduh PDF!');
-    } else {
-      triggerToast('Gagal memproses cetak. Izinkan pop-up browser Anda.');
-    }
-
-    // Reset Form
-    setSelectedProducts([]);
-    setCustomerName('');
-    setCustomerPhone('');
-    setCustomerAddress('');
-    setIsConfirming(false);
-    setIsProcessingPrint(false);
   };
 
-  const handlePrintAsImage = async () => {
-    if (!notaRef.current) {
-      triggerToast('Gagal menemukan konten nota.');
+  const handlePrintAsImageInternal = async (notaId: string, totalVal: number, customerName: string, customerPhone: string | undefined, customerAddress: string | undefined, selectedProducts: NotaItem[]) => {
+    // --- Start Building Print HTML (same as for PDF) ---
+    const dateStr = new Date().toLocaleString('id-ID');
+
+    const itemsHtml = selectedProducts.map(item => {
+      const discountedPrice = item.product.price - item.product.discount;
+      const subtotal = discountedPrice * item.quantity;
+      return `
+        <tr>
+          <td style="padding: 4px 0; max-width: 180px; word-wrap: break-word;">${item.product.name}</td>
+          <td style="padding: 4px 0; text-align: center;">${item.quantity}</td>
+          <td style="padding: 4px 0; text-align: right;">${formatCurrency(discountedPrice)}</td>
+          <td style="padding: 4px 0; text-align: right;">${formatCurrency(subtotal)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const printHtml = `
+      <html>
+        <head>
+          <title>${notaId}</title>
+          <style>
+            body {
+              width: 100mm;
+              margin: 0 auto;
+              padding: 10px;
+              font-family: 'Courier New', Courier, monospace;
+              font-size: 11pt;
+              line-height: 1.4;
+              color: #000;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 15px;
+            }
+            .store-name {
+              font-size: 16pt;
+              font-weight: bold;
+              margin-bottom: 2px;
+            }
+            .store-address {
+              font-size: 8pt;
+              color: #555;
+            }
+            .divider {
+              border-top: 1px dashed #000;
+              margin: 10px 0;
+            }
+            .info-table, .items-table {
+              width: 100%;
+              border-collapse: collapse;
+              font-size: 10pt;
+            }
+            .info-table td {
+              padding: 2px 0;
+            }
+            .items-table th {
+              border-bottom: 1px dashed #000;
+              padding-bottom: 5px;
+              font-weight: bold;
+            }
+            .total-row {
+              font-weight: bold;
+              font-size: 12pt;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="store-name">AGM 2</div>
+            <div class="store-address">Jalan Rahadi Ismail, Desa Padang,<br>Kec. Benua Kayong, Kab. Ketapang</div>
+            <div class="store-address" style="margin-top: 4px; font-weight: bold;">WhatsApp: 082351623939</div>
+          </div>
+          
+          <div class="divider"></div>
+          
+          <table class="info-table">
+            <tr>
+              <td>No Nota:</td>
+              <td style="text-align: right;">${notaId}</td>
+            </tr>
+            <tr>
+              <td>Tanggal:</td>
+              <td style="text-align: right;">${dateStr}</td>
+            </tr>
+            <tr style="border-top: 1px solid #eee;">
+              <td style="font-weight: bold; padding-top: 4px;">Pelanggan:</td>
+              <td style="text-align: right; padding-top: 4px; font-weight: bold;">${customerName}</td>
+            </tr>
+            ${customerPhone && customerPhone.trim() ? `
+            <tr>
+              <td>No. HP:</td>
+              <td style="text-align: right;">${customerPhone}</td>
+            </tr>` : ''}
+            ${customerAddress && customerAddress.trim() ? `
+            <tr>
+              <td>Alamat:</td>
+              <td style="text-align: right; max-width: 180px; word-wrap: break-word;">${customerAddress}</td>
+            </tr>` : ''}
+          </table>
+          
+          <div class="divider"></div>
+          
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th style="text-align: left;">Item</th>
+                <th style="text-align: center; width: 40px;">Qty</th>
+                <th style="text-align: right; width: 90px;">Harga</th>
+                <th style="text-align: right; width: 100px;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+            </tbody>
+          </table>
+          
+          <div class="divider"></div>
+          
+          <table class="info-table">
+            <tr class="total-row">
+              <td>GRAND TOTAL:</td>
+              <td style="text-align: right;">${formatCurrency(totalVal)}</td>
+            </tr>
+          </table>
+          
+          <div class="divider" style="margin-top: 15px;"></div>
+          
+          <div style="text-align: center; font-size: 9pt; margin-top: 10px;">
+            Terima Kasih atas Kunjungan Anda!<br>
+            Barang yang sudah dibeli tidak dapat ditukar/dikembalikan.
+          </div>
+        </body>
+      </html>
+    `;
+    // --- End Building Print HTML ---
+
+    const iframe = document.createElement('iframe');
+    iframe.style.visibility = 'hidden';
+    iframe.style.position = 'absolute';
+    iframe.style.width = '100mm'; // Set width for rendering
+    iframe.style.height = 'min-content'; // Set height dynamically
+    document.body.appendChild(iframe);
+
+    // Get iframe's document and write HTML
+    const iframeDoc = iframe.contentWindow?.document;
+    if (!iframeDoc) {
+      triggerToast('Gagal membuat iframe.');
+      document.body.removeChild(iframe);
       return;
     }
+    iframeDoc.open();
+    iframeDoc.write(printHtml);
+    iframeDoc.close();
 
-    setIsProcessingPrint(true);
-    // Temporarily hide buttons or other interactive elements that should not be in the image
-    const buttons = notaRef.current.querySelectorAll('button');
-    buttons.forEach(button => button.style.display = 'none');
-
-    console.log('Attempting to capture notaRef.current:', notaRef.current); // DEBUG LOG
+    // Ensure iframe content is rendered before capturing
+    await new Promise(resolve => setTimeout(resolve, 100)); // Small delay for rendering
 
     try {
-      const canvas = await html2canvas(notaRef.current, {
-        scale: 2, // Increase scale for higher resolution
-        useCORS: false, // Changed to false for testing
-        logging: true, // Changed to true for debugging
-        allowTaint: true, // Allow tainting the canvas if cross-origin images are loaded (but useCORS is false)
+      const canvas = await html2canvas(iframeDoc.body, { // Capture iframe's body
+        scale: 2, 
+        useCORS: true, 
+        logging: true, 
+        allowTaint: true, 
+        backgroundColor: '#ffffff', 
+        ignoreElements: (element) => element.tagName === 'SCRIPT',
       });
-      console.log('Canvas generated successfully:', canvas); // DEBUG LOG
+      console.log('Canvas generated successfully:', canvas); 
 
       // Get JPEG data URL
-      const imageData = canvas.toDataURL('image/jpeg', 0.9); // 0.9 quality for JPEG
+      const imageData = canvas.toDataURL('image/jpeg', 0.9); 
 
       // Create a dummy link and click to download
       const link = document.createElement('a');
       link.href = imageData;
-      link.download = `nota-${Date.now()}.jpg`;
+      link.download = `nota-${notaId}.jpg`; 
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
 
-      triggerToast('Nota berhasil diunduh sebagai gambar JPG!');
+      triggerToast('Nota berhasil diunduh sebagai gambar JPG!'); 
 
-    } catch (error) {
-      console.error('Error generating image:', error);
-      triggerToast('Gagal mengunduh gambar nota.');
+    } catch (error: any) { 
+      console.error('Error generating image from iframe:', error);
+      if (error.message && error.message.includes("Tainted canvases may not be exported")) { 
+        triggerToast('Gagal: Gambar nota berisi konten dari sumber eksternal yang tidak diizinkan. Coba hapus logo/gambar eksternal.');
+      } else {
+        triggerToast('Gagal mengunduh gambar nota.');
+      }
     } finally {
-      // Restore hidden elements
-      buttons.forEach(button => button.style.display = '');
-      setIsProcessingPrint(false);
+      document.body.removeChild(iframe); // Clean up iframe
     }
   };
 
@@ -602,21 +760,21 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
               <button 
                 onClick={() => setIsConfirming(false)} 
                 disabled={isProcessingPrint}
-                className="flex-1 py-2.5 border border-border-light text-secondary font-button text-xs uppercase rounded-sm hover:border-primary transition-all disabled:opacity-50"
+                className="flex-1 py-2.5 border border-border-light text-secondary font-button text-xs uppercase rounded-sm hover:border-primary transition-all disabled:opacity-50 print-hidden-button"
               >
                 Batal / Edit
               </button>
               <button 
-                onClick={handlePrintAsImage} 
+                onClick={() => executePrintAndSync('image')} 
                 disabled={isProcessingPrint}
-                className="flex-1 py-2.5 bg-secondary-container text-primary font-button text-xs uppercase rounded-sm hover:bg-opacity-90 transition-all disabled:opacity-50"
+                className="flex-1 py-2.5 bg-secondary-container text-primary font-button text-xs uppercase rounded-sm hover:bg-opacity-90 transition-all disabled:opacity-50 print-hidden-button"
               >
                 Cetak Gambar (JPG)
               </button>
               <button 
-                onClick={executePrintAndSync} 
+                onClick={() => executePrintAndSync('pdf')} 
                 disabled={isProcessingPrint}
-                className="flex-grow py-2.5 bg-primary text-pure-white font-button text-xs uppercase rounded-sm hover:bg-opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+                className="flex-grow py-2.5 bg-primary text-pure-white font-button text-xs uppercase rounded-sm hover:bg-opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 print-hidden-button"
               >
                 {isProcessingPrint ? 'Memproses...' : 'Ya, Cetak & Potong Stok'}
               </button>

@@ -157,6 +157,11 @@ export default function App() {
   const [txEndDate, setTxEndDate] = useState<string>('');
   const [selectedTxDetail, setSelectedTxDetail] = useState<Transaction | null>(null);
 
+  const [transactionToDelete, setTransactionToDelete] = useState<string | null>(null);
+  const [isDeleteTransactionModalOpen, setIsDeleteTransactionModalOpen] = useState<boolean>(false);
+  const [deleteAccessCode, setDeleteAccessCode] = useState<string>('');
+  const [deleteError, setDeleteError] = useState<string>('');
+
   const [filterCategory, setFilterCategory] = useState<'all' | 'furniture' | 'electronics'>('all');
   const [filterSubcategory, setFilterSubcategory] = useState<string>('all');
   const [globalSearch, setGlobalSearch] = useState('');
@@ -314,6 +319,48 @@ export default function App() {
     }
   };
 
+
+  const handleDeleteTransaction = async () => {
+    if (deleteAccessCode !== '133') {
+      setDeleteError('Kode akses salah!');
+      return;
+    }
+
+    if (!transactionToDelete) {
+      setDeleteError('Tidak ada transaksi yang dipilih untuk dihapus.');
+      return;
+    }
+
+    // Optimistic update
+    const prevTransactions = transactions; // Store for rollback
+    setTransactions(prev => prev.filter(tx => tx.id !== transactionToDelete));
+    setIsDeleteTransactionModalOpen(false);
+    setTransactionToDelete(null);
+    setDeleteAccessCode('');
+    setDeleteError('');
+    triggerToast('Transaksi berhasil dihapus (lokal)!');
+
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase
+          .from('transactions')
+          .delete()
+          .eq('id', transactionToDelete);
+
+        if (error) {
+          triggerToast('Gagal menyinkronkan hapus transaksi ke server: ' + error.message);
+          setTransactions(prevTransactions); // Rollback
+        } else {
+          triggerToast('Transaksi berhasil dihapus (server)!');
+        }
+      } catch (e) {
+        console.warn('Supabase transaction delete exception:', e);
+        triggerToast('Gagal menyinkronkan hapus transaksi ke server.');
+        setTransactions(prevTransactions); // Rollback
+      }
+    }
+  };
+
   // Setup realtime subscription (called after initial fetch succeeds)
   const setupRealtime = () => {
     if (!isSupabaseConfigured) return null;
@@ -333,8 +380,8 @@ export default function App() {
             const updatedItem = mapDbToProduct(payload.new);
             const localEdit = lastLocalStockEditsRef.current[updatedItem.id];
 
-            // Block stale WebSocket echoes from overwriting recent local edits (< 3500ms)
-            if (localEdit && (Date.now() - localEdit.time < 3500)) {
+            // Block stale WebSocket echoes from overwriting recent local edits (< 5000ms)
+            if (localEdit && (Date.now() - localEdit.time < 5000)) {
               if (updatedItem.stock === localEdit.stock) {
                 delete lastLocalStockEditsRef.current[updatedItem.id];
               }
@@ -487,6 +534,7 @@ export default function App() {
             .eq('id', id);
 
           if (error) {
+            triggerToast('Gagal menyinkronkan stok ke server: ' + error.message); // Explicit user feedback
             console.warn('Sync error:', error.message);
           }
         } catch (e) {
@@ -1806,6 +1854,7 @@ export default function App() {
                           <th className="p-3">Pelanggan</th>
                           <th className="p-3">Barang Belanjaan</th>
                           <th className="p-3 text-right">Total</th>
+                          <th className="p-3 text-center">Aksi</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border-light/60">
@@ -1841,6 +1890,17 @@ export default function App() {
                               <td className="p-3 text-right font-bold text-primary">
                                 Rp {tx.totalPrice.toLocaleString('id-ID')}
                               </td>
+                              {isAdmin && (
+                                <td className="p-3 text-center">
+                                  <button 
+                                    onClick={(e) => { e.stopPropagation(); setTransactionToDelete(tx.id); setIsDeleteTransactionModalOpen(true); }}
+                                    className="text-error hover:text-error-dark active:scale-95 transition-all"
+                                    title="Hapus Transaksi"
+                                  >
+                                    <span className="material-symbols-outlined text-base">delete</span>
+                                  </button>
+                                </td>
+                              )}
                             </tr>
                           ))
                         )}
@@ -2204,6 +2264,45 @@ export default function App() {
         </div>
       )}
 
+
+      {/* ── DELETE TRANSACTION CONFIRMATION MODAL ── */}
+      {isDeleteTransactionModalOpen && isAdmin && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface/90 backdrop-blur-md" onClick={() => !isAuthenticating && setIsDeleteTransactionModalOpen(false)}>
+          <div className="w-full max-w-[380px] bg-pure-white border border-border-light rounded-xl p-6 sm:p-8 shadow-xl text-center" onClick={(e) => e.stopPropagation()}>
+            <span className="material-symbols-outlined text-[40px] text-error mb-2">warning</span>
+            <h3 className="font-headline-md text-headline-md text-primary mb-2 text-base">Konfirmasi Hapus Transaksi</h3>
+            <p className="font-body-md text-body-md text-secondary text-sm mb-4">Transaksi ini akan dihapus secara permanen. Mohon masukkan kode akses untuk konfirmasi.</p>
+            
+            <div className="mb-4">
+              <input
+                type="password"
+                placeholder="Kode Akses"
+                className="w-full bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-sm focus:ring-1 focus:ring-primary focus:bg-surface-container text-center"
+                value={deleteAccessCode}
+                onChange={(e) => { setDeleteAccessCode(e.target.value); setDeleteError(''); }}
+              />
+              {deleteError && <p className="text-error text-xs mt-2">{deleteError}</p>}
+            </div>
+
+            <div className="flex gap-4">
+              <button 
+                onClick={() => { setIsDeleteTransactionModalOpen(false); setDeleteAccessCode(''); setDeleteError(''); }} 
+                disabled={isAuthenticating} // Use isAuthenticating as a general busy state
+                className="flex-1 py-2.5 border border-border-light text-secondary font-button text-xs uppercase rounded-sm hover:border-primary transition-all disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button 
+                onClick={handleDeleteTransaction} 
+                disabled={isAuthenticating}
+                className="flex-grow py-2.5 bg-error text-pure-white font-button text-xs uppercase rounded-sm hover:bg-opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                {isAuthenticating ? 'Memproses...' : 'Hapus Sekarang'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* ── TOAST NOTIFICATION ── */}
       {toastMsg && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-primary text-pure-white px-5 py-3 rounded-sm shadow-xl font-bold uppercase tracking-widest text-[10px] z-50 flex items-center gap-2 border border-border-light">
