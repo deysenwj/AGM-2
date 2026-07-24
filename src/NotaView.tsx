@@ -500,6 +500,10 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
     await new Promise(resolve => setTimeout(resolve, 100)); // Small delay for rendering
     console.log('Attempting to capture iframeDoc.body with html2canvas...'); // NEW LOG
 
+
+
+    let imageData: string; // Declare imageData outside try-catch
+
     try {
       const canvas = await html2canvas(iframeDoc.body, { 
         scale: 1, // Changed to 1 for mobile compatibility
@@ -509,9 +513,11 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
         backgroundColor: '#ffffff', 
         ignoreElements: (element) => element.tagName === 'SCRIPT',
       });
-      console.log('Canvas generated successfully:', canvas); // EXISTING LOG
+      console.log('Canvas generated successfully:', canvas); 
 
+      imageData = canvas.toDataURL('image/jpeg', 0.9); // Assign value to imageData
       console.log('Generated imageData (first 100 chars):', imageData.substring(0, 100)); // NEW LOG
+
       // Convert data URL to Blob for more robust download
       const byteString = atob(imageData.split(',')[1]);
       const mimeString = imageData.split(',')[0].split(':')[1].split(';')[0];
