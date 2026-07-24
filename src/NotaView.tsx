@@ -69,8 +69,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
     } else {
       setSelectedProducts(prev => [...prev, { product, quantity: 1 }]);
     }
-    setSearchTerm(''); // Clear search after adding
-    if (searchInputRef.current) searchInputRef.current.focus();
+
   };
 
   const handleUpdateQuantity = (productId: string, newQuantity: number) => {

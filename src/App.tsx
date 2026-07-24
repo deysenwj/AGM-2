@@ -160,6 +160,7 @@ export default function App() {
   const [filterCategory, setFilterCategory] = useState<'all' | 'furniture' | 'electronics'>('all');
   const [filterSubcategory, setFilterSubcategory] = useState<string>('all');
   const [globalSearch, setGlobalSearch] = useState('');
+  const [stockSearchTerm, setStockSearchTerm] = useState<string>('');
   
   // Navigation & Drawer state
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -700,8 +701,9 @@ export default function App() {
   const filteredProducts = products.filter(p => {
     const matchCategory = filterCategory === 'all' || p.category === filterCategory;
     const matchSubcategory = filterSubcategory === 'all' || p.subcategory === filterSubcategory;
-    const matchSearch = p.name.toLowerCase().includes(globalSearch.toLowerCase()) || 
-                          p.description.toLowerCase().includes(globalSearch.toLowerCase());
+    const matchSearch = (currentView === 'stock' && stockSearchTerm)
+                        ? (p.name.toLowerCase().includes(stockSearchTerm.toLowerCase()) || p.description.toLowerCase().includes(stockSearchTerm.toLowerCase()))
+                        : (p.name.toLowerCase().includes(globalSearch.toLowerCase()) || p.description.toLowerCase().includes(globalSearch.toLowerCase()));
     
     // Check In Stock & Backorder statuses
     const isInStock = p.stock > 0;
@@ -1229,10 +1231,22 @@ export default function App() {
         {currentView === 'stock' && isAdmin && (
           <section className="px-margin-mobile lg:px-margin-desktop py-8 max-w-container-max mx-auto w-full flex-grow">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-              <h2 className="font-headline-lg text-headline-lg text-primary">Inventaris Gudang A1</h2>
-              <button onClick={openAdd} className="bg-primary text-pure-white px-6 py-3 font-button text-button uppercase tracking-wider rounded-sm w-full sm:w-auto">
-                Tambah SKU Baru
-              </button>
+              <h2 className="font-headline-lg text-headline-lg text-primary">Inventaris Gudang AGM 2</h2>
+              <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+                <div className="relative w-full sm:max-w-xs">
+                  <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-secondary text-base">search</span>
+                  <input
+                    type="text"
+                    placeholder="Cari produk..."
+                    className="pl-8 pr-3 py-1.5 bg-surface-container border-none text-xs rounded-lg w-full focus:ring-1 focus:ring-primary focus:bg-surface-container-high transition-all"
+                    value={stockSearchTerm}
+                    onChange={(e) => setStockSearchTerm(e.target.value)}
+                  />
+                </div>
+                <button onClick={openAdd} className="bg-primary text-pure-white px-6 py-3 font-button text-button uppercase tracking-wider rounded-sm w-full sm:w-auto">
+                  Tambah SKU Baru
+                </button>
+              </div>
             </div>
 
             {/* Mobile Responsive View (< md) */}
@@ -1726,10 +1740,10 @@ export default function App() {
                               x={xOffset + colWidth / 2} 
                               y={yOffset - 6} 
                               textAnchor="middle" 
-                              fontSize="8" 
+                              fontSize="7" 
                               fontWeight="bold" 
                               fill="#1e293b"
-                              className="opacity-0 group-hover:opacity-100 transition-opacity"
+                              className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                             >
                               Rp {(d.value / 1000).toLocaleString('id-ID')}k
                             </text>
