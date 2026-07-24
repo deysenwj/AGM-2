@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
+import NotaView from './NotaView'; // Import NotaView
 
-interface Product {
+export interface Product {
   id: string;
   name: string;
   category: string; // 'furniture' | 'electronics'
@@ -13,6 +14,21 @@ interface Product {
   image: string;
   discount: number;
   arrivalType?: 'BARANG BARU' | 'EKSKLUSIF' | 'PRE-ORDER' | '';
+}
+
+export interface Transaction {
+  id: string;
+  customerName: string;
+  customerPhone?: string;
+  customerAddress?: string;
+  totalPrice: number;
+  items: {
+    productId: string;
+    productName: string;
+    quantity: number;
+    price: number;
+  }[];
+  date: string;
 }
 
  
@@ -109,6 +125,7 @@ const StockControlInput = ({
 
 export default function App() {
   const lastLocalStockEditsRef = React.useRef<{ [id: string]: { stock: number; time: number } }>({});
+  const pendingStockUpdatesRef = React.useRef<{ [id: string]: { timer: any; targetStock: number } }>({});
   const [products, setProducts] = useState<Product[]>(() => {
     const saved = localStorage.getItem('agm2_inventory');
     if (saved) {
@@ -125,7 +142,21 @@ export default function App() {
   const [isFetchingData, setIsFetchingData] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [currentView, setCurrentView] = useState<'catalog' | 'stock' | 'dashboard'>('catalog');
+  const [currentView, setCurrentView] = useState<'catalog' | 'stock' | 'dashboard' | 'nota'>('catalog');
+  
+  const [transactions, setTransactions] = useState<Transaction[]>(() => {
+    const saved = localStorage.getItem('agm2_transactions');
+    try {
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const [txStartDate, setTxStartDate] = useState<string>('');
+  const [txEndDate, setTxEndDate] = useState<string>('');
+  const [selectedTxDetail, setSelectedTxDetail] = useState<Transaction | null>(null);
+
   const [filterCategory, setFilterCategory] = useState<'all' | 'furniture' | 'electronics'>('all');
   const [filterSubcategory, setFilterSubcategory] = useState<string>('all');
   const [globalSearch, setGlobalSearch] = useState('');
@@ -179,8 +210,8 @@ export default function App() {
   });
 
   // Load state from Supabase with retry logic
-  const fetchProducts = async (maxRetries = 2) => {
-    setIsFetchingData(true);
+  const fetchProducts = async (maxRetries = 2, showSpinner = true) => {
+    if (showSpinner) setIsFetchingData(true);
     setFetchError(null);
     if (isSupabaseConfigured) {
       let attempts = 0;
@@ -229,6 +260,59 @@ export default function App() {
     setIsFetchingData(false);
   };
 
+  const fetchTransactions = async () => {
+    if (!isSupabaseConfigured) return;
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.warn('Failed to fetch transactions from Supabase:', error.message);
+        return;
+      }
+      if (data) {
+        const mapped: Transaction[] = data.map(t => ({
+          id: t.id,
+          customerName: t.customer_name,
+          customerPhone: t.customer_phone || undefined,
+          customerAddress: t.customer_address || undefined,
+          totalPrice: Number(t.total_price),
+          items: typeof t.items === 'string' ? JSON.parse(t.items) : t.items,
+          date: new Date(t.created_at).toLocaleString('id-ID'),
+        }));
+        setTransactions(mapped);
+        localStorage.setItem('agm2_transactions', JSON.stringify(mapped));
+      }
+    } catch (err) {
+      console.warn('Transactions sync failed:', err);
+    }
+  };
+
+  const addTransaction = async (tx: Transaction) => {
+    const updated = [tx, ...transactions];
+    setTransactions(updated);
+    localStorage.setItem('agm2_transactions', JSON.stringify(updated));
+
+    if (isSupabaseConfigured) {
+      try {
+        await supabase
+          .from('transactions')
+          .insert([{
+            id: tx.id,
+            customer_name: tx.customerName,
+            customer_phone: tx.customerPhone || null,
+            customer_address: tx.customerAddress || null,
+            total_price: tx.totalPrice,
+            items: tx.items
+          }]);
+      } catch (e) {
+        console.warn('Supabase transaction insert exception:', e);
+      }
+    }
+  };
+
   // Setup realtime subscription (called after initial fetch succeeds)
   const setupRealtime = () => {
     if (!isSupabaseConfigured) return null;
@@ -274,15 +358,20 @@ export default function App() {
   useEffect(() => {
     let productsChannel: any = null;
 
-    // Fetch first, then connect realtime to avoid bandwidth competition on mobile
-    fetchProducts(2).then(() => {
+    // Fetch both tables concurrently (in parallel) to cut initial load time in half
+    Promise.all([
+      fetchProducts(2, true),
+      fetchTransactions()
+    ]).then(() => {
       productsChannel = setupRealtime();
     });
 
     // Re-sync when user returns to tab (critical for mobile where browser suspends tabs)
+    // Run silently in the background (showSpinner = false) for zero layout flicker
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
-        fetchProducts(2);
+        fetchProducts(2, false);
+        fetchTransactions();
       }
     };
     document.addEventListener('visibilitychange', handleVisibility);
@@ -357,40 +446,55 @@ export default function App() {
 
   // Super-Responsive Stock Update Functions (0ms optimistic delay)
   const adjustStock = async (id: string, amount: number) => {
-    let updatedStock = 0;
+    // 1. Find target product
+    const currentProduct = products.find(p => p.id === id);
+    if (!currentProduct) return;
 
+    // Calculate base stock from current local state or pending updates
+    let baseStock = currentProduct.stock;
+    if (pendingStockUpdatesRef.current[id]) {
+      baseStock = pendingStockUpdatesRef.current[id].targetStock;
+    }
+
+    const updatedStock = Math.max(0, baseStock + amount);
+
+    // Update state immediately for instant UI response
     setProducts(prev => {
-      const updatedList = prev.map(p => {
-        if (p.id === id) {
-          const current = typeof p.stock === 'number' && !isNaN(p.stock) ? p.stock : (parseInt(String(p.stock)) || 0);
-          updatedStock = Math.max(0, current + amount);
-          return { ...p, stock: updatedStock };
-        }
-        return p;
-      });
-
-      lastLocalStockEditsRef.current[id] = { stock: updatedStock, time: Date.now() };
-
+      const updatedList = prev.map(p => p.id === id ? { ...p, stock: updatedStock } : p);
       try {
         localStorage.setItem('agm2_inventory', JSON.stringify(updatedList));
       } catch (e) {}
       return updatedList;
     });
 
-    if (isSupabaseConfigured) {
-      try {
-        const { error } = await supabase
-          .from('products')
-          .update({ stock: updatedStock })
-          .eq('id', id);
+    // Record the edit to prevent WebSocket update overwrite
+    lastLocalStockEditsRef.current[id] = { stock: updatedStock, time: Date.now() };
 
-        if (error) {
-          console.warn('Sync notice:', error.message);
-        }
-      } catch (e) {
-        console.warn('Sync notice:', e);
-      }
+    // Clear any existing debounce timer for this product
+    if (pendingStockUpdatesRef.current[id]) {
+      clearTimeout(pendingStockUpdatesRef.current[id].timer);
     }
+
+    // Debounce the Supabase DB write (500ms)
+    const timer = setTimeout(async () => {
+      delete pendingStockUpdatesRef.current[id];
+      if (isSupabaseConfigured) {
+        try {
+          const { error } = await supabase
+            .from('products')
+            .update({ stock: updatedStock })
+            .eq('id', id);
+
+          if (error) {
+            console.warn('Sync error:', error.message);
+          }
+        } catch (e) {
+          console.warn('Sync exception:', e);
+        }
+      }
+    }, 500);
+
+    pendingStockUpdatesRef.current[id] = { timer, targetStock: updatedStock };
   };
 
   const setDirectStock = async (id: string, newStockVal: number) => {
@@ -658,6 +762,12 @@ export default function App() {
                 >
                   Analisis
                 </button>
+                <button
+                  onClick={() => setCurrentView('nota')}
+                  className={`font-body-md text-body-md uppercase tracking-widest pb-1 transition-all ${currentView === 'nota' ? 'text-primary font-bold border-b-2 border-primary' : 'text-secondary hover:text-primary'}`}
+                >
+                  Nota
+                </button>
               </>
             )}
           </div>
@@ -667,7 +777,7 @@ export default function App() {
         <div className="flex items-center gap-2 sm:gap-4">
           {/* Refresh / Sync status button */}
           <button
-            onClick={() => fetchProducts(3)}
+            onClick={() => fetchProducts(2)}
             disabled={isFetchingData}
             className={`p-1.5 px-2.5 rounded-lg border flex items-center gap-1.5 text-xs transition-all ${
               isFetchingData
@@ -747,6 +857,13 @@ export default function App() {
                 >
                   <span className="material-symbols-outlined text-[20px]">dashboard</span>
                   <span className="font-body-md text-body-md">Dasbor</span>
+                </button>
+                <button
+                  onClick={() => setCurrentView('nota')}
+                  className={`w-full text-left flex items-center gap-3 p-3 rounded-lg transition-all ${currentView === 'nota' ? 'bg-secondary-container text-primary font-semibold' : 'text-on-surface-variant hover:bg-surface-container-high'}`}
+                >
+                  <span className="material-symbols-outlined text-[20px]">receipt_long</span>
+                  <span className="font-body-md text-body-md">Buat Nota</span>
                 </button>
               </>
             )}
@@ -1295,6 +1412,57 @@ export default function App() {
           const furnitureValPercent = Math.round((furnitureVal / totalValAll) * 100);
           const electronicsValPercent = Math.round((electronicsVal / totalValAll) * 100);
 
+          // ── TREN PENJUALAN KEUANGAN (7 HARI TERAKHIR) ──
+          const salesByDate: { [date: string]: number } = {};
+          const last7Days = Array.from({ length: 7 }).map((_, i) => {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+          }).reverse();
+
+          // Initialize last 7 days with 0
+          last7Days.forEach(day => {
+            salesByDate[day] = 0;
+          });
+
+          // Sum sales matching the date labels
+          transactions.forEach(tx => {
+            try {
+              const parts = tx.date.split(',')[0].trim().split('/');
+              if (parts.length === 3) {
+                const d = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+                const label = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+                if (salesByDate[label] !== undefined) {
+                  salesByDate[label] += tx.totalPrice;
+                }
+              }
+            } catch (e) {}
+          });
+
+          const chartData = last7Days.map(day => ({
+            label: day,
+            value: salesByDate[day],
+          }));
+
+          const maxSalesValue = Math.max(...chartData.map(d => d.value), 100000);
+
+          // Filter transactions based on date inputs
+          const filteredTransactions = transactions.filter(tx => {
+            if (!txStartDate && !txEndDate) return true;
+            try {
+              const parts = tx.date.split(',')[0].trim().split('/');
+              if (parts.length === 3) {
+                // dd/mm/yyyy format -> YYYY-MM-DD
+                const txDateStr = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                if (txStartDate && txDateStr < txStartDate) return false;
+                if (txEndDate && txDateStr > txEndDate) return false;
+              }
+            } catch (e) {
+              return true;
+            }
+            return true;
+          });
+
           return (
             <section className="px-margin-mobile lg:px-margin-desktop py-8 max-w-container-max mx-auto w-full flex-grow">
               
@@ -1497,9 +1665,253 @@ export default function App() {
                 </div>
               </div>
 
+              {/* ── 4. TREN PENJUALAN & RIWAYAT TRANSAKSI PENJUALAN ── */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                {/* SVG Revenue Chart */}
+                <div className="lg:col-span-1 bg-pure-white border border-border-light p-6 rounded-xl shadow-sm flex flex-col justify-between">
+                  <div>
+                    <h3 className="font-bold text-base text-primary flex items-center gap-2 mb-2">
+                      <span className="material-symbols-outlined text-primary">analytics</span> Tren Penjualan
+                    </h3>
+                    <p className="text-xs text-secondary mb-4">Total pendapatan penjualan (7 hari terakhir)</p>
+                  </div>
+                  
+                  <div className="h-56 w-full flex items-center justify-center">
+                    <svg viewBox="0 0 320 200" className="w-full h-full">
+                      {/* Grid Lines */}
+                      <line x1="40" y1="20" x2="300" y2="20" stroke="#f3f4f6" strokeWidth="1" strokeDasharray="3" />
+                      <line x1="40" y1="70" x2="300" y2="70" stroke="#f3f4f6" strokeWidth="1" strokeDasharray="3" />
+                      <line x1="40" y1="120" x2="300" y2="120" stroke="#f3f4f6" strokeWidth="1" strokeDasharray="3" />
+                      <line x1="40" y1="160" x2="300" y2="160" stroke="#e5e7eb" strokeWidth="1.5" />
+
+                      {/* Axis Values */}
+                      <text x="35" y="24" textAnchor="end" fontSize="8" fill="#9ca3af">Rp {(maxSalesValue / 1000).toLocaleString('id-ID')}k</text>
+                      <text x="35" y="74" textAnchor="end" fontSize="8" fill="#9ca3af">Rp {(maxSalesValue / 2000).toLocaleString('id-ID')}k</text>
+                      <text x="35" y="124" textAnchor="end" fontSize="8" fill="#9ca3af">Rp {(maxSalesValue / 4000).toLocaleString('id-ID')}k</text>
+                      <text x="35" y="164" textAnchor="end" fontSize="8" fill="#9ca3af">Rp 0</text>
+
+                      {/* Columns */}
+                      {chartData.map((d, index) => {
+                        const colWidth = 24;
+                        const colGap = 12;
+                        const xOffset = 45 + index * (colWidth + colGap);
+                        const colHeight = (d.value / maxSalesValue) * 140;
+                        const yOffset = 160 - colHeight;
+
+                        return (
+                          <g key={'sales-bar-' + index} className="group cursor-pointer">
+                            {/* Hover overlay */}
+                            <rect x={xOffset - 2} y="10" width={colWidth + 4} height="150" fill="transparent" className="hover:fill-surface-container-low transition-colors" />
+                            
+                            {/* Visual bar */}
+                            <rect 
+                              x={xOffset} 
+                              y={yOffset} 
+                              width={colWidth} 
+                              height={colHeight} 
+                              fill="var(--color-primary, #1e293b)" 
+                              rx="3"
+                              className="fill-primary hover:opacity-85 transition-opacity"
+                            />
+                            
+                            {/* Hover tooltip values */}
+                            <text 
+                              x={xOffset + colWidth / 2} 
+                              y={yOffset - 6} 
+                              textAnchor="middle" 
+                              fontSize="8" 
+                              fontWeight="bold" 
+                              fill="#1e293b"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              Rp {(d.value / 1000).toLocaleString('id-ID')}k
+                            </text>
+
+                            {/* Label */}
+                            <text x={xOffset + colWidth / 2} y="176" textAnchor="middle" fontSize="7" fill="#6b7280" fontWeight="bold">
+                              {d.label.split(' ')[0]}
+                            </text>
+                          </g>
+                        );
+                      })}
+                    </svg>
+                  </div>
+                </div>
+
+                {/* Recent Transactions List */}
+                <div className="lg:col-span-2 bg-pure-white border border-border-light p-6 rounded-xl shadow-sm flex flex-col">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 pb-2 border-b border-border-light">
+                    <div>
+                      <h3 className="font-bold text-base text-primary flex items-center gap-2">
+                        <span className="material-symbols-outlined text-primary">receipt_long</span> Riwayat Transaksi Penjualan
+                      </h3>
+                      <p className="text-[10px] text-secondary mt-0.5">Klik baris untuk melihat detail pelanggan & belanja lengkap</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      <div className="flex items-center gap-1">
+                        <span className="text-secondary text-[10px] font-bold">Mulai:</span>
+                        <input 
+                          type="date" 
+                          value={txStartDate}
+                          onChange={(e) => setTxStartDate(e.target.value)}
+                          className="bg-surface-container-low border-none rounded px-2 py-1 text-xs text-primary focus:ring-1 focus:ring-primary focus:bg-surface-container"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-secondary text-[10px] font-bold">Selesai:</span>
+                        <input 
+                          type="date" 
+                          value={txEndDate}
+                          onChange={(e) => setTxEndDate(e.target.value)}
+                          className="bg-surface-container-low border-none rounded px-2 py-1 text-xs text-primary focus:ring-1 focus:ring-primary focus:bg-surface-container"
+                        />
+                      </div>
+                      {(txStartDate || txEndDate) && (
+                        <button 
+                          onClick={() => { setTxStartDate(''); setTxEndDate(''); }}
+                          className="text-error hover:text-error-dark font-bold text-[10px] uppercase border border-error/20 px-2 py-1 rounded"
+                        >
+                          Reset
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex-grow overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[500px] text-xs">
+                      <thead>
+                        <tr className="bg-surface-container border-b border-border-light text-[10px] uppercase text-secondary font-bold">
+                          <th className="p-3">ID / Tanggal</th>
+                          <th className="p-3">Pelanggan</th>
+                          <th className="p-3">Barang Belanjaan</th>
+                          <th className="p-3 text-right">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border-light/60">
+                        {filteredTransactions.length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className="p-8 text-center text-secondary">Belum ada transaksi terekam / tidak cocok dengan filter tanggal.</td>
+                          </tr>
+                        ) : (
+                          filteredTransactions.map(tx => (
+                            <tr 
+                              key={tx.id} 
+                              onClick={() => setSelectedTxDetail(tx)}
+                              className="hover:bg-surface-container-low cursor-pointer transition-colors active:scale-[0.99] origin-left animate-fade-in"
+                            >
+                              <td className="p-3">
+                                <div className="font-bold text-primary">{tx.id}</div>
+                                <div className="text-[9px] text-secondary">{tx.date}</div>
+                              </td>
+                              <td className="p-3">
+                                <div className="font-bold">{tx.customerName}</div>
+                                {tx.customerPhone && <div className="text-[9px] text-secondary">HP: {tx.customerPhone}</div>}
+                                {tx.customerAddress && <div className="text-[9px] text-secondary truncate max-w-[120px]" title={tx.customerAddress}>Alamat: {tx.customerAddress}</div>}
+                              </td>
+                              <td className="p-3">
+                                <div className="space-y-0.5">
+                                  {tx.items.map((item, index) => (
+                                    <div key={tx.id + '-item-' + index} className="text-[10px] text-on-surface">
+                                      • {item.productName} <span className="text-secondary">(x{item.quantity})</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </td>
+                              <td className="p-3 text-right font-bold text-primary">
+                                Rp {tx.totalPrice.toLocaleString('id-ID')}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
             </section>
           );
         })()}
+
+        {/* ── NOTA PRINTING VIEW ── */}
+        {currentView === 'nota' && isAdmin && (
+          <NotaView products={products} triggerToast={triggerToast} isAdmin={isAdmin} adjustStock={adjustStock} addTransaction={addTransaction} />
+        )}
+
+        {/* ── TRANSACTION DETAIL MODAL ── */}
+        {selectedTxDetail && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface/90 backdrop-blur-md" onClick={() => setSelectedTxDetail(null)}>
+            <div className="w-full max-w-[460px] bg-pure-white border border-border-light rounded-xl p-6 sm:p-8 shadow-xl relative" onClick={(e) => e.stopPropagation()}>
+              <button 
+                onClick={() => setSelectedTxDetail(null)}
+                className="absolute top-4 right-4 text-secondary hover:text-primary transition-colors flex items-center justify-center w-8 h-8 rounded-full hover:bg-surface-container"
+              >
+                <span className="material-symbols-outlined text-lg">close</span>
+              </button>
+
+              <h3 className="font-bold text-base text-primary mb-1">Detail Transaksi Penjualan</h3>
+              <p className="text-[10px] text-secondary mb-4">No Struk: <strong className="text-primary">{selectedTxDetail.id}</strong> • {selectedTxDetail.date}</p>
+              
+              <div className="space-y-4 text-xs mb-6 text-left border-y border-border-light py-4">
+                {/* Buyer info */}
+                <div>
+                  <span className="text-secondary font-bold uppercase tracking-wider text-[9px] block mb-1">Data Pelanggan</span>
+                  <div className="bg-surface-container-low p-3 rounded-lg border border-border-light/60 space-y-1">
+                    <div><span className="text-secondary">Nama:</span> <strong className="text-primary">{selectedTxDetail.customerName}</strong></div>
+                    {selectedTxDetail.customerPhone && (
+                      <div><span className="text-secondary">No. HP:</span> <strong className="text-primary">{selectedTxDetail.customerPhone}</strong></div>
+                    )}
+                    {selectedTxDetail.customerAddress && (
+                      <div><span className="text-secondary">Alamat:</span> <span className="text-primary">{selectedTxDetail.customerAddress}</span></div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Items */}
+                <div>
+                  <span className="text-secondary font-bold uppercase tracking-wider text-[9px] block mb-1">Item yang Dibeli</span>
+                  <div className="max-h-36 overflow-y-auto border border-border-light rounded-lg">
+                    <table className="w-full text-left border-collapse text-[11px]">
+                      <thead>
+                        <tr className="bg-surface-container text-[9px] font-bold text-secondary border-b border-border-light uppercase">
+                          <th className="p-2">Item</th>
+                          <th className="p-2 text-center">Qty</th>
+                          <th className="p-2 text-right">Harga</th>
+                          <th className="p-2 text-right">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border-light/40">
+                        {selectedTxDetail.items.map((item, idx) => (
+                          <tr key={'modal-tx-item-' + idx} className="hover:bg-surface-container-low">
+                            <td className="p-2 font-medium">{item.productName}</td>
+                            <td className="p-2 text-center font-bold text-primary">{item.quantity}</td>
+                            <td className="p-2 text-right">Rp {item.price.toLocaleString('id-ID')}</td>
+                            <td className="p-2 text-right font-bold text-primary">Rp {(item.price * item.quantity).toLocaleString('id-ID')}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Total */}
+                <div className="pt-2 flex justify-between font-bold text-xs text-primary">
+                  <span>GRAND TOTAL:</span>
+                  <span>Rp {selectedTxDetail.totalPrice.toLocaleString('id-ID')}</span>
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setSelectedTxDetail(null)}
+                  className="w-full py-2.5 bg-primary text-pure-white font-button text-xs uppercase rounded-sm hover:bg-opacity-95 transition-all"
+                >
+                  Tutup Detail
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── TECHNICAL FOOTER ── */}
         <footer className="bg-surface-dim px-margin-mobile lg:px-margin-desktop py-6 border-t border-border-light mt-auto flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-left">

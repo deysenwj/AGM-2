@@ -27,7 +27,7 @@ export const supabase = createClient(
     // channels are explicitly subscribed in App.tsx
     realtime: {
       params: {
-        eventsPerSecond: 2,
+        eventsPerSecond: 40,
       },
     },
     global: {
