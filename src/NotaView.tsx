@@ -343,12 +343,16 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
     const buttons = notaRef.current.querySelectorAll('button');
     buttons.forEach(button => button.style.display = 'none');
 
+    console.log('Attempting to capture notaRef.current:', notaRef.current); // DEBUG LOG
+
     try {
       const canvas = await html2canvas(notaRef.current, {
         scale: 2, // Increase scale for higher resolution
-        useCORS: true, // If images are hosted cross-origin
-        logging: false, // Disable logging for cleaner console
+        useCORS: false, // Changed to false for testing
+        logging: true, // Changed to true for debugging
+        allowTaint: true, // Allow tainting the canvas if cross-origin images are loaded (but useCORS is false)
       });
+      console.log('Canvas generated successfully:', canvas); // DEBUG LOG
 
       // Get JPEG data URL
       const imageData = canvas.toDataURL('image/jpeg', 0.9); // 0.9 quality for JPEG
