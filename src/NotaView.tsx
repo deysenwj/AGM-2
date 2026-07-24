@@ -498,28 +498,41 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
 
     // Ensure iframe content is rendered before capturing
     await new Promise(resolve => setTimeout(resolve, 100)); // Small delay for rendering
+    console.log('Attempting to capture iframeDoc.body with html2canvas...'); // NEW LOG
 
     try {
-      const canvas = await html2canvas(iframeDoc.body, { // Capture iframe's body
-        scale: 2, 
+      const canvas = await html2canvas(iframeDoc.body, { 
+        scale: 1, // Changed to 1 for mobile compatibility
         useCORS: true, 
         logging: true, 
         allowTaint: true, 
         backgroundColor: '#ffffff', 
         ignoreElements: (element) => element.tagName === 'SCRIPT',
       });
-      console.log('Canvas generated successfully:', canvas); 
+      console.log('Canvas generated successfully:', canvas); // EXISTING LOG
 
-      // Get JPEG data URL
-      const imageData = canvas.toDataURL('image/jpeg', 0.9); 
+      console.log('Generated imageData (first 100 chars):', imageData.substring(0, 100)); // NEW LOG
+      // Convert data URL to Blob for more robust download
+      const byteString = atob(imageData.split(',')[1]);
+      const mimeString = imageData.split(',')[0].split(':')[1].split(';')[0];
+      const ab = new ArrayBuffer(byteString.length);
+      const ia = new Uint8Array(ab);
+      for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+      }
+      const blob = new Blob([ab], { type: mimeString });
+      const url = URL.createObjectURL(blob);
+
+      console.log('Attempting to download image via Blob URL:', url); // NEW LOG
 
       // Create a dummy link and click to download
       const link = document.createElement('a');
-      link.href = imageData;
+      link.href = url;
       link.download = `nota-${notaId}.jpg`; 
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(url); // Clean up the object URL
 
       triggerToast('Nota berhasil diunduh sebagai gambar JPG!'); 
 
