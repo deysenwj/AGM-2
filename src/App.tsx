@@ -188,16 +188,15 @@ export default function App() {
         return matchStartDate && matchEndDate;
       });
     } else {
-      // Default to today's transactions if no date filter is applied
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(today.getDate() + 1);
+      // Default to last 7 days transactions if no date filter is applied
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      sevenDaysAgo.setHours(0, 0, 0, 0);
 
       return filtered.filter(tx => {
         const txDate = new Date(tx.dateRaw);
         txDate.setHours(0, 0, 0, 0);
-        return txDate.getTime() >= today.getTime() && txDate.getTime() < tomorrow.getTime();
+        return txDate.getTime() >= sevenDaysAgo.getTime();
       });
     }
   }, [transactions, txStartDate, txEndDate]);

@@ -161,6 +161,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
         totalPrice: totalVal,
         items: txItems,
         date: dateStr,
+        dateRaw: new Date().toISOString(), // NEW: Add raw ISO string for consistency
       };
 
       await addTransaction(newTx);
@@ -506,7 +507,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
 
     try {
       const canvas = await html2canvas(iframeDoc.body, { 
-        scale: 1, // Changed to 1 for mobile compatibility
+        scale: 2, // Changed to 2 for higher quality
         useCORS: true, 
         logging: true, 
         allowTaint: true, 
