@@ -123,6 +123,7 @@ export default function App() {
     return [];
   });
   const [isFetchingData, setIsFetchingData] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [currentView, setCurrentView] = useState<'catalog' | 'stock' | 'dashboard'>('catalog');
   const [filterCategory, setFilterCategory] = useState<'all' | 'furniture' | 'electronics'>('all');
@@ -177,25 +178,56 @@ export default function App() {
     arrivalType: item.arrival_type || ''
   });
 
-  // Load state from Supabase 100% directly with safe local cache preservation
-  const fetchProducts = async () => {
+  // Load state from Supabase with retry logic and timeout safety
+  const fetchProducts = async (maxRetries = 3) => {
     setIsFetchingData(true);
+    setFetchError(null);
     if (isSupabaseConfigured) {
-      try {
-        const { data, error } = await supabase
-          .from('products')
-          .select('*')
-          .order('created_at', { ascending: false });
+      let attempts = 0;
+      let success = false;
+      let lastErr = '';
 
-        if (error) {
-          console.error('Error mengambil data dari Supabase:', error.message);
-        } else if (data) {
-          const dbProducts = data.map(mapDbToProduct);
-          setProducts(dbProducts);
-          localStorage.setItem('agm2_inventory', JSON.stringify(dbProducts));
+      while (attempts < maxRetries && !success) {
+        attempts++;
+        try {
+          // Timeout promise (8 seconds per attempt) to prevent hanging during cold start
+          const queryPromise = supabase
+            .from('products')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+          const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) =>
+            setTimeout(() => reject(new Error('Koneksi database timeout. Memuat ulang...')), 8000)
+          );
+
+          const res = await Promise.race([queryPromise, timeoutPromise]) as any;
+
+          if (res.error) {
+            console.warn(`Attempt ${attempts} Supabase error:`, res.error.message);
+            lastErr = res.error.message;
+            if (attempts < maxRetries) {
+              await new Promise(r => setTimeout(r, 800 * attempts));
+            }
+          } else if (res.data) {
+            const dbProducts = res.data.map(mapDbToProduct);
+            setProducts(dbProducts);
+            try {
+              localStorage.setItem('agm2_inventory', JSON.stringify(dbProducts));
+            } catch (e) {}
+            success = true;
+            setFetchError(null);
+          }
+        } catch (err: any) {
+          console.warn(`Attempt ${attempts} fetch exception:`, err?.message || err);
+          lastErr = err?.message || 'Gagal terhubung ke database.';
+          if (attempts < maxRetries) {
+            await new Promise(r => setTimeout(r, 800 * attempts));
+          }
         }
-      } catch (err) {
-        console.error('Network error fetching products from Supabase:', err);
+      }
+
+      if (!success) {
+        setFetchError(lastErr || 'Gagal memuat data dari database.');
       }
     }
     setIsFetchingData(false);
@@ -203,7 +235,7 @@ export default function App() {
 
   // Realtime subscription & initial load
   useEffect(() => {
-    fetchProducts();
+    fetchProducts(3);
 
     let productsChannel: any = null;
 
@@ -239,7 +271,11 @@ export default function App() {
             }
           }
         )
-        .subscribe();
+        .subscribe((status, err) => {
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.warn('Realtime channel warning:', status, err);
+          }
+        });
     }
 
     const auth = localStorage.getItem('agm2_admin_mode');
@@ -618,7 +654,28 @@ export default function App() {
         </div>
 
         {/* Right Top Items (Responsive Search and Login) */}
-        <div className="flex items-center gap-3 sm:gap-6">
+        <div className="flex items-center gap-2 sm:gap-4">
+          {/* Refresh / Sync status button */}
+          <button
+            onClick={() => fetchProducts(3)}
+            disabled={isFetchingData}
+            className={`p-1.5 px-2.5 rounded-lg border flex items-center gap-1.5 text-xs transition-all ${
+              isFetchingData
+                ? 'bg-amber-50 text-amber-700 border-amber-200 cursor-wait'
+                : fetchError
+                ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                : 'bg-surface-container text-secondary hover:text-primary border-border-light'
+            }`}
+            title={isFetchingData ? 'Menyinkronkan data database...' : fetchError ? 'Gagal sinkron. Klik untuk coba lagi' : 'Sinkronkan data'}
+          >
+            <span className={`material-symbols-outlined text-[18px] ${isFetchingData ? 'animate-spin' : ''}`}>
+              sync
+            </span>
+            <span className="hidden sm:inline font-medium text-[11px]">
+              {isFetchingData ? 'Sinkron...' : fetchError ? 'Coba Lagi' : 'Refresh'}
+            </span>
+          </button>
+
           <div className="relative max-w-[120px] sm:max-w-xs">
             <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-secondary text-base">search</span>
             <input
@@ -898,8 +955,50 @@ export default function App() {
               )}
             </div>
 
-            {/* Bento-Inspired Product Grid */}
-            {filteredProducts.length === 0 ? (
+            {/* Warning banner if running on cached data due to network error */}
+            {fetchError && products.length > 0 && (
+              <div className="mb-6 p-3 px-4 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg flex items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-amber-600 text-base shrink-0">wifi_off</span>
+                  <span>Menampilkan data tersimpan. Gagal menyinkronkan data terbaru dari server database.</span>
+                </div>
+                <button
+                  onClick={() => fetchProducts(3)}
+                  disabled={isFetchingData}
+                  className="px-3 py-1 bg-amber-600 text-white font-bold rounded text-[11px] hover:bg-amber-700 transition-colors shrink-0 flex items-center gap-1"
+                >
+                  <span className={`material-symbols-outlined text-[14px] ${isFetchingData ? 'animate-spin' : ''}`}>sync</span>
+                  {isFetchingData ? 'Memproses...' : 'Coba Lagi'}
+                </button>
+              </div>
+            )}
+
+            {/* Bento-Inspired Product Grid / Skeleton Loader / Error view */}
+            {isFetchingData && products.length === 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 animate-pulse">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
+                  <div key={'skeleton-' + i} className="bg-pure-white border border-border-light p-3 flex flex-col gap-3 rounded-lg">
+                    <div className="aspect-square bg-surface-container rounded-md w-full" />
+                    <div className="h-4 bg-surface-container rounded w-3/4" />
+                    <div className="h-3 bg-surface-container rounded w-1/2" />
+                    <div className="h-4 bg-surface-container rounded w-2/3 mt-2" />
+                  </div>
+                ))}
+              </div>
+            ) : fetchError && products.length === 0 ? (
+              <div className="text-center py-12 px-6 bg-red-50/60 border border-red-200 rounded-xl text-secondary max-w-md mx-auto my-8">
+                <span className="material-symbols-outlined text-4xl text-error mb-2 block">cloud_off</span>
+                <h4 className="font-bold text-primary text-base mb-1">Gagal Memuat Data Database</h4>
+                <p className="text-xs text-secondary mb-5 leading-relaxed">{fetchError}</p>
+                <button
+                  onClick={() => fetchProducts(3)}
+                  className="px-5 py-2.5 bg-primary text-pure-white text-xs font-bold uppercase rounded-lg hover:bg-opacity-90 transition-all inline-flex items-center gap-2 shadow-sm"
+                >
+                  <span className="material-symbols-outlined text-sm">refresh</span>
+                  Coba Muat Ulang Data
+                </button>
+              </div>
+            ) : filteredProducts.length === 0 ? (
               <div className="text-center py-16 text-secondary">
                 <span className="material-symbols-outlined text-4xl block mb-2 text-border-light">inventory_2</span>
                 <p className="text-sm">Tidak ada produk yang cocok dengan kriteria.</p>
