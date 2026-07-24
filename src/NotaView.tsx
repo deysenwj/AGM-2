@@ -359,23 +359,23 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
                 <table className="min-w-full divide-y divide-border-light">
                   <thead className="bg-surface-container-low sticky top-0">
                     <tr>
-                      <th className="px-4 py-2 text-left text-xs font-bold text-secondary uppercase">Produk</th>
-                      <th className="px-4 py-2 text-left text-xs font-bold text-secondary uppercase">Harga</th>
-                      <th className="px-4 py-2 text-center text-xs font-bold text-secondary uppercase">Stok</th>
-                      <th className="px-4 py-2 text-right text-xs font-bold text-secondary uppercase">Aksi</th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-secondary uppercase">Produk</th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-secondary uppercase">Harga</th>
+                      <th className="px-3 py-2 text-center text-xs font-bold text-secondary uppercase">Stok</th>
+                      <th className="px-3 py-2 text-right text-xs font-bold text-secondary uppercase">Aksi</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border-light">
                     {filteredProducts.map(p => (
                       <tr key={p.id}>
-                        <td className="px-4 py-2 text-sm text-on-surface">{p.name}</td>
-                        <td className="px-4 py-2 text-sm text-on-surface">{formatCurrency(p.price - p.discount)}</td>
-                        <td className="px-4 py-2 text-sm text-center">
+                        <td className="px-3 py-2 text-sm text-on-surface max-w-[80px] sm:max-w-none truncate">{p.name}</td>
+                        <td className="px-3 py-2 text-sm text-on-surface">{formatCurrency(p.price - p.discount)}</td>
+                        <td className="px-3 py-2 text-sm text-center">
                           <span className={`${p.stock <= 3 && p.stock > 0 ? 'text-warning' : p.stock === 0 ? 'text-error' : 'text-primary'}`}>
                             {p.stock} {p.unit}
                           </span>
                         </td>
-                        <td className="px-4 py-2 text-right">
+                        <td className="px-3 py-2 text-right">
                           <button
                             onClick={() => handleAddProduct(p)}
                             className="bg-primary text-pure-white px-3 py-1 text-xs rounded hover:bg-opacity-80 active:scale-95 transition-all"
@@ -432,10 +432,10 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
               <table className="min-w-full divide-y divide-border-light">
                 <thead className="bg-surface-container-low sticky top-0">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-bold text-secondary uppercase">Produk</th>
-                    <th className="px-4 py-2 text-left text-xs font-bold text-secondary uppercase">Qty</th>
-                    <th className="px-4 py-2 text-right text-xs font-bold text-secondary uppercase">Subtotal</th>
-                    <th className="px-4 py-2 text-right text-xs font-bold text-secondary uppercase">Hapus</th>
+                    <th className="px-3 py-2 text-left text-xs font-bold text-secondary uppercase">Produk</th>
+                    <th className="px-3 py-2 text-left text-xs font-bold text-secondary uppercase">Qty</th>
+                    <th className="px-3 py-2 text-right text-xs font-bold text-secondary uppercase">Subtotal</th>
+                    <th className="px-3 py-2 text-right text-xs font-bold text-secondary uppercase">Hapus</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-light">
@@ -446,20 +446,20 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
                   ) : (
                     selectedProducts.map(item => (
                       <tr key={item.product.id}>
-                        <td className="px-4 py-2 text-sm text-on-surface">{item.product.name}</td>
-                        <td className="px-4 py-2 text-sm text-on-surface">
+                        <td className="px-3 py-2 text-sm text-on-surface max-w-[80px] sm:max-w-none truncate">{item.product.name}</td>
+                        <td className="px-3 py-2 text-sm text-on-surface">
                           <input
                             type="number"
                             min="1"
                             value={item.quantity}
                             onChange={(e) => handleUpdateQuantity(item.product.id, parseInt(e.target.value))}
-                            className="w-16 text-center text-sm bg-surface-container-low border-none rounded-lg focus:ring-1 focus:ring-primary focus:bg-surface-container"
+                            className="w-16 text-center text-sm bg-surface-container-low border-none rounded-lg px-2 py-1 focus:ring-1 focus:ring-primary focus:bg-surface-container"
                           />
                         </td>
-                        <td className="px-4 py-2 text-right text-sm text-on-surface">
+                        <td className="px-3 py-2 text-right text-sm text-on-surface">
                           {formatCurrency((item.product.price - item.product.discount) * item.quantity)}
                         </td>
-                        <td className="px-4 py-2 text-right">
+                        <td className="px-3 py-2 text-right">
                           <button
                             onClick={() => handleRemoveProduct(item.product.id)}
                             className="text-error hover:text-error-dark active:scale-95 transition-all"
