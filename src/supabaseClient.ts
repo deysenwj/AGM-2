@@ -23,6 +23,23 @@ export const supabase = createClient(
       persistSession: true,
       autoRefreshToken: true,
     },
+    // ponytail: disable auto-connect realtime to save mobile bandwidth;
+    // channels are explicitly subscribed in App.tsx
+    realtime: {
+      params: {
+        eventsPerSecond: 2,
+      },
+    },
+    global: {
+      // 10s fetch timeout for slow mobile connections
+      fetch: (url, options = {}) => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        return fetch(url, {
+          ...options,
+          signal: controller.signal,
+        }).finally(() => clearTimeout(timeoutId));
+      },
+    },
   }
 );
-

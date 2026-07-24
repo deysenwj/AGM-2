@@ -178,8 +178,8 @@ export default function App() {
     arrivalType: item.arrival_type || ''
   });
 
-  // Load state from Supabase with retry logic and timeout safety
-  const fetchProducts = async (maxRetries = 3) => {
+  // Load state from Supabase with retry logic
+  const fetchProducts = async (maxRetries = 2) => {
     setIsFetchingData(true);
     setFetchError(null);
     if (isSupabaseConfigured) {
@@ -190,26 +190,19 @@ export default function App() {
       while (attempts < maxRetries && !success) {
         attempts++;
         try {
-          // Timeout promise (8 seconds per attempt) to prevent hanging during cold start
-          const queryPromise = supabase
+          const { data, error } = await supabase
             .from('products')
             .select('*')
             .order('created_at', { ascending: false });
 
-          const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((_, reject) =>
-            setTimeout(() => reject(new Error('Koneksi database timeout. Memuat ulang...')), 8000)
-          );
-
-          const res = await Promise.race([queryPromise, timeoutPromise]) as any;
-
-          if (res.error) {
-            console.warn(`Attempt ${attempts} Supabase error:`, res.error.message);
-            lastErr = res.error.message;
+          if (error) {
+            console.warn(`Attempt ${attempts} Supabase error:`, error.message);
+            lastErr = error.message;
             if (attempts < maxRetries) {
-              await new Promise(r => setTimeout(r, 800 * attempts));
+              await new Promise(r => setTimeout(r, 1000 * attempts));
             }
-          } else if (res.data) {
-            const dbProducts = res.data.map(mapDbToProduct);
+          } else if (data) {
+            const dbProducts = data.map(mapDbToProduct);
             setProducts(dbProducts);
             try {
               localStorage.setItem('agm2_inventory', JSON.stringify(dbProducts));
@@ -218,10 +211,13 @@ export default function App() {
             setFetchError(null);
           }
         } catch (err: any) {
-          console.warn(`Attempt ${attempts} fetch exception:`, err?.message || err);
-          lastErr = err?.message || 'Gagal terhubung ke database.';
+          const msg = err?.name === 'AbortError' 
+            ? 'Koneksi timeout. Jaringan terlalu lambat.' 
+            : (err?.message || 'Gagal terhubung ke database.');
+          console.warn(`Attempt ${attempts} fetch exception:`, msg);
+          lastErr = msg;
           if (attempts < maxRetries) {
-            await new Promise(r => setTimeout(r, 800 * attempts));
+            await new Promise(r => setTimeout(r, 1000 * attempts));
           }
         }
       }
@@ -233,50 +229,63 @@ export default function App() {
     setIsFetchingData(false);
   };
 
-  // Realtime subscription & initial load
-  useEffect(() => {
-    fetchProducts(3);
+  // Setup realtime subscription (called after initial fetch succeeds)
+  const setupRealtime = () => {
+    if (!isSupabaseConfigured) return null;
+    return supabase
+      .channel('realtime-products-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'products' },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const newItem = mapDbToProduct(payload.new);
+            setProducts(prev => {
+              if (prev.some(p => p.id === newItem.id)) return prev;
+              return [newItem, ...prev];
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedItem = mapDbToProduct(payload.new);
+            const localEdit = lastLocalStockEditsRef.current[updatedItem.id];
 
+            // Block stale WebSocket echoes from overwriting recent local edits (< 3500ms)
+            if (localEdit && (Date.now() - localEdit.time < 3500)) {
+              if (updatedItem.stock === localEdit.stock) {
+                delete lastLocalStockEditsRef.current[updatedItem.id];
+              }
+              return;
+            }
+
+            setProducts(prev => prev.map(p => p.id === updatedItem.id ? { ...p, ...updatedItem } : p));
+          } else if (payload.eventType === 'DELETE') {
+            const deletedId = String(payload.old.id);
+            setProducts(prev => prev.filter(p => p.id !== deletedId));
+          }
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn('Realtime channel warning:', status, err);
+        }
+      });
+  };
+
+  // Initial load: fetch data THEN connect realtime; re-sync on visibility change (mobile tab resume)
+  useEffect(() => {
     let productsChannel: any = null;
 
-    if (isSupabaseConfigured) {
-      productsChannel = supabase
-        .channel('realtime-products-changes')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'products' },
-          (payload) => {
-            if (payload.eventType === 'INSERT') {
-              const newItem = mapDbToProduct(payload.new);
-              setProducts(prev => {
-                if (prev.some(p => p.id === newItem.id)) return prev;
-                return [newItem, ...prev];
-              });
-            } else if (payload.eventType === 'UPDATE') {
-              const updatedItem = mapDbToProduct(payload.new);
-              const localEdit = lastLocalStockEditsRef.current[updatedItem.id];
+    // Fetch first, then connect realtime to avoid bandwidth competition on mobile
+    fetchProducts(2).then(() => {
+      productsChannel = setupRealtime();
+    });
 
-              // Block stale WebSocket echoes from overwriting recent local edits (< 3500ms)
-              if (localEdit && (Date.now() - localEdit.time < 3500)) {
-                if (updatedItem.stock === localEdit.stock) {
-                  delete lastLocalStockEditsRef.current[updatedItem.id];
-                }
-                return;
-              }
-
-              setProducts(prev => prev.map(p => p.id === updatedItem.id ? { ...p, ...updatedItem } : p));
-            } else if (payload.eventType === 'DELETE') {
-              const deletedId = String(payload.old.id);
-              setProducts(prev => prev.filter(p => p.id !== deletedId));
-            }
-          }
-        )
-        .subscribe((status, err) => {
-          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            console.warn('Realtime channel warning:', status, err);
-          }
-        });
-    }
+    // Re-sync when user returns to tab (critical for mobile where browser suspends tabs)
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchProducts(2);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
 
     const auth = localStorage.getItem('agm2_admin_mode');
     if (auth === 'true') {
@@ -285,6 +294,7 @@ export default function App() {
 
     return () => {
       if (productsChannel) supabase.removeChannel(productsChannel);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, []);
 
