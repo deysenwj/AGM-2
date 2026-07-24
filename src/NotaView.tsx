@@ -361,6 +361,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
                     <tr>
                       <th className="px-4 py-2 text-left text-xs font-bold text-secondary uppercase">Produk</th>
                       <th className="px-4 py-2 text-left text-xs font-bold text-secondary uppercase">Harga</th>
+                      <th className="px-4 py-2 text-center text-xs font-bold text-secondary uppercase">Stok</th>
                       <th className="px-4 py-2 text-right text-xs font-bold text-secondary uppercase">Aksi</th>
                     </tr>
                   </thead>
@@ -369,6 +370,11 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
                       <tr key={p.id}>
                         <td className="px-4 py-2 text-sm text-on-surface">{p.name}</td>
                         <td className="px-4 py-2 text-sm text-on-surface">{formatCurrency(p.price - p.discount)}</td>
+                        <td className="px-4 py-2 text-sm text-center">
+                          <span className={`${p.stock <= 3 && p.stock > 0 ? 'text-warning' : p.stock === 0 ? 'text-error' : 'text-primary'}`}>
+                            {p.stock} {p.unit}
+                          </span>
+                        </td>
                         <td className="px-4 py-2 text-right">
                           <button
                             onClick={() => handleAddProduct(p)}
