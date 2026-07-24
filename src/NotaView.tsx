@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import html2canvas from 'html2canvas';
 import type { Product } from './App'; // Import type to fix verbatimModuleSyntax warning
 
 interface NotaItem {
@@ -33,6 +34,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
   const [isConfirming, setIsConfirming] = useState<boolean>(false);
   const [isProcessingPrint, setIsProcessingPrint] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const notaRef = useRef<HTMLDivElement>(null);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>(products);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -330,6 +332,47 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
     setIsProcessingPrint(false);
   };
 
+  const handlePrintAsImage = async () => {
+    if (!notaRef.current) {
+      triggerToast('Gagal menemukan konten nota.');
+      return;
+    }
+
+    setIsProcessingPrint(true);
+    // Temporarily hide buttons or other interactive elements that should not be in the image
+    const buttons = notaRef.current.querySelectorAll('button');
+    buttons.forEach(button => button.style.display = 'none');
+
+    try {
+      const canvas = await html2canvas(notaRef.current, {
+        scale: 2, // Increase scale for higher resolution
+        useCORS: true, // If images are hosted cross-origin
+        logging: false, // Disable logging for cleaner console
+      });
+
+      // Get JPEG data URL
+      const imageData = canvas.toDataURL('image/jpeg', 0.9); // 0.9 quality for JPEG
+
+      // Create a dummy link and click to download
+      const link = document.createElement('a');
+      link.href = imageData;
+      link.download = `nota-${Date.now()}.jpg`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      triggerToast('Nota berhasil diunduh sebagai gambar JPG!');
+
+    } catch (error) {
+      console.error('Error generating image:', error);
+      triggerToast('Gagal mengunduh gambar nota.');
+    } finally {
+      // Restore hidden elements
+      buttons.forEach(button => button.style.display = '');
+      setIsProcessingPrint(false);
+    }
+  };
+
   return (
     <section className="px-margin-mobile lg:px-margin-desktop py-8 max-w-container-max mx-auto w-full flex-grow">
       <h2 className="font-headline-lg text-headline-lg text-primary mb-6">Buat Nota Penjualan</h2>
@@ -523,7 +566,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
       {/* ── NOTA CONFIRMATION MODAL ── */}
       {isConfirming && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface/90 backdrop-blur-md" onClick={() => !isProcessingPrint && setIsConfirming(false)}>
-          <div className="w-full max-w-[420px] bg-pure-white border border-border-light rounded-xl p-6 sm:p-8 shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div ref={notaRef} className="w-full max-w-[420px] bg-pure-white border border-border-light rounded-xl p-6 sm:p-8 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-headline-md text-headline-md text-primary mb-4 text-lg">Konfirmasi Transaksi Nota</h3>
             
             <div className="space-y-2.5 text-xs mb-6 text-left border-y border-border-light py-4">
@@ -558,6 +601,13 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
                 className="flex-1 py-2.5 border border-border-light text-secondary font-button text-xs uppercase rounded-sm hover:border-primary transition-all disabled:opacity-50"
               >
                 Batal / Edit
+              </button>
+              <button 
+                onClick={handlePrintAsImage} 
+                disabled={isProcessingPrint}
+                className="flex-1 py-2.5 bg-secondary-container text-primary font-button text-xs uppercase rounded-sm hover:bg-opacity-90 transition-all disabled:opacity-50"
+              >
+                Cetak Gambar (JPG)
               </button>
               <button 
                 onClick={executePrintAndSync} 
