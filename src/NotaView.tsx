@@ -355,8 +355,9 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
             ) : filteredProducts.length === 0 && !searchTerm ? (
               <div className="text-center py-8 text-secondary">Tambahkan produk di menu Inventaris.</div>
             ) : (
-              <div className="flex-grow overflow-x-auto max-h-96 overflow-y-auto border border-border-light rounded-lg">
-                <table className="min-w-full divide-y divide-border-light">
+              <div className="flex-grow max-h-96 overflow-y-auto border border-border-light rounded-lg">
+                {/* Desktop Table View */}
+                <table className="min-w-full divide-y divide-border-light hidden md:table">
                   <thead className="bg-surface-container-low sticky top-0">
                     <tr>
                       <th className="px-3 py-2 text-left text-xs font-bold text-secondary uppercase">Produk</th>
@@ -368,7 +369,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
                   <tbody className="divide-y divide-border-light">
                     {filteredProducts.map(p => (
                       <tr key={p.id}>
-                        <td className="px-3 py-2 text-sm text-on-surface overflow-hidden break-words">{p.name}</td>
+                        <td className="px-3 py-2 text-sm text-on-surface">{p.name}</td>
                         <td className="px-3 py-2 text-sm text-on-surface">{formatCurrency(p.price - p.discount)}</td>
                         <td className="px-3 py-2 text-sm text-center">
                           <span className={`${p.stock <= 3 && p.stock > 0 ? 'text-warning' : p.stock === 0 ? 'text-error' : 'text-primary'}`}>
@@ -387,6 +388,29 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
                     ))}
                   </tbody>
                 </table>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden">
+                  {filteredProducts.map(p => (
+                    <div key={p.id} className="p-3 flex items-center justify-between gap-3 bg-pure-white hover:bg-surface-container-low transition-colors relative z-0 border-b border-border-light">
+                      <div className="flex-grow">
+                        <div className="text-sm text-on-surface font-semibold">{p.name}</div>
+                        <div className="text-xs text-secondary">{formatCurrency(p.price - p.discount)}</div>
+                        <div className="text-xs">
+                          <span className={`${p.stock <= 3 && p.stock > 0 ? 'text-warning' : p.stock === 0 ? 'text-error' : 'text-primary'}`}>
+                            Stok: {p.stock} {p.unit}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleAddProduct(p)}
+                        className="bg-primary text-pure-white px-3 py-1 text-xs rounded hover:bg-opacity-80 active:scale-95 transition-all shrink-0"
+                      >
+                        Tambah
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -446,7 +470,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
                   ) : (
                     selectedProducts.map(item => (
                       <tr key={item.product.id}>
-                        <td className="px-3 py-2 text-sm text-on-surface overflow-hidden break-words">{item.product.name}</td>
+                        <td className="px-3 py-2 text-sm text-on-surface">{item.product.name}</td>
                         <td className="px-3 py-2 text-sm text-on-surface">
                           <input
                             type="number"
