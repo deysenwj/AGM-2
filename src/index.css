@@ -1,5 +1,6 @@
 @import "tailwindcss";
 
+/* stylelint-disable */
 @theme {
   --color-inverse-on-surface: #f1f1f1;
   --color-primary-container: #1b1b1b;
@@ -83,7 +84,9 @@
   --font-size-label-md: 12px;
   --font-size-display-lg: 56px;
 }
+/* stylelint-enable */
 
+/* stylelint-disable */
 @utility hide-scrollbar {
   &::-webkit-scrollbar {
     display: none;
@@ -91,11 +94,13 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+/* stylelint-enable */
 
 body {
   font-family: 'Hanken Grotesk', sans-serif;
 }
 
+/* stylelint-disable */
 @utility animate-slide-in {
   animation: slide-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
@@ -104,3 +109,4 @@ body {
   from { transform: translateX(-100%); }
   to { transform: translateX(0); }
 }
+/* stylelint-enable */

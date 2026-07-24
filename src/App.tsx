@@ -28,7 +28,8 @@ export interface Transaction {
     quantity: number;
     price: number;
   }[];
-  date: string;
+  date: string; // Formatted date string
+  dateRaw: string; // ISO string for filtering
 }
 
  
@@ -147,7 +148,9 @@ export default function App() {
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
     const saved = localStorage.getItem('agm2_transactions');
     try {
-      return saved ? JSON.parse(saved) : [];
+      return saved 
+        ? JSON.parse(saved).map(mapDbToTransaction) 
+        : [];
     } catch (e) {
       return [];
     }
@@ -155,7 +158,49 @@ export default function App() {
 
   const [txStartDate, setTxStartDate] = useState<string>('');
   const [txEndDate, setTxEndDate] = useState<string>('');
+
   const [selectedTxDetail, setSelectedTxDetail] = useState<Transaction | null>(null);
+
+  // @ts-ignore
+  const filteredTransactions = React.useMemo(() => {
+    let filtered = transactions;
+
+    // If txStartDate or txEndDate are set, use them for filtering.
+    // Otherwise, default to today's transactions.
+    if (txStartDate || txEndDate) {
+      return filtered.filter(tx => {
+        const txDate = new Date(tx.dateRaw); // Use dateRaw for accurate comparison
+        txDate.setHours(0, 0, 0, 0);
+
+        let matchStartDate = true;
+        if (txStartDate) {
+          const start = new Date(txStartDate);
+          start.setHours(0, 0, 0, 0);
+          matchStartDate = txDate.getTime() >= start.getTime();
+        }
+
+        let matchEndDate = true;
+        if (txEndDate) {
+          const end = new Date(txEndDate);
+          end.setHours(0, 0, 0, 0);
+          matchEndDate = txDate.getTime() <= end.getTime();
+        }
+        return matchStartDate && matchEndDate;
+      });
+    } else {
+      // Default to today's transactions if no date filter is applied
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(today.getDate() + 1);
+
+      return filtered.filter(tx => {
+        const txDate = new Date(tx.dateRaw);
+        txDate.setHours(0, 0, 0, 0);
+        return txDate.getTime() >= today.getTime() && txDate.getTime() < tomorrow.getTime();
+      });
+    }
+  }, [transactions, txStartDate, txEndDate]);
 
   const [transactionToDelete, setTransactionToDelete] = useState<string | null>(null);
   const [isDeleteTransactionModalOpen, setIsDeleteTransactionModalOpen] = useState<boolean>(false);
@@ -172,6 +217,18 @@ export default function App() {
 
   // Sidebar states
   const [showInStock, setShowInStock] = useState(true);
+
+  // Helper to map DB row to Transaction interface
+  const mapDbToTransaction = (item: any): Transaction => ({
+    id: item.id,
+    customerName: item.customer_name,
+    customerPhone: item.customer_phone || undefined,
+    customerAddress: item.customer_address || undefined,
+    totalPrice: Number(item.total_price),
+    items: typeof item.items === 'string' ? JSON.parse(item.items) : item.items,
+    date: new Date(item.created_at).toLocaleString('id-ID'),
+    dateRaw: item.created_at, // Add raw ISO string
+  });
   const [showBackorder, setShowBackorder] = useState(true);
 
   // Modals state
@@ -217,15 +274,7 @@ export default function App() {
 
 
   // Helper to map DB row to Transaction interface
-  const mapDbToTransaction = (item: any): Transaction => ({
-    id: item.id,
-    customerName: item.customer_name,
-    customerPhone: item.customer_phone || undefined,
-    customerAddress: item.customer_address || undefined,
-    totalPrice: Number(item.total_price),
-    items: typeof item.items === 'string' ? JSON.parse(item.items) : item.items,
-    date: new Date(item.created_at).toLocaleString('id-ID'),
-  });
+
   // Load state from Supabase with retry logic
   const fetchProducts = async (maxRetries = 2, showSpinner = true) => {
     if (showSpinner) setIsFetchingData(true);
@@ -278,11 +327,22 @@ export default function App() {
   };
 
   const fetchTransactions = async () => {
+    localStorage.removeItem('agm2_transactions'); // NEW: Clear local storage to ensure fresh data fetch
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Start of today
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1); // Start of tomorrow
+
+    const todayIso = today.toISOString();
+    const tomorrowIso = tomorrow.toISOString();
+
     if (!isSupabaseConfigured) return;
     try {
       const { data, error } = await supabase
         .from('transactions')
-        .select('*')
+        .select('*, count()', { count: 'exact' })
+        .gte('created_at', todayIso) // Greater than or equal to start of today
+        .lt('created_at', tomorrowIso) // Less than start of tomorrow
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -290,15 +350,7 @@ export default function App() {
         return;
       }
       if (data) {
-        const mapped: Transaction[] = data.map(t => ({
-          id: t.id,
-          customerName: t.customer_name,
-          customerPhone: t.customer_phone || undefined,
-          customerAddress: t.customer_address || undefined,
-          totalPrice: Number(t.total_price),
-          items: typeof t.items === 'string' ? JSON.parse(t.items) : t.items,
-          date: new Date(t.created_at).toLocaleString('id-ID'),
-        }));
+        const mapped: Transaction[] = data.map(mapDbToTransaction);
         setTransactions(mapped);
         localStorage.setItem('agm2_transactions', JSON.stringify(mapped));
       }
@@ -308,7 +360,9 @@ export default function App() {
   };
 
   const addTransaction = async (tx: Transaction) => {
-    const updated = [tx, ...transactions];
+    // Ensure dateRaw is present for optimistic update
+    const txWithRawDate = { ...tx, dateRaw: new Date().toISOString() };
+    const updated = [txWithRawDate, ...transactions];
     setTransactions(updated);
     localStorage.setItem('agm2_transactions', JSON.stringify(updated));
 
@@ -318,6 +372,7 @@ export default function App() {
           .from('transactions')
           .insert([{
             id: tx.id,
+            created_at: txWithRawDate.dateRaw, // Include created_at for Supabase insert
             customer_name: tx.customerName,
             customer_phone: tx.customerPhone || null,
             customer_address: tx.customerAddress || null,
@@ -359,15 +414,18 @@ export default function App() {
           .eq('id', transactionToDelete);
 
         if (error) {
+          console.error('Supabase delete transaction error:', error); // NEW LOG
           triggerToast('Gagal menyinkronkan hapus transaksi ke server: ' + error.message);
-          setTransactions(prevTransactions); // Rollback
+          setTransactions(prevTransactions.map(mapDbToTransaction)); // Rollback, ensure dateRaw
         } else {
+          console.log('Supabase delete transaction successful for ID:', transactionToDelete); // NEW LOG
           triggerToast('Transaksi berhasil dihapus (server)!');
+          localStorage.setItem('agm2_transactions', JSON.stringify(transactions.filter(tx => tx.id !== transactionToDelete)));
         }
       } catch (e) {
         console.warn('Supabase transaction delete exception:', e);
         triggerToast('Gagal menyinkronkan hapus transaksi ke server.');
-        setTransactions(prevTransactions); // Rollback
+        setTransactions(prevTransactions.map(mapDbToTransaction)); // Rollback, ensure dateRaw
       }
     }
   };
@@ -457,7 +515,8 @@ export default function App() {
     // Fetch both tables concurrently (in parallel) to cut initial load time in half
     Promise.all([
       fetchProducts(2, true),
-      fetchTransactions()
+      // Add small delay to allow Supabase to propagate changes to realtime listeners
+      new Promise(r => setTimeout(r, 100)).then(() => fetchTransactions())
     ]).then(() => {
       productsChannel = setupRealtime();
     });
@@ -467,7 +526,8 @@ export default function App() {
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         fetchProducts(2, false);
-        fetchTransactions();
+        // Add small delay to allow Supabase to propagate changes to realtime listeners
+        new Promise(r => setTimeout(r, 100)).then(() => fetchTransactions());
       }
     };
     document.addEventListener('visibilitychange', handleVisibility);
@@ -1435,7 +1495,7 @@ export default function App() {
                       <tr key={p.id} className="border-b border-border-light hover:bg-surface-container-low transition-colors">
                         <td className="p-4">
                           {p.image ? (
-                            <img src={p.image} className="w-16 h-12 object-cover border border-border-light rounded" alt={p.name} />
+                            <img src={p.image} className="w-16 h-12 object-cover border border-border-light rounded" alt={p.name} loading="lazy" />
                           ) : (
                             <div className="w-16 h-12 bg-surface-container flex items-center justify-center border border-border-light text-secondary text-xs rounded">TIDAK ADA FOTO</div>
                           )}
