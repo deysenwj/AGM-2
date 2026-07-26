@@ -794,17 +794,21 @@ export default function App() {
       delete pendingStockUpdatesRef.current[id];
       if (isSupabaseConfigured) {
         try {
-          const { error } = await supabase
+          const { data, error } = await supabase
             .from('products')
             .update({ stock: updatedStock })
-            .eq('id', id);
+            .eq('id', id)
+            .select(); // Add .select() to return the updated item
 
           if (error) {
-            triggerToast('Gagal menyinkronkan stok ke server: ' + error.message); // Explicit user feedback
-            console.warn('Sync error:', error.message);
+            console.error('Supabase stock update ERROR:', error);
+            triggerToast('Gagal memperbarui stok di server: ' + error.message);
+          } else {
+            console.log('Supabase stock update SUCCESS:', data); // Should now contain the updated row
           }
-        } catch (e) {
-          console.warn('Sync exception:', e);
+        } catch (e: any) {
+          console.error('Supabase stock update EXCEPTION (debounced):', e);
+          triggerToast('Kesalahan saat memperbarui stok di server: ' + e.message);
         }
       }
     }, 500);
