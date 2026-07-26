@@ -137,15 +137,12 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
     if (printType === 'image') {
       buttonsToHide.forEach(button => (button as HTMLElement).style.display = 'none');
     }
-
-    // 1. Decrement stock from Supabase Database ONLY on final confirmation
-    // 1. Decrement stock from Supabase Database ONLY on final confirmation
+    // 1. Decrement stock from Supabase Database and Save transaction history FIRST
     try {
       for (const item of selectedProducts) {
         await adjustStock(item.product.id, -item.quantity);
       }
 
-      // 1.5 Save transaction history
       const txItems = selectedProducts.map(item => ({
         productId: item.product.id,
         productName: item.product.name,
@@ -161,10 +158,11 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
         totalPrice: totalVal,
         items: txItems,
         date: dateStr,
-        dateRaw: new Date().toISOString(), // NEW: Add raw ISO string for consistency
+        dateRaw: new Date().toISOString(),
       };
 
       await addTransaction(newTx);
+      triggerToast('Stok diperbarui & transaksi disimpan.'); // New toast for clarity
 
       // 2. Perform print action based on type
       if (printType === 'pdf') {
@@ -326,12 +324,12 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
         await handlePrintAsImageInternal(notaId, totalVal, customerName, customerPhone, customerAddress, selectedProducts);
       }
 
-    } catch (err) {
-      console.error('Failed to process print/image or sync:', err);
-      triggerToast('Gagal memproses nota.');
+    } catch (err: any) { // Catch any errors from stock update or transaction save
+      console.error('Failed to process stock update or transaction save:', err);
+      triggerToast('Gagal memproses nota: ' + err.message);
     } finally {
-      // Restore hidden elements
-      buttonsToHide.forEach(button => (button as HTMLElement).style.display = ''); // Restore buttons
+      // Restore hidden elements (if any were hidden for image printing)
+      buttonsToHide.forEach(button => (button as HTMLElement).style.display = '');
       // Reset Form
       setSelectedProducts([]);
       setCustomerName('');
@@ -560,9 +558,9 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
       <h2 className="font-headline-lg text-headline-lg text-primary mb-6">Buat Nota Penjualan</h2>
 
       {isAdmin ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div id="nota-to-print" ref={notaRef} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column: Product Selection */}
-          <div className="lg:col-span-2 bg-pure-white border border-border-light rounded-xl p-6 shadow-sm">
+          <div className="lg:col-span-2 bg-pure-white border border-border-light rounded-xl p-6 shadow-sm print-hidden-element">
             <h3 className="font-bold text-lg text-primary mb-4">Pilih Produk</h3>
             <div className="mb-4">
               <input
@@ -644,7 +642,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
           <div className="lg:col-span-1 bg-pure-white border border-border-light rounded-xl p-6 shadow-sm flex flex-col">
             <h3 className="font-bold text-lg text-primary mb-4">Detail Nota</h3>
             
-            <div className="space-y-3 mb-4">
+            <div className="space-y-3 mb-4 print-hidden-element">
               <div>
                 <label className="block font-label-md text-label-md text-on-surface-variant mb-1 text-xs">Nama Pelanggan</label>
                 <input
@@ -684,7 +682,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
                     <th className="px-3 py-2 text-left text-xs font-bold text-secondary uppercase">Produk</th>
                     <th className="px-3 py-2 text-left text-xs font-bold text-secondary uppercase">Qty</th>
                     <th className="px-3 py-2 text-right text-xs font-bold text-secondary uppercase">Subtotal</th>
-                    <th className="px-3 py-2 text-right text-xs font-bold text-secondary uppercase">Hapus</th>
+                    <th className="px-3 py-2 text-right text-xs font-bold text-secondary uppercase print-hidden-element">Hapus</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-light">
@@ -708,7 +706,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
                         <td className="px-3 py-2 text-right text-sm text-on-surface">
                           {formatCurrency((item.product.price - item.product.discount) * item.quantity)}
                         </td>
-                        <td className="px-3 py-2 text-right">
+                        <td className="px-3 py-2 text-right print-hidden-element">
                           <button
                             onClick={() => handleRemoveProduct(item.product.id)}
                             className="text-error hover:text-error-dark active:scale-95 transition-all"
@@ -723,7 +721,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
               </table>
             </div>
 
-            <div className="mt-auto pt-4 border-t border-border-light">
+            <div className="mt-auto pt-4 border-t border-border-light print-hidden-element">
               <div className="flex justify-between items-center mb-4">
                 <span className="font-bold text-lg text-primary">Total:</span>
                 <span className="font-bold text-xl text-primary">{formatCurrency(calculateTotal())}</span>
