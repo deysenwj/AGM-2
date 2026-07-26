@@ -558,9 +558,9 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
       <h2 className="font-headline-lg text-headline-lg text-primary mb-6">Buat Nota Penjualan</h2>
 
       {isAdmin ? (
-        <div id="nota-to-print" ref={notaRef} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column: Product Selection */}
-          <div className="lg:col-span-2 bg-pure-white border border-border-light rounded-xl p-6 shadow-sm print-hidden-element">
+          <div className="lg:col-span-2 bg-pure-white border border-border-light rounded-xl p-6 shadow-sm">
             <h3 className="font-bold text-lg text-primary mb-4">Pilih Produk</h3>
             <div className="mb-4">
               <input
@@ -642,7 +642,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
           <div className="lg:col-span-1 bg-pure-white border border-border-light rounded-xl p-6 shadow-sm flex flex-col">
             <h3 className="font-bold text-lg text-primary mb-4">Detail Nota</h3>
             
-            <div className="space-y-3 mb-4 print-hidden-element">
+            <div className="space-y-3 mb-4">
               <div>
                 <label className="block font-label-md text-label-md text-on-surface-variant mb-1 text-xs">Nama Pelanggan</label>
                 <input
@@ -682,7 +682,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
                     <th className="px-3 py-2 text-left text-xs font-bold text-secondary uppercase">Produk</th>
                     <th className="px-3 py-2 text-left text-xs font-bold text-secondary uppercase">Qty</th>
                     <th className="px-3 py-2 text-right text-xs font-bold text-secondary uppercase">Subtotal</th>
-                    <th className="px-3 py-2 text-right text-xs font-bold text-secondary uppercase print-hidden-element">Hapus</th>
+                    <th className="px-3 py-2 text-right text-xs font-bold text-secondary uppercase">Hapus</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-light">
@@ -706,7 +706,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
                         <td className="px-3 py-2 text-right text-sm text-on-surface">
                           {formatCurrency((item.product.price - item.product.discount) * item.quantity)}
                         </td>
-                        <td className="px-3 py-2 text-right print-hidden-element">
+                        <td className="px-3 py-2 text-right">
                           <button
                             onClick={() => handleRemoveProduct(item.product.id)}
                             className="text-error hover:text-error-dark active:scale-95 transition-all"
@@ -721,13 +721,13 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
               </table>
             </div>
 
-            <div className="mt-auto pt-4 border-t border-border-light print-hidden-element">
+            <div className="mt-auto pt-4 border-t border-border-light">
               <div className="flex justify-between items-center mb-4">
                 <span className="font-bold text-lg text-primary">Total:</span>
                 <span className="font-bold text-xl text-primary">{formatCurrency(calculateTotal())}</span>
               </div>
               <button
-                onClick={handlePrintNota}
+                onClick={() => setIsConfirming(true)}
                 className="w-full bg-primary text-pure-white px-6 py-3 font-button text-button uppercase tracking-wider rounded-sm hover:bg-opacity-90 transition-all active:scale-95 disabled:opacity-50"
                 disabled={!customerName.trim() || selectedProducts.length === 0}
               >
