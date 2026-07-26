@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 import NotaView from './NotaView'; // Import NotaView
 
+
 export interface Product {
   id: string;
   name: string;
@@ -11,8 +12,9 @@ export interface Product {
   price: number;
   stock: number;
   unit: string;
-  image: string;
+  image_url?: string;
   discount: number;
+  image_public_id?: string | null;
   arrivalType?: 'BARANG BARU' | 'EKSKLUSIF' | 'PRE-ORDER' | '';
 }
 
@@ -206,6 +208,7 @@ export default function App() {
   const [deleteAccessCode, setDeleteAccessCode] = useState<string>('');
   const [deleteError, setDeleteError] = useState<string>('');
 
+
   const [filterCategory, setFilterCategory] = useState<'all' | 'furniture' | 'electronics'>('all');
   const [filterSubcategory, setFilterSubcategory] = useState<string>('all');
   const [globalSearch, setGlobalSearch] = useState('');
@@ -236,6 +239,14 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [toastMsg, setToastMsg] = useState('');
+
+  const triggerToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(''), 3000);
+  };
+
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Form states (Add/Edit)
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -251,10 +262,12 @@ export default function App() {
   const [formStock, setFormStock] = useState('');
   const [formUnit, setFormUnit] = useState('Pcs');
   const [formImage, setFormImage] = useState('');
+  const [formImagePublicId, setFormImagePublicId] = useState<string | null>(null);
   const [formArrivalType, setFormArrivalType] = useState<'BARANG BARU' | 'EKSKLUSIF' | 'PRE-ORDER' | ''>('');
 
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [toastMsg, setToastMsg] = useState('');
+
+
+
 
   // Helper to map DB row to Product interface
   const mapDbToProduct = (item: any): Product => ({
@@ -267,7 +280,8 @@ export default function App() {
     discount: Number(item.discount) || 0,
     stock: isNaN(Number(item.stock)) ? 0 : Math.max(0, Number(item.stock)),
     unit: item.unit || 'Pcs',
-    image: item.image || '',
+    image_url: item.image_url || '',
+    image_public_id: item.image_public_id || '',
     arrivalType: item.arrival_type || ''
   });
 
@@ -275,88 +289,163 @@ export default function App() {
   // Helper to map DB row to Transaction interface
 
   // Load state from Supabase with retry logic
-  const fetchProducts = async (maxRetries = 2, showSpinner = true) => {
+  const fetchProducts = async (maxRetries = 1, showSpinner = true) => {
     if (showSpinner) setIsFetchingData(true);
     setFetchError(null);
-    if (isSupabaseConfigured) {
-      let attempts = 0;
-      let success = false;
-      let lastErr = '';
+    
+    // Try loading from local storage first
+    const savedProducts = localStorage.getItem('agm2_inventory');
+    if (savedProducts) {
+      try {
+        const parsed = JSON.parse(savedProducts);
+        if (Array.isArray(parsed)) {
+          setProducts(parsed.filter(p => !['1','2','3','4','5','6'].includes(String(p.id))));
+        }
+      } catch (e) {
+        console.error("Failed to parse local products:", e);
+        localStorage.removeItem('agm2_inventory'); // Clear corrupted data
+      }
+    }
 
-      while (attempts < maxRetries && !success) {
-        attempts++;
-        try {
-          const { data, error } = await supabase
-            .from('products')
-            .select('*')
-            .order('created_at', { ascending: false });
+    if (!isSupabaseConfigured) {
+      setIsFetchingData(false);
+      return;
+    }
 
-          if (error) {
-            console.warn(`Attempt ${attempts} Supabase error:`, error.message);
-            lastErr = error.message;
-            if (attempts < maxRetries) {
-              await new Promise(r => setTimeout(r, 1000 * attempts));
-            }
-          } else if (data) {
-            const dbProducts = data.map(mapDbToProduct);
-            setProducts(dbProducts);
-            try {
-              localStorage.setItem('agm2_inventory', JSON.stringify(dbProducts));
-            } catch (e) {}
-            success = true;
-            setFetchError(null);
-          }
-        } catch (err: any) {
-          const msg = err?.name === 'AbortError' 
-            ? 'Koneksi timeout. Jaringan terlalu lambat.' 
-            : (err?.message || 'Gagal terhubung ke database.');
-          console.warn(`Attempt ${attempts} fetch exception:`, msg);
-          lastErr = msg;
+    let attempts = 0;
+    let success = false;
+    let lastErr = '';
+
+    while (attempts < maxRetries && !success) {
+      attempts++;
+      try {
+        const abortController = new AbortController();
+        const timeoutId = setTimeout(() => abortController.abort('Query timed out'), 15000); // 15 seconds timeout
+
+        const { data, error } = await supabase
+          .from('products')
+          .select('id, name, category, subcategory, description, price, stock, unit, image_url, image_public_id, discount, arrival_type') // Select specific columns
+          .order('created_at', { ascending: false })
+          .abortSignal(abortController.signal);
+        
+        clearTimeout(timeoutId);
+
+        if (error) {
+          console.warn(`Attempt ${attempts} Supabase error:`, error.message);
+          lastErr = error.message;
           if (attempts < maxRetries) {
-            await new Promise(r => setTimeout(r, 1000 * attempts));
+            await new Promise(r => setTimeout(r, 300));
           }
+        } else if (data) {
+          const dbProducts = data.map(mapDbToProduct);
+          setProducts(dbProducts);
+          try {
+            localStorage.setItem('agm2_inventory', JSON.stringify(dbProducts));
+          } catch (e) {}
+          success = true;
+          setFetchError(null);
+        }
+      } catch (err: any) {
+        const msg = err?.name === 'AbortError' 
+          ? (err.message || 'Koneksi timeout. Jaringan terlalu lambat.') 
+          : (err?.message || 'Gagal terhubung ke database.');
+        console.warn(`Attempt ${attempts} fetch exception:`, msg);
+        lastErr = msg;
+        if (attempts < maxRetries) {
+          await new Promise(r => setTimeout(r, 300));
         }
       }
+    }
 
-      if (!success) {
-        setFetchError(lastErr || 'Gagal memuat data dari database.');
-      }
+    if (!success) {
+      setFetchError(lastErr || 'Gagal memuat data dari database.');
     }
     setIsFetchingData(false);
   };
 
-  const fetchTransactions = async () => {
-    localStorage.removeItem('agm2_transactions'); // NEW: Clear local storage to ensure fresh data fetch
+  const fetchTransactions = async (maxRetries = 1) => { // Added maxRetries parameter
+
+    // Try loading from local storage first
+    const savedTransactions = localStorage.getItem('agm2_transactions');
+    if (savedTransactions) {
+      try {
+        const parsed = JSON.parse(savedTransactions);
+        if (Array.isArray(parsed)) {
+          setTransactions(parsed.map(mapDbToTransaction));
+        }
+      } catch (e) {
+        console.error("Failed to parse local transactions:", e);
+        localStorage.removeItem('agm2_transactions'); // Clear corrupted data
+      }
+    }
+
+    // Filter logic (same as before)
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Start of today
+    today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1); // Start of tomorrow
+    tomorrow.setDate(today.getDate() + 1);
 
     const todayIso = today.toISOString();
     const tomorrowIso = tomorrow.toISOString();
 
     if (!isSupabaseConfigured) return;
-    try {
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('*, count()', { count: 'exact' })
-        .gte('created_at', todayIso) // Greater than or equal to start of today
-        .lt('created_at', tomorrowIso) // Less than start of tomorrow
-        .order('created_at', { ascending: false });
+    
+    let attempts = 0;
+    let success = false;
+    let lastErr = '';
 
-      if (error) {
-        console.warn('Failed to fetch transactions from Supabase:', error.message);
-        return;
+    while (attempts < maxRetries && !success) {
+      attempts++;
+      try {
+        const abortController = new AbortController();
+        const timeoutId = setTimeout(() => abortController.abort('Query timed out'), 15000); // 15 seconds timeout
+
+        const { data, error } = await supabase
+          .from('transactions')
+          .select('id, customer_name, customer_phone, customer_address, total_price, items, created_at', { count: 'exact' })
+          .gte('created_at', todayIso)
+          .lt('created_at', tomorrowIso)
+          .order('created_at', { ascending: false })
+          .abortSignal(abortController.signal);
+
+        clearTimeout(timeoutId);
+
+        if (error) {
+          console.warn(`Attempt ${attempts} Supabase error:`, error.message);
+          lastErr = error.message;
+          if (attempts < maxRetries) {
+            await new Promise(r => setTimeout(r, 300));
+          }
+        } else if (data) {
+          const mapped: Transaction[] = data.map(mapDbToTransaction);
+          setTransactions(mapped);
+          localStorage.setItem('agm2_transactions', JSON.stringify(mapped));
+          success = true;
+        }
+      } catch (err: any) {
+        const msg = err?.name === 'AbortError' 
+          ? (err.message || 'Koneksi timeout. Jaringan terlalu lambat.') 
+          : (err?.message || 'Gagal terhubung ke database.');
+        console.warn(`Attempt ${attempts} fetch exception:`, msg);
+        lastErr = msg;
+        if (attempts < maxRetries) {
+          await new Promise(r => setTimeout(r, 300));
+        }
       }
-      if (data) {
-        const mapped: Transaction[] = data.map(mapDbToTransaction);
-        setTransactions(mapped);
-        localStorage.setItem('agm2_transactions', JSON.stringify(mapped));
-      }
-    } catch (err) {
-      console.warn('Transactions sync failed:', err);
     }
+    if (!success) {
+      console.error(lastErr || 'Gagal memuat data transaksi dari database.');
+      // Consider displaying a toast or error message to the user if initial load fails
+    }
+
   };
+
+
+
+
+
+
+
 
   const addTransaction = async (tx: Transaction) => {
     // Ensure dateRaw is present for optimistic update
@@ -509,15 +598,17 @@ export default function App() {
 
   // Initial load: fetch data THEN connect realtime; re-sync on visibility change (mobile tab resume)
   useEffect(() => {
-    let productsChannel: any = null;
+    let cleanupRealtime: (() => void) | null = null;
 
     // Fetch both tables concurrently (in parallel) to cut initial load time in half
     Promise.all([
-      fetchProducts(2, true),
+      fetchProducts(1, true),
       // Add small delay to allow Supabase to propagate changes to realtime listeners
       new Promise(r => setTimeout(r, 100)).then(() => fetchTransactions())
     ]).then(() => {
-      productsChannel = setupRealtime();
+      if (isSupabaseConfigured && import.meta.env.VITE_SUPABASE_REALTIME_ENABLED === 'true') {
+        cleanupRealtime = setupRealtime();
+      }
     });
 
     // Re-sync when user returns to tab (critical for mobile where browser suspends tabs)
@@ -537,7 +628,7 @@ export default function App() {
     }
 
     return () => {
-      if (productsChannel) supabase.removeChannel(productsChannel);
+      if (cleanupRealtime) cleanupRealtime(); // Call the cleanup function
       document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, []);
@@ -547,9 +638,77 @@ export default function App() {
     localStorage.setItem('agm2_inventory', JSON.stringify(list));
   };
 
-  const triggerToast = (msg: string) => {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(''), 3000);
+  // Function to handle image upload to Cloudinary via API Route
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files || event.target.files.length === 0) {
+      triggerToast('Pilih gambar untuk diunggah!');
+      return;
+    }
+
+    const file = event.target.files[0];
+
+    try {
+      // Client-side validation
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        throw new Error('Ukuran gambar maksimal 5MB.');
+      }
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        throw new Error('Format gambar tidak valid. Gunakan JPG, PNG, atau WEBP.');
+      }
+
+      triggerToast('Mengunggah & mengkompres gambar ke Cloudinary...');
+
+      // Compress image client-side before sending to API (optional but good for performance)
+      // Note: We removed the local compressImage, so here we assume you'd add a robust compression
+      // logic here or rely on Cloudinary's built-in optimization upon upload.
+      // For now, let's just convert to Base64.
+      const base64Image = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      // Call the API Route
+      const response = await fetch('/api/cloudinary-upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ image: base64Image }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.secure_url && data.public_id) {
+        // If editing a product and changing image, delete the old image from Cloudinary
+        if (formMode === 'edit' && editingId) {
+          const oldProduct = products.find(p => p.id === editingId);
+          if (oldProduct && oldProduct.image_public_id) {
+            // Call API Route to delete old image
+            await fetch('/api/cloudinary-delete', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ public_id: oldProduct.image_public_id }),
+            });
+          }
+        }
+        setFormImage(data.secure_url); // Set formImage to the Cloudinary secure_url
+        setFormImagePublicId(data.public_id); // Store public_id
+        triggerToast('Gambar berhasil diunggah & dikompres ke Cloudinary!');
+      } else {
+        throw new Error(data.message || 'Gagal mengunggah gambar ke Cloudinary.');
+      }
+
+    } catch (error: any) {
+      triggerToast('Kesalahan unggah gambar ke Cloudinary: ' + error.message);
+      console.error('Cloudinary upload error:', error);
+    } finally {
+      event.target.value = ''; // Clear file input
+    }
   };
 
   // Reset subcategory filter when category changes
@@ -704,7 +863,8 @@ export default function App() {
         discount: discountVal,
         stock: stockVal,
         unit: formUnit,
-        image: formImage,
+        image_url: formImage, // Use image_url
+        image_public_id: formImagePublicId, // Use image_public_id
         arrivalType: formArrivalType
       };
 
@@ -725,7 +885,8 @@ export default function App() {
             discount: discountVal,
             stock: stockVal,
             unit: formUnit,
-            image: formImage,
+            image_url: formImage, // Use image_url
+            image_public_id: formImagePublicId, // Use image_public_id
             arrival_type: formArrivalType
           }])
           .select();
@@ -751,9 +912,25 @@ export default function App() {
         discount: discountVal,
         stock: stockVal,
         unit: formUnit,
-        image: formImage,
         arrivalType: formArrivalType
       };
+
+      // If the image has changed, delete the old image from Cloudinary
+      const oldProduct = products.find(p => p.id === editingId);
+      if (oldProduct && oldProduct.image_public_id && oldProduct.image_public_id !== updatedItem.image_public_id) {
+        try {
+          await fetch('/api/cloudinary-delete', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ public_id: oldProduct.image_public_id }),
+          });
+        } catch (error) {
+          console.error('Failed to call Cloudinary delete API during edit:', error);
+          triggerToast('Gagal menghapus gambar lama di Cloudinary saat mengedit.');
+        }
+      }
 
       // Optimistic update
       setProducts(prev => prev.map(p => p.id === editingId ? updatedItem : p));
@@ -772,7 +949,8 @@ export default function App() {
             discount: discountVal,
             stock: stockVal,
             unit: formUnit,
-            image: formImage,
+            image_url: formImage, // Use image_url
+            image_public_id: formImagePublicId, // Use image_public_id
             arrival_type: formArrivalType
           })
           .eq('id', editingId);
@@ -789,6 +967,25 @@ export default function App() {
 
   // Optimistic Product Deletion
   const deleteProduct = async (id: string) => {
+    // Find the product to get its image public_id before optimistic deletion
+    const productToDelete = products.find(p => p.id === id);
+
+    // Call API Route to delete image from Cloudinary if it exists
+    if (productToDelete && productToDelete.image_public_id) {
+      try {
+        await fetch('/api/cloudinary-delete', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ public_id: productToDelete.image_public_id }),
+        });
+      } catch (error) {
+        console.error('Failed to call Cloudinary delete API:', error);
+        triggerToast('Gagal menghapus gambar di Cloudinary.');
+      }
+    }
+
     // Optimistic update
     setProducts(prev => prev.filter(p => p.id !== id));
     setDeleteConfirmId(null);
@@ -836,21 +1033,13 @@ export default function App() {
     setFormDiscount(p.discount ? p.discount.toLocaleString('id-ID') : '');
     setFormStock(p.stock.toString());
     setFormUnit(p.unit);
-    setFormImage(p.image);
+    setFormImage(p.image_url || '');
+    setFormImagePublicId(p.image_public_id || null);
     setFormArrivalType(p.arrivalType || '');
     setIsFormOpen(true);
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const r = new FileReader();
-      r.onloadend = () => {
-        setFormImage(r.result as string);
-      };
-      r.readAsDataURL(file);
-    }
-  };
+
 
   // Filter application
   const filteredProducts = products.filter(p => {
@@ -1299,10 +1488,10 @@ export default function App() {
                 {filteredProducts.map(p => (
                   <div key={p.id} className="product-card group relative flex flex-col bg-pure-white border border-transparent hover:border-border-light transition-all duration-500 overflow-hidden">
                     <div className="aspect-square overflow-hidden bg-surface-container relative">
-                      {p.image ? (
+                      {p.image_url ? (
                         <img 
                           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
-                          src={p.image} 
+                          src={p.image_url} 
                           alt={p.name}
                         />
                       ) : (
@@ -1415,8 +1604,8 @@ export default function App() {
                 filteredProducts.map(p => (
                   <div key={'mob-stock-' + p.id} className="p-4 bg-pure-white border border-border-light rounded-lg shadow-xs flex flex-col gap-3">
                     <div className="flex gap-3 items-start">
-                      {p.image ? (
-                        <img src={p.image} className="w-16 h-16 object-cover border border-border-light rounded-md shrink-0" alt={p.name} />
+                      {p.image_url ? (
+                        <img src={p.image_url} className="w-16 h-16 object-cover border border-border-light rounded-md shrink-0" alt={p.name} />
                       ) : (
                         <div className="w-16 h-16 bg-surface-container flex items-center justify-center border border-border-light text-secondary text-[10px] rounded-md shrink-0 font-bold">NO FOTO</div>
                       )}
@@ -1493,8 +1682,8 @@ export default function App() {
                     {filteredProducts.map(p => (
                       <tr key={p.id} className="border-b border-border-light hover:bg-surface-container-low transition-colors">
                         <td className="p-4">
-                          {p.image ? (
-                            <img src={p.image} className="w-16 h-12 object-cover border border-border-light rounded" alt={p.name} loading="lazy" />
+                          {p.image_url ? (
+                            <img src={p.image_url} className="w-16 h-12 object-cover border border-border-light rounded" alt={p.name} loading="lazy" />
                           ) : (
                             <div className="w-16 h-12 bg-surface-container flex items-center justify-center border border-border-light text-secondary text-xs rounded">TIDAK ADA FOTO</div>
                           )}
@@ -2266,8 +2455,7 @@ export default function App() {
                   <label className="block font-label-md text-label-md text-on-surface-variant mb-1 text-xs">Tag Kategori</label>
                   <select
                     className="w-full bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-sm focus:ring-1 focus:ring-primary focus:bg-surface-container"
-                    value={formArrivalType}
-                    onChange={(e) => setFormArrivalType(e.target.value as any)}
+
                   >
                     <option value="">Tidak ada</option>
                     <option value="BARANG BARU">Barang Baru</option>

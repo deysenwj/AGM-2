@@ -576,7 +576,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
             </div>
             
             {filteredProducts.length === 0 && searchTerm ? (
-              <div className="text-center py-8 text-secondary">Tidak ada produk ditemukan untuk '\${searchTerm}'.</div>
+              <div className="text-center py-8 text-secondary">Tidak ada produk ditemukan untuk '${searchTerm}'.</div>
             ) : filteredProducts.length === 0 && !searchTerm ? (
               <div className="text-center py-8 text-secondary">Tambahkan produk di menu Inventaris.</div>
             ) : (
