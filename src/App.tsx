@@ -171,6 +171,7 @@ export default function App() {
   const [txEndDate, setTxEndDate] = useState<string>('');
 
   const [selectedTxDetail, setSelectedTxDetail] = useState<Transaction | null>(null);
+  const [selectedProductDetail, setSelectedProductDetail] = useState<Product | null>(null);
 
   // @ts-ignore
   const filteredTransactions = React.useMemo(() => {
@@ -1150,7 +1151,7 @@ export default function App() {
     <div className="bg-surface text-on-surface selection:bg-primary-fixed selection:text-primary min-h-screen flex flex-col font-body-md">
       
       {/* ── TOP NAV BAR ── */}
-      <nav className="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-4 md:px-8 h-16 bg-white/85 backdrop-blur-xl border-b border-slate-200/80 shadow-xs">
+      <nav className="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-4 md:px-8 h-16 bg-white/90 backdrop-blur-xl border-b border-slate-200/80 shadow-xs">
         <div className="flex items-center gap-3 lg:gap-8">
           {/* Mobile hamburger menu */}
           <button 
@@ -1164,22 +1165,16 @@ export default function App() {
             className="flex items-center gap-2 cursor-pointer select-none group"
             onClick={() => setCurrentView('catalog')}
           >
-            <span className="font-extrabold text-xl tracking-tight text-slate-900 font-sans">
-              AGM 2 <span className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1 hidden sm:inline">POS</span>
+            <span className="font-black text-xl tracking-tight text-slate-900 font-sans">
+              AGM 2 <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest ml-1 bg-slate-100 px-2 py-0.5 rounded-md hidden sm:inline">PADANG</span>
             </span>
           </div>
           <div className="hidden lg:flex items-center gap-1.5 bg-slate-100/70 p-1 rounded-xl border border-slate-200/50">
             <button
-              onClick={() => { selectCategoryFilter('furniture'); setCurrentView('catalog'); }}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${filterCategory === 'furniture' && currentView === 'catalog' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+              onClick={() => setCurrentView('catalog')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${currentView === 'catalog' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
             >
-              Furniture
-            </button>
-            <button
-              onClick={() => { selectCategoryFilter('electronics'); setCurrentView('catalog'); }}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${filterCategory === 'electronics' && currentView === 'catalog' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
-            >
-              Elektronik
+              Katalog
             </button>
             {isAdmin && (
               <>
@@ -1229,15 +1224,27 @@ export default function App() {
             </span>
           </button>
 
-          <div className="relative max-w-[120px] sm:max-w-xs">
+          <div className="relative max-w-[130px] sm:max-w-xs">
             <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base">search</span>
             <input
               type="text"
-              placeholder="Cari..."
-              className="pl-9 pr-3 py-1.5 bg-slate-100/80 border border-slate-200/80 text-xs rounded-xl w-full focus:ring-2 focus:ring-slate-900 focus:bg-white transition-all outline-none text-slate-900 placeholder:text-slate-400"
+              placeholder="Cari barang..."
+              className="pl-9 pr-7 py-1.5 bg-slate-100/80 border border-slate-200/80 text-xs rounded-xl w-full focus:ring-2 focus:ring-slate-900 focus:bg-white transition-all outline-none text-slate-900 placeholder:text-slate-400"
               value={globalSearch}
               onChange={(e) => setGlobalSearch(e.target.value)}
             />
+            {globalSearch ? (
+              <button 
+                onClick={() => setGlobalSearch('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+              >
+                <span className="material-symbols-outlined text-[14px]">close</span>
+              </button>
+            ) : (
+              <span className="hidden sm:inline absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-extrabold text-slate-400 bg-slate-200/60 px-1.5 py-0.5 rounded border border-slate-300/60 select-none">
+                /
+              </span>
+            )}
           </div>
           
           {isAdmin ? (
@@ -1343,6 +1350,35 @@ export default function App() {
                 </label>
               </div>
             </div>
+
+            <div className="pt-4 border-t border-slate-100 space-y-3 text-xs">
+              <h3 className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 mb-2">Kontak &amp; Toko</h3>
+              
+              <div className="flex items-center gap-2 text-slate-600 font-medium">
+                <span className="material-symbols-outlined text-[16px] text-amber-500">schedule</span>
+                <span>07.30 - 21.00 WIB</span>
+              </div>
+
+              <a 
+                href="https://instagram.com/toko_agm_padang" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="flex items-center gap-2 text-slate-700 font-semibold hover:text-pink-600 transition-colors"
+              >
+                <span className="material-symbols-outlined text-[16px] text-pink-500">photo_camera</span>
+                <span>@toko_agm_padang</span>
+              </a>
+
+              <a 
+                href="https://wa.me/6282254933540" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="flex items-center gap-2 text-slate-700 font-semibold hover:text-emerald-600 transition-colors"
+              >
+                <span className="material-symbols-outlined text-[16px] text-emerald-500">call</span>
+                <span>0822-5493-3540</span>
+              </a>
+            </div>
           </aside>
         </div>
       )}
@@ -1390,13 +1426,27 @@ export default function App() {
         {currentView === 'catalog' && (
           <section className="px-4 md:px-8 pt-6 pb-12 max-w-container-max mx-auto w-full flex-grow">
             
-            {/* Guest pricing notice */}
+            {/* Guest Welcome Banner */}
             {!isAdmin && (
-              <div className="mb-6 p-3.5 bg-amber-50/80 border border-amber-200/80 flex items-center gap-3 text-amber-900 rounded-xl text-xs shadow-xs">
-                <span className="material-symbols-outlined text-amber-700 text-lg shrink-0">lock</span>
-                <span className="font-medium leading-relaxed">
-                  Harga produk disembunyikan untuk mode Tamu. Silakan hubungi admin untuk informasi harga barang.
-                </span>
+              <div className="mb-6 p-4 sm:p-5 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white rounded-2xl shadow-md border border-slate-800/80 animate-fade-in flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-11 h-11 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
+                    <span className="material-symbols-outlined text-2xl">storefront</span>
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-sm sm:text-base text-white tracking-tight">Selamat Datang di Katalog AGM 2 Padang</h3>
+                    <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">Pilihan Furniture &amp; Elektronik lengkap. Klik produk untuk melihat detail atau bertanya via WhatsApp!</p>
+                  </div>
+                </div>
+                <a
+                  href="https://wa.me/6282254933540?text=Halo%20Toko%20AGM%202%20Padang,%20saya%20ingin%20bertanya%20mengenai%20katalog%20produk"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition-all whitespace-nowrap flex items-center gap-2 shadow-sm shrink-0 active:scale-95"
+                >
+                  <span>Hubungi CS Toko</span>
+                  <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                </a>
               </div>
             )}
 
@@ -1430,22 +1480,46 @@ export default function App() {
               </div>
 
 
-              {/* Sub-product Filter Dropdown */}
-              {filterCategory !== 'all' && (
-                <div className="flex items-center gap-2 pt-1">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Sub-Kategori:</span>
-                  <select
-                    value={filterSubcategory}
-                    onChange={(e) => setFilterSubcategory(e.target.value)}
-                    className="bg-white border border-slate-200 text-xs font-bold rounded-xl px-3.5 py-1.5 text-slate-900 focus:ring-2 focus:ring-slate-900 shadow-xs outline-none cursor-pointer"
+              {/* Mobile Sub-Category Dropdown */}
+              <div className="block md:hidden pt-1">
+                <select
+                  value={filterSubcategory}
+                  onChange={(e) => setFilterSubcategory(e.target.value)}
+                  className="w-full bg-slate-100/90 border border-slate-200 text-xs font-bold rounded-xl px-3.5 py-2 text-slate-900 focus:ring-2 focus:ring-slate-900 shadow-xs outline-none cursor-pointer"
+                >
+                  <option value="all">Semua Subkategori</option>
+                  {(filterCategory === 'furniture' ? FURNITURE_SUBCATEGORIES : filterCategory === 'electronics' ? ELECTRONICS_SUBCATEGORIES : Array.from(new Set([...FURNITURE_SUBCATEGORIES, ...ELECTRONICS_SUBCATEGORIES]))).map(sub => (
+                    <option key={sub} value={sub}>{sub}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Desktop Sub-Category Pill Chips */}
+              <div className="hidden md:flex items-center gap-2 overflow-x-auto pb-1 pt-1 hide-scrollbar">
+                <button
+                  onClick={() => setFilterSubcategory('all')}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-extrabold whitespace-nowrap transition-all active:scale-95 ${
+                    filterSubcategory === 'all'
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'bg-slate-100/80 text-slate-600 hover:text-slate-900 hover:bg-slate-200/80'
+                  }`}
+                >
+                  Semua Subkategori
+                </button>
+                {(filterCategory === 'furniture' ? FURNITURE_SUBCATEGORIES : filterCategory === 'electronics' ? ELECTRONICS_SUBCATEGORIES : Array.from(new Set([...FURNITURE_SUBCATEGORIES, ...ELECTRONICS_SUBCATEGORIES]))).map(sub => (
+                  <button
+                    key={sub}
+                    onClick={() => setFilterSubcategory(sub)}
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-extrabold whitespace-nowrap transition-all active:scale-95 ${
+                      filterSubcategory === sub
+                        ? 'bg-slate-900 text-white shadow-xs'
+                        : 'bg-slate-100/80 text-slate-600 hover:text-slate-900 hover:bg-slate-200/80'
+                    }`}
                   >
-                    <option value="all">Semua Sub-Kategori</option>
-                    {(filterCategory === 'furniture' ? FURNITURE_SUBCATEGORIES : ELECTRONICS_SUBCATEGORIES).map(sub => (
-                      <option key={sub} value={sub}>{sub}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
+                    {sub}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Warning banner if running on cached data due to network error */}
@@ -1499,7 +1573,11 @@ export default function App() {
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5 sm:gap-7">
                 {filteredProducts.map(p => (
-                  <div key={p.id} className="product-card group relative flex flex-col bg-white rounded-2xl overflow-hidden cursor-pointer transition-all duration-300">
+                  <div 
+                    key={p.id} 
+                    onClick={() => setSelectedProductDetail(p)}
+                    className="product-card group relative flex flex-col bg-white rounded-2xl overflow-hidden cursor-pointer hover-lift border border-slate-200/80"
+                  >
                     <div className="aspect-[4/3] sm:aspect-square overflow-hidden bg-slate-100 relative rounded-t-2xl border border-slate-200/80">
                       {p.image_url ? (
                         <img 
@@ -1538,7 +1616,7 @@ export default function App() {
                           {p.description}
                         </p>
 
-                        {/* Render Price for Admin ONLY */}
+                        {/* Render Price for Admin ONLY or Guest Inquiry Button */}
                         {isAdmin ? (
                           <div className="pt-2">
                             <span className="font-black text-base sm:text-lg text-slate-900">
@@ -1551,8 +1629,20 @@ export default function App() {
                             )}
                           </div>
                         ) : (
-                          <div className="pt-2 inline-flex items-center gap-1.5 text-xs text-slate-400 font-medium">
-                            <span className="material-symbols-outlined text-[14px]">lock</span> Harga Terkunci
+                          <div className="pt-2">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                window.open(`https://wa.me/6282254933540?text=${encodeURIComponent(`Halo Toko AGM 2 Padang, saya berminat dan ingin bertanya mengenai produk: ${p.name}`)}`, '_blank');
+                              }}
+                              className="w-full py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 shadow-xs active:scale-[0.98]"
+                            >
+                              <svg className="w-3.5 h-3.5 fill-white shrink-0" viewBox="0 0 24 24">
+                                <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+                              </svg>
+                              <span>Tanyakan Harga</span>
+                            </button>
                           </div>
                         )}
                       </div>
@@ -2314,16 +2404,197 @@ export default function App() {
           </div>
         )}
 
-        {/* ── TECHNICAL FOOTER ── */}
-        <footer className="bg-surface-dim px-margin-mobile lg:px-margin-desktop py-6 border-t border-border-light mt-auto flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-left">
-          <span className="font-label-md text-label-md text-secondary">
-            © 2026 AGM 2 OPERATIONS. ALL RIGHTS RESERVED.
-          </span>
-          <span className="font-label-md text-label-md text-secondary font-semibold max-w-md md:text-right">
-            Alamat Toko : Jalan Rahadi Ismail, Desa Padang, Kecamatan Benua Kayong, Kabupaten Ketapang, Kalimantan Barat
-          </span>
+        {/* ── PROFESSIONAL FOOTER CV ADI GUNA MANDIRI ── */}
+        <footer className="bg-slate-900 text-slate-300 border-t border-slate-800 mt-auto">
+          <div className="max-w-[1400px] mx-auto px-4 md:px-8 py-12 lg:py-16">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
+              
+              {/* Column 1: Company Profile & Description */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <span className="font-black text-xl text-white tracking-tight">
+                    CV ADI GUNA MANDIRI
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Pusat penjualan Furniture &amp; Elektronik berkualitas terbaik di Padang. Melayani kebutuhan rumah tangga, kantor, dan instansi dengan harga kompetitif dan layanan prima.
+                </p>
+
+              </div>
+
+              {/* Column 2: Jam Operasional & Layanan */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-extrabold uppercase tracking-widest text-white">Jam Operasional Toko</h4>
+                <ul className="space-y-2 text-xs text-slate-400">
+                  <li className="flex items-center gap-2 text-slate-200 font-semibold">
+                    <span className="material-symbols-outlined text-[16px] text-amber-400">schedule</span>
+                    <span>07.30 - 21.00 WIB (Buka Setiap Hari)</span>
+                  </li>
+                  <li className="text-slate-400 pt-1">
+                    Pelayanan cepat pesan antar &amp; konsultasi produk langsung via WhatsApp.
+                  </li>
+                </ul>
+              </div>
+
+              {/* Column 3: Kontak & Media Sosial */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-extrabold uppercase tracking-widest text-white">Kontak &amp; Media Sosial</h4>
+                <ul className="space-y-2.5 text-xs">
+                  <li>
+                    <a 
+                      href="https://instagram.com/toko_agm_padang" 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="inline-flex items-center gap-2.5 text-slate-300 hover:text-pink-400 transition-colors font-semibold"
+                    >
+                      <svg className="w-4 h-4 fill-pink-400 shrink-0" viewBox="0 0 24 24">
+                        <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                      </svg>
+                      <span>Instagram: @toko_agm_padang</span>
+                    </a>
+                  </li>
+                  <li>
+                    <a 
+                      href="https://wa.me/6282254933540" 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="inline-flex items-center gap-2.5 text-slate-300 hover:text-emerald-400 transition-colors font-semibold"
+                    >
+                      <svg className="w-4 h-4 fill-emerald-400 shrink-0" viewBox="0 0 24 24">
+                        <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+                      </svg>
+                      <span>WhatsApp: 0822-5493-3540</span>
+                    </a>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Column 4: Alamat Toko */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-extrabold uppercase tracking-widest text-white">Lokasi Toko</h4>
+                <p className="text-xs text-slate-400 leading-relaxed flex items-start gap-2">
+                  <span className="material-symbols-outlined text-[16px] text-rose-400 shrink-0 mt-0.5">location_on</span>
+                  <span>Jalan Rahadi Ismail, Desa Padang, Kecamatan Benua Kayong, Kabupaten Ketapang, Kalimantan Barat</span>
+                </p>
+              </div>
+
+            </div>
+
+            {/* Bottom Copyright Sub-Bar */}
+            <div className="pt-8 mt-12 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+              <span>© 2026 CV ADI GUNA MANDIRI (AGM 2). All rights reserved.</span>
+              <div className="flex gap-4 text-[11px] text-slate-400 font-semibold">
+                <span>Furniture &amp; Elektronik Padang</span>
+              </div>
+            </div>
+          </div>
         </footer>
       </main>
+
+      {/* ── GUEST / ADMIN PRODUCT DETAIL & INQUIRY MODAL ── */}
+      {selectedProductDetail && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in"
+          onClick={() => setSelectedProductDetail(null)}
+        >
+          <div 
+            className="w-full max-w-[500px] bg-white border border-slate-200 rounded-3xl p-6 shadow-2xl overflow-hidden relative max-h-[90vh] overflow-y-auto animate-pop-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close Button */}
+            <button 
+              onClick={() => setSelectedProductDetail(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 w-8 h-8 rounded-full flex items-center justify-center transition-colors z-10"
+            >
+              <span className="material-symbols-outlined text-lg">close</span>
+            </button>
+
+            {/* Product Image */}
+            <div className="aspect-[4/3] w-full rounded-2xl overflow-hidden bg-slate-100 mb-5 relative border border-slate-200/80">
+              {selectedProductDetail.image_url ? (
+                <img 
+                  src={getOptimizedImageUrl(selectedProductDetail.image_url, 800)} 
+                  alt={selectedProductDetail.name} 
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
+                  <span className="material-symbols-outlined text-5xl">image_not_supported</span>
+                  <span className="text-xs uppercase font-extrabold tracking-wider mt-2">Tidak Ada Foto</span>
+                </div>
+              )}
+              {selectedProductDetail.arrivalType && (
+                <div className="absolute top-3 left-3 bg-slate-900/90 text-white backdrop-blur-md px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-widest shadow-sm">
+                  {selectedProductDetail.arrivalType}
+                </div>
+              )}
+            </div>
+
+            {/* Product Info */}
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                <span className="px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-slate-100 text-slate-600 tracking-wider">
+                  {selectedProductDetail.category}
+                </span>
+                {selectedProductDetail.subcategory && (
+                  <span className="px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-slate-200 text-slate-800 tracking-wider">
+                    {selectedProductDetail.subcategory}
+                  </span>
+                )}
+              </div>
+
+              <h2 className="font-extrabold text-xl text-slate-900 tracking-tight leading-snug">
+                {selectedProductDetail.name}
+              </h2>
+
+              <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+                {selectedProductDetail.description || 'Tidak ada deskripsi tambahan.'}
+              </p>
+
+              <div className="flex items-center justify-between pt-2">
+                <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                  <span className={`w-2.5 h-2.5 rounded-full ${selectedProductDetail.stock > 3 ? 'bg-emerald-500' : selectedProductDetail.stock > 0 ? 'bg-amber-500' : 'bg-rose-500'}`}></span>
+                  <span>{selectedProductDetail.stock > 0 ? `Stok Tersedia (${selectedProductDetail.stock} ${selectedProductDetail.unit})` : 'Habis / Pre-Order'}</span>
+                </div>
+
+                {isAdmin && (
+                  <div className="text-right">
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block">Harga Admin</span>
+                    <strong className="text-lg font-black text-slate-900">
+                      Rp {(selectedProductDetail.price - selectedProductDetail.discount).toLocaleString('id-ID')}
+                    </strong>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-4 border-t border-slate-100 flex flex-col gap-2">
+                <a 
+                  href={`https://wa.me/6282254933540?text=${encodeURIComponent(`Halo Toko AGM 2 Padang, saya berminat dan ingin menanyakan harga/detail produk:\n- Nama: ${selectedProductDetail.name}\n- Kategori: ${selectedProductDetail.category} ${selectedProductDetail.subcategory}`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-2 shadow-md active:scale-[0.98]"
+                >
+                  <svg className="w-4 h-4 fill-white shrink-0" viewBox="0 0 24 24">
+                    <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+                  </svg>
+                  <span>Tanyakan Harga &amp; Pesan via WhatsApp</span>
+                </a>
+
+                {isAdmin && (
+                  <button 
+                    onClick={() => { const p = selectedProductDetail; setSelectedProductDetail(null); openEdit(p); }}
+                    className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">edit</span>
+                    <span>Edit Produk (Mode Admin)</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
  
 
