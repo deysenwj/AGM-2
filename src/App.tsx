@@ -1151,121 +1151,123 @@ export default function App() {
     <div className="bg-surface text-on-surface selection:bg-primary-fixed selection:text-primary min-h-screen flex flex-col font-body-md">
       
       {/* ── TOP NAV BAR ── */}
-      <nav className="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-4 md:px-8 h-16 bg-white/90 backdrop-blur-xl border-b border-slate-200/80 shadow-xs">
-        <div className="flex items-center gap-3 lg:gap-8">
-          {/* Mobile hamburger menu */}
-          <button 
-            onClick={() => setIsSidebarOpen(true)}
-            className="lg:hidden text-slate-700 hover:text-slate-900 flex items-center justify-center p-2 rounded-xl hover:bg-slate-100/80 transition-colors"
-            title="Buka Menu"
-          >
-            <span className="material-symbols-outlined text-[24px]">menu</span>
-          </button>
-          <div 
-            className="flex items-center gap-2 cursor-pointer select-none group"
-            onClick={() => setCurrentView('catalog')}
-          >
-            <span className="font-black text-xl tracking-tight text-slate-900 font-sans">
-              AGM 2 <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest ml-1 bg-slate-100 px-2 py-0.5 rounded-md hidden sm:inline">PADANG</span>
-            </span>
-          </div>
-          <div className="hidden lg:flex items-center gap-1.5 bg-slate-100/70 p-1 rounded-xl border border-slate-200/50">
-            <button
-              onClick={() => setCurrentView('catalog')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${currentView === 'catalog' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+      <nav className="fixed top-0 left-0 w-full z-50 px-4 md:px-8 h-16 bg-white/90 backdrop-blur-xl border-b border-slate-200/80 shadow-xs flex items-center">
+        <div className="max-w-[1400px] w-full mx-auto flex justify-between items-center">
+          <div className="flex items-center gap-3 lg:gap-8">
+            {/* Mobile hamburger menu */}
+            <button 
+              onClick={() => setIsSidebarOpen(true)}
+              className="lg:hidden text-slate-700 hover:text-slate-900 flex items-center justify-center p-2 rounded-xl hover:bg-slate-100/80 transition-colors"
+              title="Buka Menu"
             >
-              Katalog
+              <span className="material-symbols-outlined text-[24px]">menu</span>
             </button>
-            {isAdmin && (
-              <>
-                <button
-                  onClick={() => setCurrentView('stock')}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${currentView === 'stock' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
-                >
-                  Inventaris
-                </button>
-                <button
-                  onClick={() => setCurrentView('dashboard')}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${currentView === 'dashboard' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
-                >
-                  Analisis
-                </button>
-                <button
-                  onClick={() => setCurrentView('nota')}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${currentView === 'nota' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
-                >
-                  Nota
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Right Top Items (Responsive Search and Login) */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          {/* Refresh / Sync status button */}
-          <button
-            onClick={() => fetchProducts(2)}
-            disabled={isFetchingData}
-            className={`p-2 px-3 rounded-xl border flex items-center gap-2 text-xs font-semibold transition-all ${
-              isFetchingData
-                ? 'bg-amber-50 text-amber-700 border-amber-200 cursor-wait'
-                : fetchError
-                ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
-                : 'bg-slate-100/80 text-slate-700 hover:text-slate-900 border-slate-200/80 hover:bg-slate-100'
-            }`}
-            title={isFetchingData ? 'Menyinkronkan data database...' : fetchError ? 'Gagal sinkron. Klik untuk coba lagi' : 'Sinkronkan data'}
-          >
-            <span className={`material-symbols-outlined text-[18px] ${isFetchingData ? 'animate-spin' : ''}`}>
-              sync
-            </span>
-            <span className="hidden sm:inline text-[11px]">
-              {isFetchingData ? 'Sinkron...' : fetchError ? 'Coba Lagi' : 'Refresh'}
-            </span>
-          </button>
-
-          <div className="relative max-w-[130px] sm:max-w-xs">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base">search</span>
-            <input
-              type="text"
-              placeholder="Cari barang..."
-              className="pl-9 pr-7 py-1.5 bg-slate-100/80 border border-slate-200/80 text-xs rounded-xl w-full focus:ring-2 focus:ring-slate-900 focus:bg-white transition-all outline-none text-slate-900 placeholder:text-slate-400"
-              value={globalSearch}
-              onChange={(e) => setGlobalSearch(e.target.value)}
-            />
-            {globalSearch ? (
-              <button 
-                onClick={() => setGlobalSearch('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+            <div 
+              className="flex items-center gap-2 cursor-pointer select-none group"
+              onClick={() => setCurrentView('catalog')}
+            >
+              <span className="font-black text-xl tracking-tight text-slate-900 font-sans">
+                AGM 2 <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest ml-1 bg-slate-100 px-2 py-0.5 rounded-md hidden sm:inline">PADANG</span>
+              </span>
+            </div>
+            <div className="hidden lg:flex items-center gap-1.5 bg-slate-100/70 p-1 rounded-xl border border-slate-200/50">
+              <button
+                onClick={() => setCurrentView('catalog')}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${currentView === 'catalog' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
               >
-                <span className="material-symbols-outlined text-[14px]">close</span>
+                Katalog
+              </button>
+              {isAdmin && (
+                <>
+                  <button
+                    onClick={() => setCurrentView('stock')}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${currentView === 'stock' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                  >
+                    Inventaris
+                  </button>
+                  <button
+                    onClick={() => setCurrentView('dashboard')}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${currentView === 'dashboard' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                  >
+                    Analisis
+                  </button>
+                  <button
+                    onClick={() => setCurrentView('nota')}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${currentView === 'nota' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                  >
+                    Nota
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Right Top Items (Responsive Search and Login) */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Refresh / Sync status button */}
+            <button
+              onClick={() => fetchProducts(2)}
+              disabled={isFetchingData}
+              className={`p-2 px-3 rounded-xl border flex items-center gap-2 text-xs font-semibold transition-all ${
+                isFetchingData
+                  ? 'bg-amber-50 text-amber-700 border-amber-200 cursor-wait'
+                  : fetchError
+                  ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                  : 'bg-slate-100/80 text-slate-700 hover:text-slate-900 border-slate-200/80 hover:bg-slate-100'
+              }`}
+              title={isFetchingData ? 'Menyinkronkan data database...' : fetchError ? 'Gagal sinkron. Klik untuk coba lagi' : 'Sinkronkan data'}
+            >
+              <span className={`material-symbols-outlined text-[18px] ${isFetchingData ? 'animate-spin' : ''}`}>
+                sync
+              </span>
+              <span className="hidden sm:inline text-[11px]">
+                {isFetchingData ? 'Sinkron...' : fetchError ? 'Coba Lagi' : 'Refresh'}
+              </span>
+            </button>
+
+            <div className="relative max-w-[130px] sm:max-w-xs">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base">search</span>
+              <input
+                type="text"
+                placeholder="Cari barang..."
+                className="pl-9 pr-7 py-1.5 bg-slate-100/80 border border-slate-200/80 text-xs rounded-xl w-full focus:ring-2 focus:ring-slate-900 focus:bg-white transition-all outline-none text-slate-900 placeholder:text-slate-400"
+                value={globalSearch}
+                onChange={(e) => setGlobalSearch(e.target.value)}
+              />
+              {globalSearch ? (
+                <button 
+                  onClick={() => setGlobalSearch('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                >
+                  <span className="material-symbols-outlined text-[14px]">close</span>
+                </button>
+              ) : (
+                <span className="hidden sm:inline absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-extrabold text-slate-400 bg-slate-200/60 px-1.5 py-0.5 rounded border border-slate-300/60 select-none">
+                  /
+                </span>
+              )}
+            </div>
+            
+            {isAdmin ? (
+              <button 
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-all active:scale-[0.98] shadow-xs"
+                title="Logout Admin"
+              >
+                <span className="material-symbols-outlined text-[16px]">logout</span>
+                <span className="hidden md:inline uppercase tracking-wider">LOGOUT</span>
               </button>
             ) : (
-              <span className="hidden sm:inline absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-extrabold text-slate-400 bg-slate-200/60 px-1.5 py-0.5 rounded border border-slate-300/60 select-none">
-                /
-              </span>
+              <button 
+                onClick={() => setIsLoginOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-all active:scale-[0.98] shadow-xs"
+                title="Login Admin"
+              >
+                <span className="material-symbols-outlined text-[16px]">account_circle</span>
+                <span className="hidden md:inline uppercase tracking-wider">LOGIN ADMIN</span>
+              </button>
             )}
           </div>
-          
-          {isAdmin ? (
-            <button 
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-all active:scale-[0.98] shadow-xs"
-              title="Logout Admin"
-            >
-              <span className="material-symbols-outlined text-[16px]">logout</span>
-              <span className="hidden md:inline uppercase tracking-wider">LOGOUT</span>
-            </button>
-          ) : (
-            <button 
-              onClick={() => setIsLoginOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-all active:scale-[0.98] shadow-xs"
-              title="Login Admin"
-            >
-              <span className="material-symbols-outlined text-[16px]">account_circle</span>
-              <span className="hidden md:inline uppercase tracking-wider">LOGIN ADMIN</span>
-            </button>
-          )}
         </div>
       </nav>
 
