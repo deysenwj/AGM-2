@@ -1391,10 +1391,10 @@ export default function App() {
       <main className="pt-16 min-h-screen flex flex-col transition-all bg-white">
         
         {/* ── SLEEK POS OPERATIONAL HEADER ── */}
-        <header className="w-full px-4 md:px-8 py-6 border-b border-slate-200/80 bg-white shadow-xs">
-          <div className="max-w-container-max mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <header className="w-full px-4 md:px-8 py-4 md:py-5 border-b border-slate-200/80 bg-white shadow-xs">
+          <div className="max-w-container-max mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
             <div>
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex items-center gap-2 mb-0.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 <span className="text-[11px] font-extrabold uppercase tracking-widest text-slate-500">Live Inventory • AGM 2</span>
               </div>
@@ -1428,7 +1428,7 @@ export default function App() {
 
         {/* ── CATALOG VIEW ── */}
         {currentView === 'catalog' && (
-          <section className="px-4 md:px-8 pt-6 pb-12 max-w-container-max mx-auto w-full flex-grow">
+          <section className="px-4 md:px-8 pt-4 md:pt-6 pb-12 max-w-container-max mx-auto w-full flex-grow">
             
             {/* Guest Welcome Banner */}
             {!isAdmin && (
