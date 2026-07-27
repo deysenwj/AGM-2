@@ -31,6 +31,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
   const [customerName, setCustomerName] = useState<string>('');
   const [customerPhone, setCustomerPhone] = useState<string>('');
   const [customerAddress, setCustomerAddress] = useState<string>('');
+  const [customerNotes, setCustomerNotes] = useState<string>('');
   const [isConfirming, setIsConfirming] = useState<boolean>(false);
   const [isProcessingPrint, setIsProcessingPrint] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -149,6 +150,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim() || undefined,
         customerAddress: customerAddress.trim() || undefined,
+        notes: customerNotes.trim() || undefined,
         totalPrice: totalVal,
         items: txItems,
         date: dateStr,
@@ -273,6 +275,11 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
                       <td>Alamat:</td>
                       <td style="text-align: right; max-width: 180px; word-wrap: break-word;">${customerAddress}</td>
                     </tr>` : ''}
+                    ${customerNotes.trim() ? `
+                    <tr>
+                      <td>Keterangan:</td>
+                      <td style="text-align: right; max-width: 180px; word-wrap: break-word;">${customerNotes}</td>
+                    </tr>` : ''}
                   </table>
                   
                   <div class="divider"></div>
@@ -322,7 +329,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
             triggerToast('Gagal memproses cetak. Izinkan pop-up browser Anda.');
           }
         } else { // printType === 'image'
-          await handlePrintAsImageInternal(notaId, totalVal, customerName, customerPhone, customerAddress, selectedProducts);
+          await handlePrintAsImageInternal(notaId, totalVal, customerName, customerPhone, customerAddress, customerNotes, selectedProducts);
         }
       } finally {
         // Restore hidden elements (if any were hidden for image printing)
@@ -332,6 +339,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
         setCustomerName('');
         setCustomerPhone('');
         setCustomerAddress('');
+        setCustomerNotes('');
         setIsConfirming(false);
         setIsProcessingPrint(false);
       }
@@ -343,7 +351,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
     }
   };
 
-  const handlePrintAsImageInternal = async (notaId: string, totalVal: number, customerName: string, customerPhone: string | undefined, customerAddress: string | undefined, selectedProducts: NotaItem[]) => {
+  const handlePrintAsImageInternal = async (notaId: string, totalVal: number, customerName: string, customerPhone: string | undefined, customerAddress: string | undefined, customerNotes: string | undefined, selectedProducts: NotaItem[]) => {
     // --- Start Building Print HTML (same as for PDF) ---
     const dateStr = new Date().toLocaleString('id-ID');
 
@@ -441,6 +449,11 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
             <tr>
               <td>Alamat:</td>
               <td style="text-align: right; max-width: 180px; word-wrap: break-word;">${customerAddress}</td>
+            </tr>` : ''}
+            ${customerNotes && customerNotes.trim() ? `
+            <tr>
+              <td>Keterangan:</td>
+              <td style="text-align: right; max-width: 180px; word-wrap: break-word;">${customerNotes}</td>
             </tr>` : ''}
           </table>
           
@@ -676,6 +689,16 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
                   onChange={(e) => setCustomerAddress(e.target.value)}
                 />
               </div>
+              <div>
+                <label className="block font-label-md text-label-md text-on-surface-variant mb-1 text-xs">Catatan / Keterangan (Opsional)</label>
+                <input
+                  type="text"
+                  placeholder="cth: DP 50%, Lunas, Titip Toko, Garansi 1 Thn, dll."
+                  className="w-full bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-sm focus:ring-1 focus:ring-primary focus:bg-surface-container"
+                  value={customerNotes}
+                  onChange={(e) => setCustomerNotes(e.target.value)}
+                />
+              </div>
             </div>
 
             <div className="flex-grow overflow-x-auto max-h-80 overflow-y-auto mb-4 border border-border-light rounded-lg">
@@ -756,6 +779,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
               <div><span className="text-secondary font-bold">Nama Pelanggan:</span> <span className="text-primary">{customerName}</span></div>
               {customerPhone && <div><span className="text-secondary font-bold">No. HP:</span> <span className="text-primary">{customerPhone}</span></div>}
               {customerAddress && <div><span className="text-secondary font-bold">Alamat:</span> <span className="text-primary">{customerAddress}</span></div>}
+              {customerNotes && <div><span className="text-secondary font-bold">Keterangan:</span> <span className="text-primary italic font-medium">{customerNotes}</span></div>}
               <div className="pt-2 border-t border-border-light/60">
                 <span className="text-secondary font-bold">Detail Barang:</span>
                 <div className="max-h-28 overflow-y-auto mt-1 space-y-1 bg-surface-container-low p-2 rounded">

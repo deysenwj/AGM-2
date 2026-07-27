@@ -23,6 +23,7 @@ export interface Transaction {
   customerName: string;
   customerPhone?: string;
   customerAddress?: string;
+  notes?: string;
   totalPrice: number;
   items: {
     productId: string;
@@ -78,6 +79,14 @@ const formatRupiahInput = (val: string) => {
   const clean = val.replace(/\D/g, '');
   if (!clean) return '';
   return parseInt(clean).toLocaleString('id-ID');
+};
+
+const getOptimizedImageUrl = (url?: string, width = 600) => {
+  if (!url) return '';
+  if (url.includes('res.cloudinary.com') && url.includes('/upload/')) {
+    return url.replace('/upload/', `/upload/f_auto,q_auto:good,w_${width},c_limit/`);
+  }
+  return url;
 };
 
 
@@ -226,6 +235,7 @@ export default function App() {
     customerName: item.customer_name,
     customerPhone: item.customer_phone || undefined,
     customerAddress: item.customer_address || undefined,
+    notes: item.notes || item.description || undefined,
     totalPrice: Number(item.total_price),
     items: typeof item.items === 'string' ? JSON.parse(item.items) : item.items,
     date: new Date(item.created_at).toLocaleString('id-ID'),
@@ -294,17 +304,26 @@ export default function App() {
     setFetchError(null);
     
     // Try loading from local storage first
+    let hasLocalData = false;
     const savedProducts = localStorage.getItem('agm2_inventory');
     if (savedProducts) {
       try {
         const parsed = JSON.parse(savedProducts);
-        if (Array.isArray(parsed)) {
-          setProducts(parsed.filter(p => !['1','2','3','4','5','6'].includes(String(p.id))));
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setProducts(parsed);
+          hasLocalData = true;
         }
       } catch (e) {
         console.error("Failed to parse local products:", e);
         localStorage.removeItem('agm2_inventory'); // Clear corrupted data
       }
+    }
+
+    // If we already have local products, don't show full-screen spinner to prevent UI flash/disappearing
+    if (hasLocalData) {
+      setIsFetchingData(false);
+    } else if (showSpinner) {
+      setIsFetchingData(true);
     }
 
     if (!isSupabaseConfigured) {
@@ -464,6 +483,7 @@ export default function App() {
             customer_name: tx.customerName,
             customer_phone: tx.customerPhone || null,
             customer_address: tx.customerAddress || null,
+            notes: tx.notes || null,
             total_price: tx.totalPrice,
             items: tx.items
           }]);
@@ -1090,56 +1110,74 @@ export default function App() {
 
 
 
-  // Filter application
-  const filteredProducts = products.filter(p => {
-    const matchCategory = filterCategory === 'all' || p.category === filterCategory;
-    const matchSubcategory = filterSubcategory === 'all' || p.subcategory === filterSubcategory;
-    const matchSearch = (currentView === 'stock' && stockSearchTerm)
-                        ? (p.name.toLowerCase().includes(stockSearchTerm.toLowerCase()) || p.description.toLowerCase().includes(stockSearchTerm.toLowerCase()))
-                        : (p.name.toLowerCase().includes(globalSearch.toLowerCase()) || p.description.toLowerCase().includes(globalSearch.toLowerCase()));
+  // Memoized filter application for 60fps responsive UI
+  const filteredProducts = React.useMemo(() => {
+    const searchTarget = (currentView === 'stock' && stockSearchTerm) ? stockSearchTerm.trim().toLowerCase() : globalSearch.trim().toLowerCase();
     
-    // Check In Stock & Backorder statuses
-    const isInStock = p.stock > 0;
-    if (showInStock && isInStock) return matchCategory && matchSubcategory && matchSearch;
-    if (showBackorder && !isInStock) return matchCategory && matchSubcategory && matchSearch;
+    return products.filter(p => {
+      const matchCategory = filterCategory === 'all' || p.category === filterCategory;
+      const matchSubcategory = filterSubcategory === 'all' || p.subcategory === filterSubcategory;
+      
+      const matchSearch = !searchTarget || 
+        p.name.toLowerCase().includes(searchTarget) || 
+        p.description.toLowerCase().includes(searchTarget);
+      
+      const isInStock = p.stock > 0;
+      let matchStock = true;
+      if (showInStock && !showBackorder) {
+        matchStock = isInStock;
+      } else if (!showInStock && showBackorder) {
+        matchStock = !isInStock;
+      } else if (showInStock && showBackorder) {
+        matchStock = true;
+      } else {
+        // Fallback: if user unchecks both boxes, show all products instead of wiping display
+        matchStock = true;
+      }
 
-    return false;
-  });
+      return matchCategory && matchSubcategory && matchSearch && matchStock;
+    });
+  }, [products, filterCategory, filterSubcategory, globalSearch, stockSearchTerm, showInStock, showBackorder, currentView]);
 
   const getStockLabel = (stock: number) => {
     const s = isNaN(stock) ? 0 : Math.max(0, Number(stock) || 0);
-    if (s === 0) return <span className="font-label-md text-label-md text-error flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">cancel</span> HABIS</span>;
-    if (s <= 3) return <span className="font-label-md text-label-md text-warning flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">error</span> TERBATAS</span>;
-    return <span className="font-label-md text-label-md text-status-blue flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">check_circle</span> TERSEDIA</span>;
+    if (s === 0) return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 ring-1 ring-rose-600/20"><span className="material-symbols-outlined text-[12px]">cancel</span> HABIS</span>;
+    if (s <= 3) return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 ring-1 ring-amber-600/20"><span className="material-symbols-outlined text-[12px]">error</span> TERBATAS</span>;
+    return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20"><span className="material-symbols-outlined text-[12px]">check_circle</span> TERSEDIA</span>;
   };
 
   return (
     <div className="bg-surface text-on-surface selection:bg-primary-fixed selection:text-primary min-h-screen flex flex-col font-body-md">
       
       {/* ── TOP NAV BAR ── */}
-      <nav className="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-margin-mobile md:px-margin-desktop h-16 bg-surface/80 backdrop-blur-xl border-b border-border-light">
-        <div className="flex items-center gap-3 lg:gap-12">
+      <nav className="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-4 md:px-8 h-16 bg-white/85 backdrop-blur-xl border-b border-slate-200/80 shadow-xs">
+        <div className="flex items-center gap-3 lg:gap-8">
           {/* Mobile hamburger menu */}
           <button 
             onClick={() => setIsSidebarOpen(true)}
-            className="lg:hidden text-primary flex items-center justify-center p-2 rounded-lg hover:bg-surface-container transition-colors"
+            className="lg:hidden text-slate-700 hover:text-slate-900 flex items-center justify-center p-2 rounded-xl hover:bg-slate-100/80 transition-colors"
             title="Buka Menu"
           >
             <span className="material-symbols-outlined text-[24px]">menu</span>
           </button>
-          <div className="font-display-lg text-headline-md tracking-tighter text-primary select-none cursor-pointer" onClick={() => setCurrentView('catalog')}>
-            AGM 2
+          <div 
+            className="flex items-center gap-2 cursor-pointer select-none group"
+            onClick={() => setCurrentView('catalog')}
+          >
+            <span className="font-extrabold text-xl tracking-tight text-slate-900 font-sans">
+              AGM 2 <span className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1 hidden sm:inline">POS</span>
+            </span>
           </div>
-          <div className="hidden lg:flex items-center gap-6">
+          <div className="hidden lg:flex items-center gap-1.5 bg-slate-100/70 p-1 rounded-xl border border-slate-200/50">
             <button
               onClick={() => { selectCategoryFilter('furniture'); setCurrentView('catalog'); }}
-              className={`font-body-md text-body-md uppercase tracking-widest pb-1 transition-all ${filterCategory === 'furniture' && currentView === 'catalog' ? 'text-primary font-bold border-b-2 border-primary' : 'text-secondary hover:text-primary'}`}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${filterCategory === 'furniture' && currentView === 'catalog' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
             >
               Furniture
             </button>
             <button
               onClick={() => { selectCategoryFilter('electronics'); setCurrentView('catalog'); }}
-              className={`font-body-md text-body-md uppercase tracking-widest pb-1 transition-all ${filterCategory === 'electronics' && currentView === 'catalog' ? 'text-primary font-bold border-b-2 border-primary' : 'text-secondary hover:text-primary'}`}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${filterCategory === 'electronics' && currentView === 'catalog' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
             >
               Elektronik
             </button>
@@ -1147,19 +1185,19 @@ export default function App() {
               <>
                 <button
                   onClick={() => setCurrentView('stock')}
-                  className={`font-body-md text-body-md uppercase tracking-widest pb-1 transition-all ${currentView === 'stock' ? 'text-primary font-bold border-b-2 border-primary' : 'text-secondary hover:text-primary'}`}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${currentView === 'stock' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
                 >
                   Inventaris
                 </button>
                 <button
                   onClick={() => setCurrentView('dashboard')}
-                  className={`font-body-md text-body-md uppercase tracking-widest pb-1 transition-all ${currentView === 'dashboard' ? 'text-primary font-bold border-b-2 border-primary' : 'text-secondary hover:text-primary'}`}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${currentView === 'dashboard' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
                 >
                   Analisis
                 </button>
                 <button
                   onClick={() => setCurrentView('nota')}
-                  className={`font-body-md text-body-md uppercase tracking-widest pb-1 transition-all ${currentView === 'nota' ? 'text-primary font-bold border-b-2 border-primary' : 'text-secondary hover:text-primary'}`}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${currentView === 'nota' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
                 >
                   Nota
                 </button>
@@ -1169,34 +1207,34 @@ export default function App() {
         </div>
 
         {/* Right Top Items (Responsive Search and Login) */}
-        <div className="flex items-center gap-2 sm:gap-4">
+        <div className="flex items-center gap-2 sm:gap-3">
           {/* Refresh / Sync status button */}
           <button
             onClick={() => fetchProducts(2)}
             disabled={isFetchingData}
-            className={`p-1.5 px-2.5 rounded-lg border flex items-center gap-1.5 text-xs transition-all ${
+            className={`p-2 px-3 rounded-xl border flex items-center gap-2 text-xs font-semibold transition-all ${
               isFetchingData
                 ? 'bg-amber-50 text-amber-700 border-amber-200 cursor-wait'
                 : fetchError
-                ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
-                : 'bg-surface-container text-secondary hover:text-primary border-border-light'
+                ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                : 'bg-slate-100/80 text-slate-700 hover:text-slate-900 border-slate-200/80 hover:bg-slate-100'
             }`}
             title={isFetchingData ? 'Menyinkronkan data database...' : fetchError ? 'Gagal sinkron. Klik untuk coba lagi' : 'Sinkronkan data'}
           >
             <span className={`material-symbols-outlined text-[18px] ${isFetchingData ? 'animate-spin' : ''}`}>
               sync
             </span>
-            <span className="hidden sm:inline font-medium text-[11px]">
+            <span className="hidden sm:inline text-[11px]">
               {isFetchingData ? 'Sinkron...' : fetchError ? 'Coba Lagi' : 'Refresh'}
             </span>
           </button>
 
           <div className="relative max-w-[120px] sm:max-w-xs">
-            <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-secondary text-base">search</span>
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base">search</span>
             <input
               type="text"
               placeholder="Cari..."
-              className="pl-8 pr-3 py-1.5 bg-surface-container border-none text-xs rounded-lg w-full focus:ring-1 focus:ring-primary focus:bg-surface-container-high transition-all"
+              className="pl-9 pr-3 py-1.5 bg-slate-100/80 border border-slate-200/80 text-xs rounded-xl w-full focus:ring-2 focus:ring-slate-900 focus:bg-white transition-all outline-none text-slate-900 placeholder:text-slate-400"
               value={globalSearch}
               onChange={(e) => setGlobalSearch(e.target.value)}
             />
@@ -1205,277 +1243,203 @@ export default function App() {
           {isAdmin ? (
             <button 
               onClick={handleLogout}
-              className="flex items-center gap-1 text-primary hover:opacity-70 transition-opacity"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-all active:scale-[0.98] shadow-xs"
               title="Logout Admin"
             >
-              <span className="material-symbols-outlined">logout</span>
-              <span className="hidden md:inline font-bold text-xs uppercase tracking-wider">LOGOUT</span>
+              <span className="material-symbols-outlined text-[16px]">logout</span>
+              <span className="hidden md:inline uppercase tracking-wider">LOGOUT</span>
             </button>
           ) : (
             <button 
               onClick={() => setIsLoginOpen(true)}
-              className="flex items-center gap-1 text-primary hover:opacity-70 transition-opacity"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-all active:scale-[0.98] shadow-xs"
               title="Login Admin"
             >
-              <span className="material-symbols-outlined">account_circle</span>
-              <span className="hidden md:inline font-bold text-xs uppercase tracking-wider">LOGIN ADMIN</span>
+              <span className="material-symbols-outlined text-[16px]">account_circle</span>
+              <span className="hidden md:inline uppercase tracking-wider">LOGIN ADMIN</span>
             </button>
           )}
         </div>
       </nav>
 
-      {/* ── SIDEBAR (DESKTOP) ── */}
-      <aside className="hidden lg:flex flex-col fixed left-0 top-16 bottom-0 w-64 p-6 gap-y-8 bg-surface border-r border-border-light overflow-y-auto">
-        <div>
-          <h3 className="font-label-md text-label-md uppercase tracking-[0.1em] text-secondary mb-4">Navigasi</h3>
-          <div className="space-y-1">
-            <button
-              onClick={() => setCurrentView('catalog')}
-              className={`w-full text-left flex items-center gap-3 p-3 rounded-lg transition-all ${currentView === 'catalog' ? 'bg-secondary-container text-primary font-semibold' : 'text-on-surface-variant hover:bg-surface-container-high'}`}
-            >
-              <span className="material-symbols-outlined text-[20px]">person_search</span>
-              <span className="font-body-md text-body-md">Katalog Pelanggan</span>
-            </button>
-
-            {isAdmin && (
-              <>
-                <button
-                  onClick={() => setCurrentView('stock')}
-                  className={`w-full text-left flex items-center gap-3 p-3 rounded-lg transition-all ${currentView === 'stock' ? 'bg-secondary-container text-primary font-semibold' : 'text-on-surface-variant hover:bg-surface-container-high'}`}
-                >
-                  <span className="material-symbols-outlined text-[20px]">inventory_2</span>
-                  <span className="font-body-md text-body-md">Kontrol Stok</span>
-                </button>
-                <button
-                  onClick={() => setCurrentView('dashboard')}
-                  className={`w-full text-left flex items-center gap-3 p-3 rounded-lg transition-all ${currentView === 'dashboard' ? 'bg-secondary-container text-primary font-semibold' : 'text-on-surface-variant hover:bg-surface-container-high'}`}
-                >
-                  <span className="material-symbols-outlined text-[20px]">dashboard</span>
-                  <span className="font-body-md text-body-md">Dasbor</span>
-                </button>
-                <button
-                  onClick={() => setCurrentView('nota')}
-                  className={`w-full text-left flex items-center gap-3 p-3 rounded-lg transition-all ${currentView === 'nota' ? 'bg-secondary-container text-primary font-semibold' : 'text-on-surface-variant hover:bg-surface-container-high'}`}
-                >
-                  <span className="material-symbols-outlined text-[20px]">receipt_long</span>
-                  <span className="font-body-md text-body-md">Buat Nota</span>
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-
-        <div>
-          <h3 className="font-label-md text-label-md uppercase tracking-[0.1em] text-secondary mb-4">Saring Pencarian</h3>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="font-label-md text-label-md block text-secondary">Status</label>
-              <div className="flex flex-col gap-2">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input 
-                    type="checkbox" 
-                    checked={showInStock}
-                    onChange={(e) => setShowInStock(e.target.checked)}
-                    className="w-4 h-4 rounded-sm border-border-light text-primary focus:ring-primary"
-                  />
-                  <span className="font-body-md text-body-md text-on-surface">Tersedia</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input 
-                    type="checkbox"
-                    checked={showBackorder}
-                    onChange={(e) => setShowBackorder(e.target.checked)}
-                    className="w-4 h-4 rounded-sm border-border-light text-primary focus:ring-primary"
-                  />
-                  <span className="font-body-md text-body-md text-on-surface">Pre-Order</span>
-                </label>
-              </div>
-            </div>
-          </div>
-        </div>
-      </aside>
-
       {/* ── MOBILE DRAWER SIDEBAR ── */}
       {isSidebarOpen && (
         <div className="fixed inset-0 z-50 lg:hidden flex" onClick={() => setIsSidebarOpen(false)}>
           {/* Backdrop */}
-          <div className="fixed inset-0 bg-surface/50 backdrop-blur-sm transition-opacity" />
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity" />
           
           {/* Drawer Panel */}
           <aside 
-            className="relative flex flex-col w-64 max-w-[280px] h-full p-6 gap-y-8 bg-surface border-r border-border-light overflow-y-auto animate-slide-in shadow-2xl"
+            className="relative flex flex-col w-72 max-w-[300px] h-full p-6 gap-y-6 bg-white border-r border-slate-200 overflow-y-auto animate-slide-in shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header / Close */}
-            <div className="flex justify-between items-center pb-2 border-b border-border-light">
-              <span className="font-bold text-primary tracking-tight">Navigasi &amp; Filter</span>
-              <button onClick={() => setIsSidebarOpen(false)} className="text-secondary hover:text-primary flex items-center justify-center">
-                <span className="material-symbols-outlined">close</span>
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+              <span className="font-extrabold text-slate-900 text-sm tracking-tight">Navigasi Katalog</span>
+              <button onClick={() => setIsSidebarOpen(false)} className="text-slate-400 hover:text-slate-900 flex items-center justify-center p-1 rounded-lg">
+                <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
             </div>
 
             <div>
-              <h3 className="font-label-md text-label-md uppercase tracking-[0.1em] text-secondary mb-4">Navigasi</h3>
+              <h3 className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 mb-3">Menu</h3>
               <div className="space-y-1">
                 <button
                   onClick={() => { setCurrentView('catalog'); setIsSidebarOpen(false); }}
-                  className={`w-full text-left flex items-center gap-3 p-3 rounded-lg transition-all ${currentView === 'catalog' ? 'bg-secondary-container text-primary font-semibold' : 'text-on-surface-variant hover:bg-surface-container-high'}`}
+                  className={`w-full text-left flex items-center gap-3 p-3 rounded-xl text-xs font-bold transition-all ${currentView === 'catalog' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'}`}
                 >
-                  <span className="material-symbols-outlined text-[20px]">person_search</span>
-                  <span className="font-body-md text-body-md">Katalog Pelanggan</span>
+                  <span className="material-symbols-outlined text-[18px]">grid_view</span>
+                  <span>Katalog Produk</span>
                 </button>
 
                 {isAdmin && (
                   <>
                     <button
                       onClick={() => { setCurrentView('stock'); setIsSidebarOpen(false); }}
-                      className={`w-full text-left flex items-center gap-3 p-3 rounded-lg transition-all ${currentView === 'stock' ? 'bg-secondary-container text-primary font-semibold' : 'text-on-surface-variant hover:bg-surface-container-high'}`}
+                      className={`w-full text-left flex items-center gap-3 p-3 rounded-xl text-xs font-bold transition-all ${currentView === 'stock' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'}`}
                     >
-                      <span className="material-symbols-outlined text-[20px]">inventory_2</span>
-                      <span className="font-body-md text-body-md">Kontrol Stok</span>
+                      <span className="material-symbols-outlined text-[18px]">inventory_2</span>
+                      <span>Kontrol Stok</span>
                     </button>
                     <button
                       onClick={() => { setCurrentView('dashboard'); setIsSidebarOpen(false); }}
-                      className={`w-full text-left flex items-center gap-3 p-3 rounded-lg transition-all ${currentView === 'dashboard' ? 'bg-secondary-container text-primary font-semibold' : 'text-on-surface-variant hover:bg-surface-container-high'}`}
+                      className={`w-full text-left flex items-center gap-3 p-3 rounded-xl text-xs font-bold transition-all ${currentView === 'dashboard' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'}`}
                     >
-                      <span className="material-symbols-outlined text-[20px]">dashboard</span>
-                      <span className="font-body-md text-body-md">Dasbor</span>
+                      <span className="material-symbols-outlined text-[18px]">insights</span>
+                      <span>Analisis &amp; Performa</span>
                     </button>
                     <button
                       onClick={() => { setCurrentView('nota'); setIsSidebarOpen(false); }}
-                      className={`w-full text-left flex items-center gap-3 p-3 rounded-lg transition-all ${currentView === 'nota' ? 'bg-secondary-container text-primary font-semibold' : 'text-on-surface-variant hover:bg-surface-container-high'}`}
+                      className={`w-full text-left flex items-center gap-3 p-3 rounded-xl text-xs font-bold transition-all ${currentView === 'nota' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'}`}
                     >
-                      <span className="material-symbols-outlined text-[20px]">receipt_long</span>
-                      <span className="font-body-md text-body-md">Buat Nota</span>
+                      <span className="material-symbols-outlined text-[18px]">point_of_sale</span>
+                      <span>Kasir &amp; Cetak Nota</span>
                     </button>
                   </>
                 )}
               </div>
             </div>
 
-            <div>
-              <h3 className="font-label-md text-label-md uppercase tracking-[0.1em] text-secondary mb-4">Kategori Utama</h3>
-              <div className="space-y-1">
-                <button
-                  onClick={() => { selectCategoryFilter('furniture'); setCurrentView('catalog'); setIsSidebarOpen(false); }}
-                  className={`w-full text-left flex items-center gap-3 p-3 rounded-lg transition-all ${filterCategory === 'furniture' && currentView === 'catalog' ? 'bg-secondary-container text-primary font-semibold' : 'text-on-surface-variant hover:bg-surface-container-high'}`}
-                >
-                  <span className="material-symbols-outlined text-[20px]">table_restaurant</span>
-                  <span className="font-body-md text-body-md">Furniture</span>
-                </button>
-                <button
-                  onClick={() => { selectCategoryFilter('electronics'); setCurrentView('catalog'); setIsSidebarOpen(false); }}
-                  className={`w-full text-left flex items-center gap-3 p-3 rounded-lg transition-all ${filterCategory === 'electronics' && currentView === 'catalog' ? 'bg-secondary-container text-primary font-semibold' : 'text-on-surface-variant hover:bg-surface-container-high'}`}
-                >
-                  <span className="material-symbols-outlined text-[20px]">devices</span>
-                  <span className="font-body-md text-body-md">Elektronik</span>
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="font-label-md text-label-md uppercase tracking-[0.1em] text-secondary mb-4">Saring Pencarian</h3>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="font-label-md text-label-md block text-secondary">Status</label>
-                  <div className="flex flex-col gap-2">
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                      <input 
-                        type="checkbox" 
-                        checked={showInStock}
-                        onChange={(e) => setShowInStock(e.target.checked)}
-                        className="w-4 h-4 rounded-sm border-border-light text-primary focus:ring-primary"
-                      />
-                      <span className="font-body-md text-body-md text-on-surface">Tersedia</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                      <input 
-                        type="checkbox"
-                        checked={showBackorder}
-                        onChange={(e) => setShowBackorder(e.target.checked)}
-                        className="w-4 h-4 rounded-sm border-border-light text-primary focus:ring-primary"
-                      />
-                      <span className="font-body-md text-body-md text-on-surface">Pre-Order</span>
-                    </label>
-                  </div>
-                </div>
+            <div className="pt-4 border-t border-slate-100">
+              <h3 className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 mb-3">Status Ketersediaan</h3>
+              <div className="space-y-2.5">
+                <label className="flex items-center gap-2.5 cursor-pointer select-none text-xs font-semibold text-slate-700">
+                  <input 
+                    type="checkbox" 
+                    checked={showInStock}
+                    onChange={(e) => setShowInStock(e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900 accent-slate-900"
+                  />
+                  <span>Tampilkan Barang Tersedia</span>
+                </label>
+                <label className="flex items-center gap-2.5 cursor-pointer select-none text-xs font-semibold text-slate-700">
+                  <input 
+                    type="checkbox"
+                    checked={showBackorder}
+                    onChange={(e) => setShowBackorder(e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900 accent-slate-900"
+                  />
+                  <span>Tampilkan Pre-Order / Habis</span>
+                </label>
               </div>
             </div>
           </aside>
         </div>
       )}
 
-      {/* ── MAIN CONTENT CANVAS ── */}
-      <main className="lg:ml-64 pt-16 min-h-screen flex flex-col transition-all">
+      {/* ── MAIN CONTENT CANVAS (FULL WIDTH IKEA/APPLE STYLE) ── */}
+      <main className="pt-16 min-h-screen flex flex-col transition-all bg-white">
         
-        {/* ── HERO BANNER ── */}
-        <header className="w-full px-margin-mobile lg:px-margin-desktop py-8 lg:py-10 border-b border-border-light bg-surface-bright">
-          <div className="max-w-container-max mx-auto">
-            <p className="font-label-md text-label-md uppercase tracking-[0.2em] text-secondary mb-3">KETERSEDIAAN &amp; INVENTARIS</p>
-            <h1 className="font-display-lg text-display-lg-mobile lg:text-display-lg text-primary tracking-tighter mb-4 max-w-2xl">
-              Solusi Furniture &amp; Elektronik Berkualitas untuk Setiap Kebutuhan Anda
-            </h1>
-            <div className="flex gap-4">
-              <div className="px-6 py-2 bg-surface-container-highest rounded-full font-label-md text-label-md">
-                {products.length} Produk Aktif
+        {/* ── SLEEK POS OPERATIONAL HEADER ── */}
+        <header className="w-full px-4 md:px-8 py-6 border-b border-slate-200/80 bg-white shadow-xs">
+          <div className="max-w-container-max mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span className="text-[11px] font-extrabold uppercase tracking-widest text-slate-500">Live Inventory • AGM 2</span>
               </div>
+              <h1 className="font-extrabold text-xl md:text-2xl text-slate-900 tracking-tight">
+                {currentView === 'catalog' && 'Katalog Produk & Persediaan'}
+                {currentView === 'stock' && 'Manajemen Kontrol Stok'}
+                {currentView === 'dashboard' && 'Analisis Penjualan & Performa'}
+                {currentView === 'nota' && 'Kasir & Pembuatan Nota'}
+              </h1>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="hidden sm:flex items-center gap-3 px-3.5 py-1.5 bg-slate-100/80 border border-slate-200/80 rounded-xl text-xs text-slate-600 font-semibold">
+                <span>SKU: <strong className="text-slate-900 font-bold">{products.length}</strong></span>
+                <span className="text-slate-300">•</span>
+                <span>Tersedia: <strong className="text-emerald-700 font-bold">{products.filter(p => p.stock > 0).length}</strong></span>
+              </div>
+
+              {isAdmin && currentView === 'catalog' && (
+                <button
+                  onClick={openAdd}
+                  className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-all flex items-center gap-1.5 shadow-sm active:scale-[0.98]"
+                >
+                  <span className="material-symbols-outlined text-[16px]">add</span>
+                  <span>Tambah Produk</span>
+                </button>
+              )}
             </div>
           </div>
         </header>
 
         {/* ── CATALOG VIEW ── */}
         {currentView === 'catalog' && (
-          <section className="px-margin-mobile lg:px-margin-desktop pt-6 pb-12 max-w-container-max mx-auto w-full flex-grow">
+          <section className="px-4 md:px-8 pt-6 pb-12 max-w-container-max mx-auto w-full flex-grow">
             
             {/* Guest pricing notice */}
             {!isAdmin && (
-              <div className="mb-6 p-4 bg-surface-container-low border border-border-light flex items-center gap-3 text-secondary rounded-lg">
-                <span className="material-symbols-outlined text-primary text-xl shrink-0">lock</span>
-                <span className="text-body-md text-sm leading-relaxed">
-                  Harga produk disembunyikan untuk Tamu. Silakan hubungi admin untuk mengetahui harga barang
+              <div className="mb-6 p-3.5 bg-amber-50/80 border border-amber-200/80 flex items-center gap-3 text-amber-900 rounded-xl text-xs shadow-xs">
+                <span className="material-symbols-outlined text-amber-700 text-lg shrink-0">lock</span>
+                <span className="font-medium leading-relaxed">
+                  Harga produk disembunyikan untuk mode Tamu. Silakan hubungi admin untuk informasi harga barang.
                 </span>
               </div>
             )}
 
             {/* Grid Filters Row */}
-            <div className="flex flex-col gap-6 mb-8">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-border-light pb-4">
-                <div className="flex gap-2 overflow-x-auto hide-scrollbar w-full md:w-auto -mx-margin-mobile px-margin-mobile md:mx-0 md:px-0">
+            <div className="flex flex-col gap-4 mb-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="flex p-1 bg-slate-200/60 rounded-xl gap-1 w-full sm:w-auto">
                   <button
                     onClick={() => selectCategoryFilter('all')}
-                    className={`whitespace-nowrap px-6 py-2.5 border text-xs font-bold uppercase transition-all ${filterCategory === 'all' ? 'border-primary bg-primary text-pure-white' : 'border-border-light hover:border-primary text-secondary'}`}
+                    className={`flex-1 sm:flex-initial px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${filterCategory === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
                   >
-                    SEMUA PRODUK
+                    Semua ({products.length})
                   </button>
                   <button
                     onClick={() => selectCategoryFilter('furniture')}
-                    className={`whitespace-nowrap px-6 py-2.5 border text-xs font-bold uppercase transition-all ${filterCategory === 'furniture' ? 'border-primary bg-primary text-pure-white' : 'border-border-light hover:border-primary text-secondary'}`}
+                    className={`flex-1 sm:flex-initial px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${filterCategory === 'furniture' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
                   >
-                    FURNITURE
+                    Furniture ({products.filter(p => p.category === 'furniture').length})
                   </button>
                   <button
                     onClick={() => selectCategoryFilter('electronics')}
-                    className={`whitespace-nowrap px-6 py-2.5 border text-xs font-bold uppercase transition-all ${filterCategory === 'electronics' ? 'border-primary bg-primary text-pure-white' : 'border-border-light hover:border-primary text-secondary'}`}
+                    className={`flex-1 sm:flex-initial px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${filterCategory === 'electronics' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
                   >
-                    ELEKTRONIK
+                    Elektronik ({products.filter(p => p.category === 'electronics').length})
                   </button>
                 </div>
-                <div className="flex items-center justify-between md:justify-end gap-2 w-full md:w-auto text-xs text-secondary font-semibold">
-                  <span>Menampilkan {filteredProducts.length} dari {products.length} produk</span>
-                  <span className="material-symbols-outlined cursor-pointer ml-2">sort</span>
+
+                <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto text-xs text-slate-500 font-semibold">
+                  <span>Menampilkan {filteredProducts.length} dari {products.length} barang</span>
                 </div>
               </div>
 
+
               {/* Sub-product Filter Dropdown */}
               {filterCategory !== 'all' && (
-                <div className="flex items-center gap-3">
-                  <label className="text-xs font-bold uppercase tracking-wider text-secondary whitespace-nowrap">Sub Produk:</label>
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Sub-Kategori:</span>
                   <select
                     value={filterSubcategory}
                     onChange={(e) => setFilterSubcategory(e.target.value)}
-                    className="bg-surface-container border border-border-light text-xs font-bold rounded-lg px-4 py-2 text-primary focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none"
+                    className="bg-white border border-slate-200 text-xs font-bold rounded-xl px-3.5 py-1.5 text-slate-900 focus:ring-2 focus:ring-slate-900 shadow-xs outline-none cursor-pointer"
                   >
-                    <option value="all">Semua</option>
+                    <option value="all">Semua Sub-Kategori</option>
                     {(filterCategory === 'furniture' ? FURNITURE_SUBCATEGORIES : ELECTRONICS_SUBCATEGORIES).map(sub => (
                       <option key={sub} value={sub}>{sub}</option>
                     ))}
@@ -1533,86 +1497,93 @@ export default function App() {
                 <p className="text-sm">Tidak ada produk yang cocok dengan kriteria.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5 sm:gap-7">
                 {filteredProducts.map(p => (
-                  <div key={p.id} className="product-card group relative flex flex-col bg-pure-white border border-transparent hover:border-border-light transition-all duration-500 overflow-hidden">
-                    <div className="aspect-square overflow-hidden bg-surface-container relative">
+                  <div key={p.id} className="product-card group relative flex flex-col bg-white rounded-2xl overflow-hidden cursor-pointer transition-all duration-300">
+                    <div className="aspect-[4/3] sm:aspect-square overflow-hidden bg-slate-100 relative rounded-t-2xl border border-slate-200/80">
                       {p.image_url ? (
                         <img 
-                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
-                          src={p.image_url} 
+                          className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105" 
+                          src={getOptimizedImageUrl(p.image_url, 600)} 
                           alt={p.name}
+                          loading="lazy"
+                          decoding="async"
                         />
                       ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center bg-surface-container-high text-secondary">
-                          <span className="material-symbols-outlined text-3xl">image_not_supported</span>
-                          <span className="text-[10px] uppercase mt-1">Tidak Ada Foto</span>
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 text-slate-400">
+                          <span className="material-symbols-outlined text-4xl stroke-1">image_not_supported</span>
+                          <span className="text-[10px] uppercase font-extrabold tracking-wider mt-1 text-slate-400">Tidak Ada Foto</span>
                         </div>
                       )}
                       {p.arrivalType && (
-                        <div className="absolute top-2 left-2 bg-pure-white/90 backdrop-blur px-2 py-0.5 font-label-md text-[10px] text-primary font-bold uppercase">
+                        <div className="absolute top-3 left-3 bg-slate-900/90 text-white backdrop-blur-md px-2.5 py-1 rounded text-[9px] font-extrabold uppercase tracking-widest shadow-sm">
                           {p.arrivalType}
                         </div>
                       )}
                     </div>
                     
-                    <div className="p-3 sm:p-4 flex flex-col justify-between flex-grow">
+                    <div className="p-4 flex flex-col justify-between flex-grow border border-t-0 border-slate-200/80 rounded-b-2xl bg-white shadow-2xs group-hover:border-slate-300 group-hover:shadow-md transition-all duration-300">
                       <div className="space-y-1 min-w-0">
-                        <h3 className="font-bold text-sm text-primary uppercase tracking-tight truncate" title={p.name}>{p.name}</h3>
-                        <p className="text-xs text-secondary truncate" title={p.description}>{p.description}</p>
-                        
-                        {/* Subcategory Label in guest view */}
                         {p.subcategory && (
-                          <div className="pt-0.5">
-                            <span className="inline-block text-[9px] bg-surface-container-highest text-secondary px-1.5 py-0.5 rounded uppercase font-bold">
-                              {p.subcategory}
-                            </span>
-                          </div>
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
+                            {p.subcategory}
+                          </span>
                         )}
+
+                        <h3 className="font-extrabold text-sm sm:text-base text-slate-900 tracking-tight leading-snug truncate group-hover:text-slate-600 transition-colors" title={p.name}>
+                          {p.name}
+                        </h3>
+
+                        <p className="text-xs text-slate-500 line-clamp-1" title={p.description}>
+                          {p.description}
+                        </p>
 
                         {/* Render Price for Admin ONLY */}
                         {isAdmin ? (
-                          <div className="mt-1">
-                            <span className="font-bold text-sm text-primary">
+                          <div className="pt-2">
+                            <span className="font-black text-base sm:text-lg text-slate-900">
                               Rp {(p.price - p.discount).toLocaleString('id-ID')}
                             </span>
                             {p.discount > 0 && (
-                              <span className="text-[10px] text-secondary line-through block">
+                              <span className="text-[11px] text-slate-400 line-through block font-medium">
                                 Rp {p.price.toLocaleString('id-ID')}
                               </span>
                             )}
                           </div>
                         ) : (
-                          <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-secondary bg-surface-container-low px-1.5 py-0.5 rounded">
-                            <span className="material-symbols-outlined text-[10px]">lock</span> Harga Terkunci
+                          <div className="pt-2 inline-flex items-center gap-1.5 text-xs text-slate-400 font-medium">
+                            <span className="material-symbols-outlined text-[14px]">lock</span> Harga Terkunci
                           </div>
                         )}
                       </div>
                       
-                      {/* Availability status: row on mobile, col on desktop */}
-                      <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-1 mt-3 pt-2 border-t border-border-light/40">
-                        {getStockLabel(p.stock)}
-                        <span className="text-[10px] text-secondary font-semibold">{p.stock} {p.unit}</span>
+                      {/* Availability status */}
+                      <div className="flex items-center justify-between pt-3 border-t border-slate-100 mt-3">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+                          <span className={`w-2 h-2 rounded-full ${p.stock > 3 ? 'bg-emerald-500' : p.stock > 0 ? 'bg-amber-500' : 'bg-rose-500'}`}></span>
+                          <span>{p.stock > 0 ? `${p.stock} ${p.unit} Tersedia` : 'Habis / Pre-Order'}</span>
+                        </div>
+
+                        {isAdmin && (
+                          <div className="flex items-center gap-1">
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); openEdit(p); }}
+                              className="p-1 text-slate-400 hover:text-slate-900 transition-colors rounded-lg hover:bg-slate-100"
+                              title="Edit Produk"
+                            >
+                              <span className="material-symbols-outlined text-[18px]">edit</span>
+                            </button>
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(p.id); }}
+                              className="p-1 text-slate-400 hover:text-rose-600 transition-colors rounded-lg hover:bg-rose-50"
+                              title="Hapus Produk"
+                            >
+                              <span className="material-symbols-outlined text-[18px]">delete</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
-
-                    {/* Quick Edit/Delete buttons on Desktop/Admin hover */}
-                    {isAdmin && (
-                      <div className="absolute bottom-3 left-3 right-3 flex gap-2 opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300">
-                        <button 
-                          onClick={() => openEdit(p)}
-                          className="flex-1 bg-primary text-pure-white py-2 text-xs font-bold hover:bg-opacity-80 active:scale-[0.98] transition-all"
-                        >
-                          EDIT
-                        </button>
-                        <button 
-                          onClick={() => setDeleteConfirmId(p.id)}
-                          className="bg-error text-pure-white px-3 py-2 text-xs font-bold hover:bg-opacity-90 active:scale-[0.98] transition-all"
-                        >
-                          HAPUS
-                        </button>
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>
@@ -1645,25 +1616,25 @@ export default function App() {
             {/* Mobile Responsive View (< md) */}
             <div className="md:hidden space-y-3">
               {filteredProducts.length === 0 ? (
-                <div className="text-center py-12 bg-pure-white border border-border-light rounded-lg text-secondary">
+                <div className="text-center py-12 bg-white border border-slate-200 rounded-xl text-slate-500">
                   <span className="material-symbols-outlined text-3xl block mb-1">inventory_2</span>
-                  <p className="text-xs">Tidak ada data produk tersimpan.</p>
+                  <p className="text-xs font-semibold">Tidak ada data produk tersimpan.</p>
                 </div>
               ) : (
                 filteredProducts.map(p => (
                   <div key={'mob-stock-' + p.id} className="p-4 bg-pure-white border border-border-light rounded-lg shadow-xs flex flex-col gap-3">
                     <div className="flex gap-3 items-start">
                       {p.image_url ? (
-                        <img src={p.image_url} className="w-16 h-16 object-cover border border-border-light rounded-md shrink-0" alt={p.name} />
+                        <img src={getOptimizedImageUrl(p.image_url, 150)} className="w-16 h-16 object-cover border border-slate-200 rounded-lg shrink-0" alt={p.name} loading="lazy" decoding="async" />
                       ) : (
-                        <div className="w-16 h-16 bg-surface-container flex items-center justify-center border border-border-light text-secondary text-[10px] rounded-md shrink-0 font-bold">NO FOTO</div>
+                        <div className="w-16 h-16 bg-slate-100 flex items-center justify-center border border-slate-200 text-slate-400 text-[10px] rounded-lg shrink-0 font-bold">NO FOTO</div>
                       )}
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-sm text-primary uppercase truncate">{p.name}</h4>
-                        <p className="text-xs text-secondary truncate">{p.description}</p>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-extrabold text-sm text-slate-900 truncate">{p.name}</div>
+                        <div className="text-xs text-slate-500 truncate">{p.description}</div>
                         <div className="flex flex-wrap gap-1 mt-1">
-                          <span className="text-[9px] bg-surface-container-highest text-secondary px-1.5 py-0.5 rounded font-bold uppercase">{p.category}</span>
-                          {p.subcategory && <span className="text-[9px] bg-primary-fixed text-primary px-1.5 py-0.5 rounded font-bold uppercase">{p.subcategory}</span>}
+                          <span className="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold uppercase">{p.category}</span>
+                          {p.subcategory && <span className="text-[9px] bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold uppercase">{p.subcategory}</span>}
                         </div>
                       </div>
                     </div>
@@ -1732,7 +1703,7 @@ export default function App() {
                       <tr key={p.id} className="border-b border-border-light hover:bg-surface-container-low transition-colors">
                         <td className="p-4">
                           {p.image_url ? (
-                            <img src={p.image_url} className="w-16 h-12 object-cover border border-border-light rounded" alt={p.name} loading="lazy" />
+                            <img src={getOptimizedImageUrl(p.image_url, 150)} className="w-16 h-12 object-cover border border-slate-200 rounded-lg" alt={p.name} loading="lazy" decoding="async" />
                           ) : (
                             <div className="w-16 h-12 bg-surface-container flex items-center justify-center border border-border-light text-secondary text-xs rounded">TIDAK ADA FOTO</div>
                           )}
@@ -2290,6 +2261,9 @@ export default function App() {
                     )}
                     {selectedTxDetail.customerAddress && (
                       <div><span className="text-secondary">Alamat:</span> <span className="text-primary">{selectedTxDetail.customerAddress}</span></div>
+                    )}
+                    {selectedTxDetail.notes && (
+                      <div><span className="text-secondary">Keterangan:</span> <span className="text-primary italic font-medium">{selectedTxDetail.notes}</span></div>
                     )}
                   </div>
                 </div>
