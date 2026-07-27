@@ -638,6 +638,46 @@ export default function App() {
     localStorage.setItem('agm2_inventory', JSON.stringify(list));
   };
 
+  // Helper to compress image file using HTML5 Canvas before uploading
+  const compressImageFile = (file: File, maxWidth = 1200, maxHeight = 1200, quality = 0.75): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('Gagal membaca file gambar.'));
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onerror = () => reject(new Error('Gagal memuat gambar untuk kompresi.'));
+        img.onload = () => {
+          let width = img.width;
+          let height = img.height;
+
+          if (width > maxWidth || height > maxHeight) {
+            if (width / height > maxWidth / maxHeight) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            } else {
+              width = Math.round((width * maxHeight) / height);
+              height = maxHeight;
+            }
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            return reject(new Error('Canvas 2D context tidak tersedia.'));
+          }
+
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+          resolve(dataUrl);
+        };
+        img.src = e.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
   // Function to handle image upload to Cloudinary via API Route
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!event.target.files || event.target.files.length === 0) {
@@ -648,27 +688,19 @@ export default function App() {
     const file = event.target.files[0];
 
     try {
-      // Client-side validation
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        throw new Error('Ukuran gambar maksimal 5MB.');
+      // Client-side validation: limit raw file to 15MB since canvas will compress it
+      if (file.size > 15 * 1024 * 1024) { 
+        throw new Error('Ukuran gambar mentah maksimal 15MB.');
       }
-      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-      if (!allowedTypes.includes(file.type)) {
-        throw new Error('Format gambar tidak valid. Gunakan JPG, PNG, atau WEBP.');
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif'];
+      if (!allowedTypes.includes(file.type.toLowerCase()) && !file.type.startsWith('image/')) {
+        throw new Error('Format gambar tidak valid. Gunakan JPG, PNG, WEBP, atau foto kamera.');
       }
 
-      triggerToast('Mengunggah & mengkompres gambar ke Cloudinary...');
+      triggerToast('Mengompres & mengunggah gambar...');
 
-      // Compress image client-side before sending to API (optional but good for performance)
-      // Note: We removed the local compressImage, so here we assume you'd add a robust compression
-      // logic here or rely on Cloudinary's built-in optimization upon upload.
-      // For now, let's just convert to Base64.
-      const base64Image = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
+      // Compress image client-side before sending to serverless API Route
+      const base64Image = await compressImageFile(file);
 
       // Call the API Route
       const response = await fetch('/api/cloudinary-upload', {
@@ -679,7 +711,16 @@ export default function App() {
         body: JSON.stringify({ image: base64Image }),
       });
 
-      const data = await response.json();
+      const responseText = await response.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseErr) {
+        if (response.status === 413) {
+          throw new Error('Ukuran payload terlalu besar untuk server.');
+        }
+        throw new Error(`Respons server tidak valid (${response.status}): ${responseText.substring(0, 120)}`);
+      }
 
       if (response.ok && data.secure_url && data.public_id) {
         // If editing a product and changing image, delete the old image from Cloudinary
@@ -687,24 +728,28 @@ export default function App() {
           const oldProduct = products.find(p => p.id === editingId);
           if (oldProduct && oldProduct.image_public_id) {
             // Call API Route to delete old image
-            await fetch('/api/cloudinary-delete', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ public_id: oldProduct.image_public_id }),
-            });
+            try {
+              await fetch('/api/cloudinary-delete', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ public_id: oldProduct.image_public_id }),
+              });
+            } catch (e) {
+              console.warn('Failed to delete old Cloudinary image:', e);
+            }
           }
         }
         setFormImage(data.secure_url); // Set formImage to the Cloudinary secure_url
         setFormImagePublicId(data.public_id); // Store public_id
-        triggerToast('Gambar berhasil diunggah & dikompres ke Cloudinary!');
+        triggerToast('Gambar berhasil diunggah & dikompres!');
       } else {
-        throw new Error(data.message || 'Gagal mengunggah gambar ke Cloudinary.');
+        throw new Error(data.message || data.error || 'Gagal mengunggah gambar ke Cloudinary.');
       }
 
     } catch (error: any) {
-      triggerToast('Kesalahan unggah gambar ke Cloudinary: ' + error.message);
+      triggerToast('Kesalahan unggah gambar: ' + (error?.message || error));
       console.error('Cloudinary upload error:', error);
     } finally {
       event.target.value = ''; // Clear file input

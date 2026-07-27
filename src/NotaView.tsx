@@ -730,7 +730,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
                 <span className="font-bold text-xl text-primary">{formatCurrency(calculateTotal())}</span>
               </div>
               <button
-                onClick={() => setIsConfirming(true)}
+                onClick={handlePrintNota}
                 className="w-full bg-primary text-pure-white px-6 py-3 font-button text-button uppercase tracking-wider rounded-sm hover:bg-opacity-90 transition-all active:scale-95 disabled:opacity-50"
                 disabled={!customerName.trim() || selectedProducts.length === 0}
               >
