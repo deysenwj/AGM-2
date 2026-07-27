@@ -247,7 +247,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
                   <div class="header">
                     <div class="store-name">AGM 2</div>
                     <div class="store-address">Jalan Rahadi Ismail, Desa Padang,<br>Kec. Benua Kayong, Kab. Ketapang</div>
-                    <div class="store-address" style="margin-top: 4px; font-weight: bold;">WhatsApp: 082351623939</div>
+                    <div class="store-address" style="margin-top: 4px; font-weight: bold;">WhatsApp: 089694127723</div>
                   </div>
                   
                   <div class="divider"></div>
