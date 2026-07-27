@@ -81,16 +81,16 @@ body {
   box-shadow: 0 12px 24px -6px rgba(15, 23, 42, 0.08), 0 4px 8px -2px rgba(15, 23, 42, 0.04);
 }
 
-/* stylelint-disable */
-@utility hide-scrollbar {
-  &::-webkit-scrollbar {
-    display: none;
-  }
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.hide-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
 
-@utility animate-slide-in {
+.animate-slide-in {
   animation: slide-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
@@ -98,4 +98,3 @@ body {
   from { transform: translateX(-100%); }
   to { transform: translateX(0); }
 }
-/* stylelint-enable */
