@@ -1398,7 +1398,7 @@ export default function App() {
             <div>
               <div className="flex items-center gap-2 mb-0.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span className="text-[11px] font-extrabold uppercase tracking-widest text-slate-500">Live Inventory • AGM 2</span>
+                <span className="text-[11px] font-extrabold uppercase tracking-widest text-slate-500">Live Inventory</span>
               </div>
               <h1 className="font-extrabold text-xl md:text-2xl text-slate-900 tracking-tight">
                 {currentView === 'catalog' && 'Katalog Produk & Persediaan'}
