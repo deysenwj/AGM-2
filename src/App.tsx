@@ -1163,12 +1163,11 @@ export default function App() {
               <span className="material-symbols-outlined text-[24px]">menu</span>
             </button>
             <div 
-              className="flex items-center gap-2 cursor-pointer select-none group"
+              className="flex items-center gap-2.5 cursor-pointer select-none group"
               onClick={() => setCurrentView('catalog')}
             >
-              <span className="font-black text-xl tracking-tight text-slate-900 font-sans">
-                AGM 2 <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest ml-1 bg-slate-100 px-2 py-0.5 rounded-md hidden sm:inline">PADANG</span>
-              </span>
+              <img src="/logo.png" alt="AGM 2 Logo" className="h-8 sm:h-9 w-auto object-contain transition-transform group-hover:scale-105" />
+              <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded-md hidden sm:inline">PADANG</span>
             </div>
             <div className="hidden lg:flex items-center gap-1.5 bg-slate-100/70 p-1 rounded-xl border border-slate-200/50">
               <button
@@ -1290,7 +1289,10 @@ export default function App() {
           >
             {/* Header / Close */}
             <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-              <span className="font-extrabold text-slate-900 text-sm tracking-tight">Navigasi Katalog</span>
+              <div className="flex items-center gap-2">
+                <img src="/logo.png" alt="AGM 2 Logo" className="h-6 w-auto object-contain" />
+                <span className="font-extrabold text-slate-900 text-xs tracking-tight">Katalog Padang</span>
+              </div>
               <button onClick={() => setIsSidebarOpen(false)} className="text-slate-400 hover:text-slate-900 flex items-center justify-center p-1 rounded-lg">
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
@@ -2475,8 +2477,17 @@ export default function App() {
       {isLoginOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface/90 backdrop-blur-md animate-fade-in" onClick={() => setIsLoginOpen(false)}>
           <div className="w-full max-w-[400px] bg-pure-white border border-border-light rounded-xl p-6 sm:p-8 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-6 text-left">
-              <h1 className="font-headline-lg text-headline-lg text-primary mb-2">Login Admin</h1>
+            <div className="mb-6 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <img src="/logo.png" alt="AGM 2 Logo" className="h-8 w-auto object-contain" />
+                <div>
+                  <h1 className="font-extrabold text-lg text-slate-900 leading-tight">Login Admin</h1>
+                  <p className="text-xs text-slate-500">Panel Manajemen AGM 2 Padang</p>
+                </div>
+              </div>
+              <button onClick={() => setIsLoginOpen(false)} className="text-slate-400 hover:text-slate-900 p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
             </div>
 
             {loginError && (
