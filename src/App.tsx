@@ -1163,11 +1163,11 @@ export default function App() {
               <span className="material-symbols-outlined text-[24px]">menu</span>
             </button>
             <div 
-              className="flex items-center gap-2.5 cursor-pointer select-none group"
+              className="flex items-center gap-3 cursor-pointer select-none group"
               onClick={() => setCurrentView('catalog')}
             >
-              <img src="/logo.png" alt="AGM 2 Logo" className="h-8 sm:h-9 w-auto object-contain transition-transform group-hover:scale-105" />
-              <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded-md hidden sm:inline">PADANG</span>
+              <img src="/logo.png" alt="AGM 2 Logo" className="h-10 sm:h-11 md:h-12 w-auto object-contain transition-transform group-hover:scale-105" />
+              <span className="text-[11px] font-extrabold text-slate-600 uppercase tracking-widest bg-slate-100 px-2.5 py-1 rounded-lg hidden sm:inline border border-slate-200/60">PADANG</span>
             </div>
             <div className="hidden lg:flex items-center gap-1.5 bg-slate-100/70 p-1 rounded-xl border border-slate-200/50">
               <button
@@ -1289,8 +1289,8 @@ export default function App() {
           >
             {/* Header / Close */}
             <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <img src="/logo.png" alt="AGM 2 Logo" className="h-6 w-auto object-contain" />
+              <div className="flex items-center gap-2.5">
+                <img src="/logo.png" alt="AGM 2 Logo" className="h-8 w-auto object-contain" />
                 <span className="font-extrabold text-slate-900 text-xs tracking-tight">Katalog Padang</span>
               </div>
               <button onClick={() => setIsSidebarOpen(false)} className="text-slate-400 hover:text-slate-900 flex items-center justify-center p-1 rounded-lg">
