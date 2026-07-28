@@ -571,8 +571,6 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
 
   return (
     <section className="px-margin-mobile lg:px-margin-desktop py-8 max-w-container-max mx-auto w-full flex-grow">
-      <h2 className="font-headline-lg text-headline-lg text-primary mb-6">Buat Nota Penjualan</h2>
-
       {isAdmin ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column: Product Selection */}
