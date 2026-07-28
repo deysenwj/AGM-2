@@ -2036,62 +2036,64 @@ export default function App() {
                   </span>
                 </div>
 
-                <div className="h-64 w-full flex items-center justify-center pt-4">
-                  <svg viewBox="0 0 700 220" className="w-full h-full">
-                    {/* Grid Lines */}
-                    <line x1="60" y1="20" x2="680" y2="20" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="4" />
-                    <line x1="60" y1="70" x2="680" y2="70" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="4" />
-                    <line x1="60" y1="120" x2="680" y2="120" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="4" />
-                    <line x1="60" y1="170" x2="680" y2="170" stroke="#cbd5e1" strokeWidth="1.5" />
+                <div className="w-full overflow-x-auto pt-2 scrollbar-none">
+                  <div className="min-w-[580px] h-60 w-full flex items-center justify-center">
+                    <svg viewBox="0 0 700 220" className="w-full h-full">
+                      {/* Grid Lines */}
+                      <line x1="60" y1="20" x2="680" y2="20" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="4" />
+                      <line x1="60" y1="70" x2="680" y2="70" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="4" />
+                      <line x1="60" y1="120" x2="680" y2="120" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="4" />
+                      <line x1="60" y1="170" x2="680" y2="170" stroke="#cbd5e1" strokeWidth="1.5" />
 
-                    {/* Y-Axis Labels */}
-                    <text x="50" y="24" textAnchor="end" fontSize="10" fill="#64748b" fontWeight="600">Rp {(maxSalesValue / 1000).toLocaleString('id-ID')}k</text>
-                    <text x="50" y="74" textAnchor="end" fontSize="10" fill="#64748b" fontWeight="600">Rp {(maxSalesValue / 2000).toLocaleString('id-ID')}k</text>
-                    <text x="50" y="124" textAnchor="end" fontSize="10" fill="#64748b" fontWeight="600">Rp {(maxSalesValue / 4000).toLocaleString('id-ID')}k</text>
-                    <text x="50" y="174" textAnchor="end" fontSize="10" fill="#64748b" fontWeight="600">Rp 0</text>
+                      {/* Y-Axis Labels */}
+                      <text x="50" y="24" textAnchor="end" fontSize="10" fill="#64748b" fontWeight="600">Rp {(maxSalesValue / 1000).toLocaleString('id-ID')}k</text>
+                      <text x="50" y="74" textAnchor="end" fontSize="10" fill="#64748b" fontWeight="600">Rp {(maxSalesValue / 2000).toLocaleString('id-ID')}k</text>
+                      <text x="50" y="124" textAnchor="end" fontSize="10" fill="#64748b" fontWeight="600">Rp {(maxSalesValue / 4000).toLocaleString('id-ID')}k</text>
+                      <text x="50" y="174" textAnchor="end" fontSize="10" fill="#64748b" fontWeight="600">Rp 0</text>
 
-                    {/* Columns */}
-                    {chartData.map((d, index) => {
-                      const colWidth = 48;
-                      const totalWidth = 620;
-                      const colGap = (totalWidth - (7 * colWidth)) / 6;
-                      const xOffset = 70 + index * (colWidth + colGap);
-                      const colHeight = (d.value / maxSalesValue) * 140;
-                      const yOffset = 170 - colHeight;
+                      {/* Columns */}
+                      {chartData.map((d, index) => {
+                        const colWidth = 48;
+                        const totalWidth = 620;
+                        const colGap = (totalWidth - (7 * colWidth)) / 6;
+                        const xOffset = 70 + index * (colWidth + colGap);
+                        const colHeight = (d.value / maxSalesValue) * 140;
+                        const yOffset = 170 - colHeight;
 
-                      return (
-                        <g key={'sales-bar-v2-' + index} className="group cursor-pointer">
-                          {/* Visual Column Bar */}
-                          <rect 
-                            x={xOffset} 
-                            y={yOffset} 
-                            width={colWidth} 
-                            height={colHeight} 
-                            fill="#0f172a" 
-                            rx="6"
-                            className="fill-slate-900 hover:fill-slate-800 transition-colors"
-                          />
-                          
-                          {/* Top Value Label */}
-                          <text 
-                            x={xOffset + colWidth / 2} 
-                            y={yOffset - 8} 
-                            textAnchor="middle" 
-                            fontSize="10" 
-                            fontWeight="bold" 
-                            fill="#0f172a"
-                          >
-                            Rp {(d.value / 1000).toLocaleString('id-ID')}k
-                          </text>
+                        return (
+                          <g key={'sales-bar-v2-' + index} className="group cursor-pointer">
+                            {/* Visual Column Bar */}
+                            <rect 
+                              x={xOffset} 
+                              y={yOffset} 
+                              width={colWidth} 
+                              height={colHeight} 
+                              fill="#0f172a" 
+                              rx="6"
+                              className="fill-slate-900 hover:fill-slate-800 transition-colors"
+                            />
+                            
+                            {/* Top Value Label */}
+                            <text 
+                              x={xOffset + colWidth / 2} 
+                              y={yOffset - 8} 
+                              textAnchor="middle" 
+                              fontSize="10" 
+                              fontWeight="bold" 
+                              fill="#0f172a"
+                            >
+                              Rp {(d.value / 1000).toLocaleString('id-ID')}k
+                            </text>
 
-                          {/* X-Axis Date Label */}
-                          <text x={xOffset + colWidth / 2} y="194" textAnchor="middle" fontSize="11" fill="#475569" fontWeight="bold">
-                            {d.label}
-                          </text>
-                        </g>
-                      );
-                    })}
-                  </svg>
+                            {/* X-Axis Date Label */}
+                            <text x={xOffset + colWidth / 2} y="194" textAnchor="middle" fontSize="11" fill="#475569" fontWeight="bold">
+                              {d.label}
+                            </text>
+                          </g>
+                        );
+                      })}
+                    </svg>
+                  </div>
                 </div>
               </div>
 
