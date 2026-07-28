@@ -1457,35 +1457,18 @@ export default function App() {
             
             {/* Guest Welcome Banner */}
             {!isAdmin && (
-              <div className="relative mb-6 p-5 sm:p-6 bg-slate-900 text-white rounded-2xl shadow-lg border border-slate-800 overflow-hidden animate-fade-in flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
-                {/* Subtle ambient gradient glow */}
-                <div className="absolute right-0 top-0 w-72 h-full bg-gradient-to-l from-emerald-500/10 via-emerald-500/5 to-transparent pointer-events-none" />
-
-                <div className="flex items-start sm:items-center gap-4 relative z-10">
-                  <div className="relative w-12 h-12 rounded-2xl bg-slate-800/90 text-emerald-400 flex items-center justify-center shrink-0 border border-slate-700/80 shadow-inner group">
-                    <svg className="w-6 h-6 text-emerald-400 transition-transform group-hover:scale-110 duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-                      <polyline points="9 22 9 12 15 12 15 22" />
-                    </svg>
-                    <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-500 border-2 border-slate-900 animate-pulse" />
-                  </div>
-                  <div>
-                    <h3 className="font-black text-base sm:text-lg text-white tracking-tight">Selamat Datang di Katalog AGM 2 Padang</h3>
-                    <p className="text-xs text-slate-300 mt-1 leading-relaxed max-w-2xl">Pilihan Furniture &amp; Elektronik lengkap. Klik produk untuk melihat detail atau bertanya langsung via CS WhatsApp!</p>
-                  </div>
+              <div className="mb-6 p-5 sm:p-6 bg-slate-900 text-white rounded-2xl border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="font-black text-base sm:text-lg text-white tracking-tight">Katalog Produk AGM 2 Padang</h3>
+                  <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">Pilihan Furniture &amp; Elektronik berkualitas. Klik produk untuk detail atau konsultasi pesanan.</p>
                 </div>
-                
                 <a
                   href="https://wa.me/6289694127723?text=Halo%20Toko%20AGM%202%20Padang,%20saya%20ingin%20bertanya%20mengenai%20katalog%20produk"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full sm:w-auto px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl transition-all whitespace-nowrap flex items-center justify-center gap-2.5 shadow-md hover:shadow-emerald-900/30 active:scale-95 group shrink-0 relative z-10"
+                  className="w-full sm:w-auto px-5 py-2.5 bg-slate-100 hover:bg-white text-slate-900 font-extrabold text-xs rounded-xl transition-all whitespace-nowrap flex items-center justify-center gap-2 active:scale-95 shrink-0 shadow-xs"
                 >
                   <span>Hubungi CS Toko</span>
-                  <svg className="w-4 h-4 text-white transition-transform group-hover:translate-x-1 duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="5" y1="12" x2="19" y2="12" />
-                    <polyline points="12 5 19 12 12 19" />
-                  </svg>
                 </a>
               </div>
             )}
