@@ -2492,7 +2492,7 @@ export default function App() {
                   type="text"
                   required
                   className="w-full bg-surface-container-low border-none rounded-lg px-4 py-2.5 font-body-md text-sm focus:bg-surface-container-high focus:ring-0"
-                  placeholder="Masukkan username admin"
+                  placeholder="Masukkan username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   autoComplete="username"
