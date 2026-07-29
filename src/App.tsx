@@ -26,6 +26,9 @@ export interface Transaction {
   customerAddress?: string;
   notes?: string;
   totalPrice: number;
+  payAmount?: number;
+  changeAmount?: number;
+  remainingAmount?: number;
   items: {
     productId: string;
     productName: string;
@@ -313,6 +316,9 @@ export default function App() {
       customerAddress: item.customer_address || item.customerAddress || undefined,
       notes: item.notes || item.description || undefined,
       totalPrice: Number(item.total_price || item.totalPrice || 0),
+      payAmount: item.pay_amount !== undefined ? Number(item.pay_amount) : (item.payAmount !== undefined ? Number(item.payAmount) : undefined),
+      changeAmount: item.change_amount !== undefined ? Number(item.change_amount) : (item.changeAmount !== undefined ? Number(item.changeAmount) : undefined),
+      remainingAmount: item.remaining_amount !== undefined ? Number(item.remaining_amount) : (item.remainingAmount !== undefined ? Number(item.remainingAmount) : undefined),
       items: typeof item.items === 'string' ? JSON.parse(item.items) : (Array.isArray(item.items) ? item.items : []),
       date: formattedDate,
       dateRaw: rawDate,
@@ -358,8 +364,6 @@ export default function App() {
 
   const [transactionToDelete, setTransactionToDelete] = useState<string | null>(null);
   const [isDeleteTransactionModalOpen, setIsDeleteTransactionModalOpen] = useState<boolean>(false);
-  const [deleteAccessCode, setDeleteAccessCode] = useState<string>('');
-  const [deleteError, setDeleteError] = useState<string>('');
 
   const [filterCategory, setFilterCategory] = useState<'all' | 'furniture' | 'electronics'>('all');
   const [filterSubcategory, setFilterSubcategory] = useState<string>('all');
@@ -666,45 +670,68 @@ export default function App() {
 
 
   const handleDeleteTransaction = async () => {
-    if (deleteAccessCode !== '133') {
-      setDeleteError('Kode akses salah!');
-      return;
-    }
+    if (!transactionToDelete) return;
 
-    if (!transactionToDelete) {
-      setDeleteError('Tidak ada transaksi yang dipilih untuk dihapus.');
-      return;
-    }
+    const idToDelete = transactionToDelete;
+    const prevTransactions = transactions;
+    const updatedTransactions = transactions.filter(tx => tx.id !== idToDelete);
 
-    // Optimistic update
-    const prevTransactions = transactions; // Store for rollback
-    setTransactions(prev => prev.filter(tx => tx.id !== transactionToDelete));
+    setTransactions(updatedTransactions);
+    localStorage.setItem('agm2_transactions', JSON.stringify(updatedTransactions));
     setIsDeleteTransactionModalOpen(false);
     setTransactionToDelete(null);
-    setDeleteAccessCode('');
-    setDeleteError('');
-    triggerToast('Transaksi berhasil dihapus (lokal)!');
+    triggerToast('Transaksi berhasil dihapus.');
 
     if (isSupabaseConfigured) {
       try {
         const { error } = await supabase
           .from('transactions')
           .delete()
-          .eq('id', transactionToDelete);
+          .eq('id', idToDelete);
 
         if (error) {
-          console.error('Supabase delete transaction error:', error); // NEW LOG
-          triggerToast('Gagal menyinkronkan hapus transaksi ke server: ' + error.message);
-          setTransactions(prevTransactions.map(mapDbToTransaction)); // Rollback, ensure dateRaw
-        } else {
-          console.log('Supabase delete transaction successful for ID:', transactionToDelete); // NEW LOG
-          triggerToast('Transaksi berhasil dihapus (server)!');
-          localStorage.setItem('agm2_transactions', JSON.stringify(transactions.filter(tx => tx.id !== transactionToDelete)));
+          console.error('Supabase delete transaction error:', error);
+          triggerToast('Gagal menghapus transaksi dari server: ' + error.message);
+          setTransactions(prevTransactions);
+          localStorage.setItem('agm2_transactions', JSON.stringify(prevTransactions));
         }
       } catch (e) {
         console.warn('Supabase transaction delete exception:', e);
-        triggerToast('Gagal menyinkronkan hapus transaksi ke server.');
-        setTransactions(prevTransactions.map(mapDbToTransaction)); // Rollback, ensure dateRaw
+        triggerToast('Gagal menghapus transaksi dari server.');
+        setTransactions(prevTransactions);
+        localStorage.setItem('agm2_transactions', JSON.stringify(prevTransactions));
+      }
+    }
+  };
+
+  const handleMarkAsPaid = async (txId: string) => {
+    const targetTx = transactions.find(t => t.id === txId);
+    if (!targetTx) return;
+
+    const updatedTx: Transaction = {
+      ...targetTx,
+      payAmount: targetTx.totalPrice,
+      remainingAmount: 0,
+      changeAmount: 0,
+    };
+
+    const updatedList = transactions.map(t => t.id === txId ? updatedTx : t);
+    setTransactions(updatedList);
+    localStorage.setItem('agm2_transactions', JSON.stringify(updatedList));
+    setSelectedTxDetail(updatedTx);
+    triggerToast('Status transaksi berhasil diperbarui menjadi Lunas!');
+
+    if (isSupabaseConfigured) {
+      try {
+        await supabase
+          .from('transactions')
+          .update({
+            items: targetTx.items,
+            total_price: targetTx.totalPrice
+          })
+          .eq('id', txId);
+      } catch (e) {
+        console.warn('Supabase update transaction paid status error:', e);
       }
     }
   };
@@ -1051,6 +1078,45 @@ export default function App() {
     }, 500);
 
     pendingStockUpdatesRef.current[id] = { timer, targetStock: updatedStock };
+  };
+
+  const deductBulkStock = async (itemsToDeduct: { productId: string; quantity: number }[]) => {
+    if (!itemsToDeduct || itemsToDeduct.length === 0) return;
+
+    const deductionsMap = new Map<string, number>();
+    itemsToDeduct.forEach(item => {
+      const current = deductionsMap.get(item.productId) || 0;
+      deductionsMap.set(item.productId, current + item.quantity);
+    });
+
+    const updatesToPersist: { id: string; targetStock: number }[] = [];
+
+    setProducts(prev => {
+      const updatedList = prev.map(p => {
+        const qtyToDeduct = deductionsMap.get(p.id);
+        if (qtyToDeduct) {
+          const newStock = Math.max(0, p.stock - qtyToDeduct);
+          updatesToPersist.push({ id: p.id, targetStock: newStock });
+          lastLocalStockEditsRef.current[p.id] = { stock: newStock, time: Date.now() };
+          return { ...p, stock: newStock };
+        }
+        return p;
+      });
+
+      try {
+        localStorage.setItem('agm2_inventory', JSON.stringify(updatedList));
+      } catch (e) {}
+
+      return updatedList;
+    });
+
+    if (isSupabaseConfigured && updatesToPersist.length > 0) {
+      Promise.allSettled(
+        updatesToPersist.map(u =>
+          supabase.from('products').update({ stock: u.targetStock }).eq('id', u.id)
+        )
+      ).catch(err => console.warn('Bulk stock DB update error:', err));
+    }
   };
 
   const setDirectStock = async (id: string, newStockVal: number) => {
@@ -2447,6 +2513,7 @@ export default function App() {
                       <tr className="bg-slate-100/70 border-b border-slate-200/80 text-xs uppercase text-slate-500 font-extrabold tracking-wider">
                         <th className="p-3.5 rounded-l-xl">No. Nota &amp; Tanggal</th>
                         <th className="p-3.5">Nama Pelanggan</th>
+                        <th className="p-3.5 text-center">Status</th>
                         <th className="p-3.5 text-right">Total Transaksi</th>
                         <th className="p-3.5 text-center rounded-r-xl">Aksi</th>
                       </tr>
@@ -2454,50 +2521,68 @@ export default function App() {
                     <tbody className="divide-y divide-slate-100">
                       {filteredTransactions.length === 0 ? (
                         <tr>
-                          <td colSpan={4} className="p-8 text-center text-slate-500 font-medium">Belum ada transaksi terekam / tidak cocok dengan filter tanggal.</td>
+                          <td colSpan={5} className="p-8 text-center text-slate-500 font-medium">Belum ada transaksi terekam / tidak cocok dengan filter tanggal.</td>
                         </tr>
                       ) : (
-                        filteredTransactions.map(tx => (
-                          <tr 
-                            key={tx.id} 
-                            onClick={() => setSelectedTxDetail(tx)}
-                            className="hover:bg-slate-50/80 cursor-pointer transition-colors active:scale-[0.99] origin-left animate-fade-in"
-                          >
-                            <td className="p-3.5">
-                              <div className="font-extrabold text-slate-900">{tx.id}</div>
-                              <div className="text-[11px] text-slate-500 font-medium mt-0.5">{tx.date}</div>
-                            </td>
-                            <td className="p-3.5">
-                              <div className="font-bold text-slate-900">{tx.customerName}</div>
-                              {tx.customerPhone && <div className="text-[11px] text-slate-500 font-medium">HP: {tx.customerPhone}</div>}
-                            </td>
-                            <td className="p-3.5 text-right font-black text-slate-900 text-sm">
-                              Rp {tx.totalPrice.toLocaleString('id-ID')}
-                            </td>
-                            <td className="p-3.5 text-center">
-                              <div className="flex items-center justify-center gap-2">
-                                <button 
-                                  onClick={(e) => { e.stopPropagation(); setSelectedTxDetail(tx); }}
-                                  className="px-2.5 py-1 bg-slate-100 text-slate-800 rounded-lg text-[11px] font-extrabold hover:bg-slate-200 transition-all"
-                                >
-                                  Detail
-                                </button>
-                                {isAdmin && (
-                                  <button 
-                                    onClick={(e) => { e.stopPropagation(); setTransactionToDelete(tx.id); setIsDeleteTransactionModalOpen(true); }}
-                                    className="p-1 text-slate-400 hover:text-rose-600 active:scale-95 transition-all rounded-lg hover:bg-rose-50"
-                                    title="Hapus Transaksi"
-                                  >
-                                    <svg className="w-4 h-4 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                      <polyline points="3 6 5 6 21 6" />
-                                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        filteredTransactions.map(tx => {
+                          const isPending = tx.remainingAmount !== undefined && tx.remainingAmount > 0;
+                          return (
+                            <tr 
+                              key={tx.id} 
+                              onClick={() => setSelectedTxDetail(tx)}
+                              className="hover:bg-slate-50/80 cursor-pointer transition-colors active:scale-[0.99] origin-left animate-fade-in"
+                            >
+                              <td className="p-3.5">
+                                <div className="font-extrabold text-slate-900">{tx.id}</div>
+                                <div className="text-[11px] text-slate-500 font-medium mt-0.5">{tx.date}</div>
+                              </td>
+                              <td className="p-3.5">
+                                <div className="font-bold text-slate-900">{tx.customerName}</div>
+                                {tx.customerPhone && <div className="text-[11px] text-slate-500 font-medium">HP: {tx.customerPhone}</div>}
+                              </td>
+                              <td className="p-3.5 text-center">
+                                {isPending ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span>
+                                    Belum Lunas
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                    <svg className="w-3 h-3 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                                     </svg>
-                                  </button>
+                                    Lunas
+                                  </span>
                                 )}
-                              </div>
-                            </td>
-                          </tr>
-                        ))
+                              </td>
+                              <td className="p-3.5 text-right font-black text-slate-900 text-sm">
+                                Rp {tx.totalPrice.toLocaleString('id-ID')}
+                              </td>
+                              <td className="p-3.5 text-center">
+                                <div className="flex items-center justify-center gap-2">
+                                  <button 
+                                    onClick={(e) => { e.stopPropagation(); setSelectedTxDetail(tx); }}
+                                    className="px-2.5 py-1 bg-slate-100 text-slate-800 rounded-lg text-[11px] font-extrabold hover:bg-slate-200 transition-all"
+                                  >
+                                    Detail
+                                  </button>
+                                  {isAdmin && (
+                                    <button 
+                                      onClick={(e) => { e.stopPropagation(); setTransactionToDelete(tx.id); setIsDeleteTransactionModalOpen(true); }}
+                                      className="p-1 text-slate-400 hover:text-rose-600 active:scale-95 transition-all rounded-lg hover:bg-rose-50"
+                                      title="Hapus Transaksi"
+                                    >
+                                      <svg className="w-4 h-4 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <polyline points="3 6 5 6 21 6" />
+                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                      </svg>
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
                       )}
                     </tbody>
                   </table>
@@ -2509,13 +2594,13 @@ export default function App() {
 
         {/* ── NOTA PRINTING VIEW ── */}
         {currentView === 'nota' && isAdmin && (
-          <NotaView products={products} triggerToast={triggerToast} isAdmin={isAdmin} adjustStock={adjustStock} addTransaction={addTransaction} />
+          <NotaView products={products} triggerToast={triggerToast} isAdmin={isAdmin} adjustStock={adjustStock} deductBulkStock={deductBulkStock} addTransaction={addTransaction} />
         )}
 
         {/* ── TRANSACTION DETAIL MODAL ── */}
         {selectedTxDetail && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" onClick={() => setSelectedTxDetail(null)}>
-            <div className="w-full max-w-[460px] bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in" onClick={() => setSelectedTxDetail(null)}>
+            <div className="w-full max-w-[460px] bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 shadow-xl relative animate-pop-in" onClick={(e) => e.stopPropagation()}>
               <button 
                 onClick={() => setSelectedTxDetail(null)}
                 className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 w-8 h-8 rounded-full flex items-center justify-center transition-colors z-10 cursor-pointer"
@@ -2525,47 +2610,76 @@ export default function App() {
                 </svg>
               </button>
 
-              <h3 className="font-bold text-base text-primary mb-1">Detail Transaksi Penjualan</h3>
-              <p className="text-[10px] text-secondary mb-4">No Struk: <strong className="text-primary">{selectedTxDetail.id}</strong> • {selectedTxDetail.date}</p>
+              <div className="flex items-start justify-between gap-3 mb-4 pr-6">
+                <div>
+                  <h3 className="font-bold text-base text-slate-900">Detail Transaksi Penjualan</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">No Struk: <strong className="text-slate-800">{selectedTxDetail.id}</strong> • {selectedTxDetail.date}</p>
+                </div>
+              </div>
+
+              {/* Status Badge Indicator */}
+              <div className="mb-4">
+                {selectedTxDetail.remainingAmount !== undefined && selectedTxDetail.remainingAmount > 0 ? (
+                  <div className="flex items-center justify-between bg-amber-50 border border-amber-200/80 p-3 rounded-xl text-amber-900 text-xs">
+                    <span className="font-semibold flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
+                      Status: <strong>Belum Lunas (Sisa: Rp {selectedTxDetail.remainingAmount.toLocaleString('id-ID')})</strong>
+                    </span>
+                    {isAdmin && (
+                      <button
+                        onClick={() => handleMarkAsPaid(selectedTxDetail.id)}
+                        className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg text-[11px] transition-all cursor-pointer shadow-xs"
+                      >
+                        ✓ Tandai Lunas
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-slate-800 text-xs font-semibold">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span>Status Transaksi: <strong className="text-slate-900 font-bold">Lunas</strong></span>
+                  </div>
+                )}
+              </div>
               
-              <div className="space-y-4 text-xs mb-6 text-left border-y border-border-light py-4">
+              <div className="space-y-4 text-xs mb-6 text-left border-y border-slate-200 py-4">
                 {/* Buyer info */}
                 <div>
-                  <span className="text-secondary font-bold uppercase tracking-wider text-[9px] block mb-1">Data Pelanggan</span>
-                  <div className="bg-surface-container-low p-3 rounded-lg border border-border-light/60 space-y-1">
-                    <div><span className="text-secondary">Nama:</span> <strong className="text-primary">{selectedTxDetail.customerName}</strong></div>
+                  <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px] block mb-1.5">Data Pelanggan</span>
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1">
+                    <div><span className="text-slate-500 font-semibold">Nama:</span> <strong className="text-slate-900">{selectedTxDetail.customerName}</strong></div>
                     {selectedTxDetail.customerPhone && (
-                      <div><span className="text-secondary">No. HP:</span> <strong className="text-primary">{selectedTxDetail.customerPhone}</strong></div>
+                      <div><span className="text-slate-500 font-semibold">No. HP:</span> <strong className="text-slate-900">{selectedTxDetail.customerPhone}</strong></div>
                     )}
                     {selectedTxDetail.customerAddress && (
-                      <div><span className="text-secondary">Alamat:</span> <span className="text-primary">{selectedTxDetail.customerAddress}</span></div>
+                      <div><span className="text-slate-500 font-semibold">Alamat:</span> <span className="text-slate-900">{selectedTxDetail.customerAddress}</span></div>
                     )}
                     {selectedTxDetail.notes && (
-                      <div><span className="text-secondary">Keterangan:</span> <span className="text-primary italic font-medium">{selectedTxDetail.notes}</span></div>
+                      <div><span className="text-slate-500 font-semibold">Keterangan:</span> <span className="text-slate-900 italic font-medium">{selectedTxDetail.notes}</span></div>
                     )}
                   </div>
                 </div>
 
                 {/* Items */}
                 <div>
-                  <span className="text-secondary font-bold uppercase tracking-wider text-[9px] block mb-1">Item yang Dibeli</span>
-                  <div className="overflow-x-auto max-h-36 overflow-y-auto border border-border-light rounded-lg">
+                  <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px] block mb-1.5">Item yang Dibeli</span>
+                  <div className="overflow-x-auto max-h-40 overflow-y-auto border border-slate-200 rounded-xl">
                     <table className="w-full text-left border-collapse text-[11px]">
                       <thead>
-                        <tr className="bg-surface-container text-[9px] font-bold text-secondary border-b border-border-light uppercase">
-                          <th className="p-2">Item</th>
-                          <th className="p-2 text-center">Qty</th>
-                          <th className="p-2 text-right">Harga</th>
-                          <th className="p-2 text-right">Total</th>
+                        <tr className="bg-slate-50 text-[10px] font-bold text-slate-500 border-b border-slate-200 uppercase">
+                          <th className="p-2.5">Item</th>
+                          <th className="p-2.5 text-center">Qty</th>
+                          <th className="p-2.5 text-right">Harga</th>
+                          <th className="p-2.5 text-right">Total</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-border-light/40">
+                      <tbody className="divide-y divide-slate-100">
                         {selectedTxDetail.items.map((item, idx) => (
-                          <tr key={'modal-tx-item-' + idx} className="hover:bg-surface-container-low">
-                            <td className="p-2 font-medium">{item.productName}</td>
-                            <td className="p-2 text-center font-bold text-primary">{item.quantity}</td>
-                            <td className="p-2 text-right">Rp {item.price.toLocaleString('id-ID')}</td>
-                            <td className="p-2 text-right font-bold text-primary">Rp {(item.price * item.quantity).toLocaleString('id-ID')}</td>
+                          <tr key={'modal-tx-item-' + idx} className="hover:bg-slate-50">
+                            <td className="p-2.5 font-semibold text-slate-900">{item.productName}</td>
+                            <td className="p-2.5 text-center font-bold text-slate-900">{item.quantity}</td>
+                            <td className="p-2.5 text-right font-medium">Rp {item.price.toLocaleString('id-ID')}</td>
+                            <td className="p-2.5 text-right font-bold text-slate-900">Rp {(item.price * item.quantity).toLocaleString('id-ID')}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -2573,17 +2687,37 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Total */}
-                <div className="pt-2 flex justify-between font-bold text-xs text-primary">
-                  <span>GRAND TOTAL:</span>
-                  <span>Rp {selectedTxDetail.totalPrice.toLocaleString('id-ID')}</span>
+                {/* Payment Breakdown Summary */}
+                <div className="pt-3 border-t border-slate-200 space-y-1.5 text-xs">
+                  <div className="flex justify-between font-semibold text-slate-700">
+                    <span>Subtotal:</span>
+                    <span className="font-bold text-slate-900">Rp {selectedTxDetail.totalPrice.toLocaleString('id-ID')}</span>
+                  </div>
+                  {selectedTxDetail.payAmount !== undefined && (
+                    <div className="flex justify-between font-semibold text-slate-700">
+                      <span>Bayar:</span>
+                      <span className="font-bold text-slate-900">Rp {selectedTxDetail.payAmount.toLocaleString('id-ID')}</span>
+                    </div>
+                  )}
+                  {selectedTxDetail.remainingAmount !== undefined && selectedTxDetail.remainingAmount > 0 && (
+                    <div className="flex justify-between font-bold text-orange-800 bg-orange-50 p-2 rounded-lg border border-orange-200">
+                      <span>Kurang (Sisa):</span>
+                      <span>Rp {selectedTxDetail.remainingAmount.toLocaleString('id-ID')}</span>
+                    </div>
+                  )}
+                  {selectedTxDetail.changeAmount !== undefined && selectedTxDetail.changeAmount > 0 && (
+                    <div className="flex justify-between font-semibold text-slate-700 pt-0.5">
+                      <span>Kembalian:</span>
+                      <span className="font-bold text-slate-900">Rp {selectedTxDetail.changeAmount.toLocaleString('id-ID')}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div className="flex gap-4">
+              <div className="flex gap-2">
                 <button 
                   onClick={() => setSelectedTxDetail(null)}
-                  className="w-full py-2.5 bg-primary text-pure-white font-button text-xs uppercase rounded-sm hover:bg-opacity-95 transition-all"
+                  className="w-full py-2.5 bg-slate-900 text-white font-bold text-xs uppercase rounded-xl hover:bg-slate-800 transition-all cursor-pointer shadow-xs"
                 >
                   Tutup Detail
                 </button>
@@ -3290,22 +3424,13 @@ export default function App() {
             <div>
               <h3 className="font-bold text-sm text-slate-900">Hapus Transaksi?</h3>
               <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Masukkan kode akses admin untuk menghapus transaksi ini.
+                Apakah Anda yakin ingin menghapus transaksi ini? Tindakan ini akan menghapus transaksi dari riwayat dan database.
               </p>
             </div>
-            
-            <input
-              type="password"
-              placeholder="Kode Akses"
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-slate-900 text-center font-bold tracking-wider"
-              value={deleteAccessCode}
-              onChange={(e) => { setDeleteAccessCode(e.target.value); setDeleteError(''); }}
-            />
-            {deleteError && <p className="text-rose-600 text-[11px] font-semibold text-center">{deleteError}</p>}
 
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
               <button 
-                onClick={() => { setIsDeleteTransactionModalOpen(false); setDeleteAccessCode(''); setDeleteError(''); }} 
+                onClick={() => { setIsDeleteTransactionModalOpen(false); setTransactionToDelete(null); }} 
                 disabled={isAuthenticating}
                 className="px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
               >
@@ -3316,7 +3441,7 @@ export default function App() {
                 disabled={isAuthenticating}
                 className="px-3.5 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors shadow-2xs disabled:opacity-50 cursor-pointer"
               >
-                {isAuthenticating ? 'Memproses...' : 'Hapus'}
+                {isAuthenticating ? 'Memproses...' : 'Ya, Hapus'}
               </button>
             </div>
           </div>
