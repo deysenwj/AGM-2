@@ -1043,7 +1043,11 @@ export default function App() {
     const discountVal = parseInt(formDiscount.replace(/\D/g, '')) || 0;
     const stockVal = parseInt(formStock) || 0;
 
-    const primaryImage = formImages[0] || formImage || '';
+    const allImgs = [...formImages];
+    if (formImage.trim() && !allImgs.includes(formImage.trim())) {
+      allImgs.push(formImage.trim());
+    }
+    const primaryImage = allImgs[0] || '';
 
     if (formMode === 'add') {
       const tempId = 'temp-' + Date.now();
@@ -1058,7 +1062,7 @@ export default function App() {
         stock: stockVal,
         unit: formUnit,
         image_url: primaryImage,
-        images: formImages,
+        images: allImgs,
         image_public_id: formImagePublicId,
         arrivalType: formArrivalType
       };
@@ -1069,23 +1073,50 @@ export default function App() {
       triggerToast('Produk ditambahkan!');
 
       if (isSupabaseConfigured) {
-        const { data, error } = await supabase
+        const payloadWithImages = {
+          name: formName,
+          category: formCategory,
+          subcategory: formSubcategory,
+          description: formDescription,
+          price: priceVal,
+          discount: discountVal,
+          stock: stockVal,
+          unit: formUnit,
+          image_url: primaryImage,
+          images: allImgs,
+          image_public_id: formImagePublicId,
+          arrival_type: formArrivalType
+        };
+
+        const payloadFallback = {
+          name: formName,
+          category: formCategory,
+          subcategory: formSubcategory,
+          description: formDescription,
+          price: priceVal,
+          discount: discountVal,
+          stock: stockVal,
+          unit: formUnit,
+          image_url: primaryImage,
+          image_public_id: formImagePublicId,
+          arrival_type: formArrivalType
+        };
+
+        let { data, error } = await supabase
           .from('products')
-          .insert([{
-            name: formName,
-            category: formCategory,
-            subcategory: formSubcategory,
-            description: formDescription,
-            price: priceVal,
-            discount: discountVal,
-            stock: stockVal,
-            unit: formUnit,
-            image_url: primaryImage,
-            images: formImages,
-            image_public_id: formImagePublicId,
-            arrival_type: formArrivalType
-          }])
+          .insert([payloadWithImages])
           .select();
+
+        // Fallback if images column doesn't exist in Supabase DB schema
+        if (error && (error.message.includes('images') || error.code === 'PGRST204')) {
+          console.warn('Supabase images column missing, retrying with base schema...', error.message);
+          const retryRes = await supabase
+            .from('products')
+            .insert([payloadFallback])
+            .select();
+          error = retryRes.error;
+          data = retryRes.data;
+        }
 
         if (error) {
           triggerToast('Gagal menyinkronkan ke server: ' + error.message);
@@ -1109,7 +1140,7 @@ export default function App() {
         stock: stockVal,
         unit: formUnit,
         image_url: primaryImage,
-        images: formImages,
+        images: allImgs,
         image_public_id: formImagePublicId,
         arrivalType: formArrivalType
       };
@@ -1127,7 +1158,6 @@ export default function App() {
           });
         } catch (error) {
           console.error('Failed to call Cloudinary delete API during edit:', error);
-          triggerToast('Gagal menghapus gambar lama di Cloudinary saat mengedit.');
         }
       }
 
@@ -1137,23 +1167,49 @@ export default function App() {
       triggerToast('Produk diperbarui!');
 
       if (isSupabaseConfigured) {
-        const { error } = await supabase
+        const payloadWithImages = {
+          name: formName,
+          category: formCategory,
+          subcategory: formSubcategory,
+          description: formDescription,
+          price: priceVal,
+          discount: discountVal,
+          stock: stockVal,
+          unit: formUnit,
+          image_url: primaryImage,
+          images: allImgs,
+          image_public_id: formImagePublicId,
+          arrival_type: formArrivalType
+        };
+
+        const payloadFallback = {
+          name: formName,
+          category: formCategory,
+          subcategory: formSubcategory,
+          description: formDescription,
+          price: priceVal,
+          discount: discountVal,
+          stock: stockVal,
+          unit: formUnit,
+          image_url: primaryImage,
+          image_public_id: formImagePublicId,
+          arrival_type: formArrivalType
+        };
+
+        let { error } = await supabase
           .from('products')
-          .update({
-            name: formName,
-            category: formCategory,
-            subcategory: formSubcategory,
-            description: formDescription,
-            price: priceVal,
-            discount: discountVal,
-            stock: stockVal,
-            unit: formUnit,
-            image_url: primaryImage,
-            images: formImages,
-            image_public_id: formImagePublicId,
-            arrival_type: formArrivalType
-          })
+          .update(payloadWithImages)
           .eq('id', editingId);
+
+        // Fallback if images column doesn't exist in Supabase DB schema
+        if (error && (error.message.includes('images') || error.code === 'PGRST204')) {
+          console.warn('Supabase images column missing, retrying with base schema...', error.message);
+          const retryRes = await supabase
+            .from('products')
+            .update(payloadFallback)
+            .eq('id', editingId);
+          error = retryRes.error;
+        }
 
         if (error) {
           triggerToast('Gagal memperbarui di server: ' + error.message);
