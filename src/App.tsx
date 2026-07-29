@@ -290,15 +290,45 @@ export default function App() {
   const [fullscreenImage, setFullscreenImage] = useState<{ urls: string[]; index: number } | null>(null);
   const [activeFooterFaq, setActiveFooterFaq] = useState<number | null>(null);
 
+  // Helper to map DB row to Transaction interface
+  const mapDbToTransaction = React.useCallback((item: any): Transaction => {
+    const rawDate = item.created_at || item.dateRaw || item.date_raw || new Date().toISOString();
+    let formattedDate = item.date;
+    
+    if (!formattedDate || formattedDate === 'undefined' || formattedDate === 'Invalid Date') {
+      try {
+        const parsedDate = new Date(rawDate);
+        formattedDate = !isNaN(parsedDate.getTime())
+          ? parsedDate.toLocaleString('id-ID')
+          : new Date().toLocaleString('id-ID');
+      } catch {
+        formattedDate = new Date().toLocaleString('id-ID');
+      }
+    }
+
+    return {
+      id: String(item.id || 'TX-' + Date.now()),
+      customerName: item.customer_name || item.customerName || 'Pelanggan Toko',
+      customerPhone: item.customer_phone || item.customerPhone || undefined,
+      customerAddress: item.customer_address || item.customerAddress || undefined,
+      notes: item.notes || item.description || undefined,
+      totalPrice: Number(item.total_price || item.totalPrice || 0),
+      items: typeof item.items === 'string' ? JSON.parse(item.items) : (Array.isArray(item.items) ? item.items : []),
+      date: formattedDate,
+      dateRaw: rawDate,
+    };
+  }, []);
+
   // @ts-ignore
   const filteredTransactions = React.useMemo(() => {
     let filtered = transactions;
 
-    // If txStartDate or txEndDate are set, use them for filtering.
-    // Otherwise, default to today's transactions.
     if (txStartDate || txEndDate) {
       return filtered.filter(tx => {
-        const txDate = new Date(tx.dateRaw); // Use dateRaw for accurate comparison
+        const timeMs = tx.dateRaw ? new Date(tx.dateRaw).getTime() : 0;
+        if (isNaN(timeMs) || timeMs === 0) return true; // Don't drop items if date parse fails
+
+        const txDate = new Date(timeMs);
         txDate.setHours(0, 0, 0, 0);
 
         let matchStartDate = true;
@@ -316,18 +346,14 @@ export default function App() {
         }
         return matchStartDate && matchEndDate;
       });
-    } else {
-      // Default to last 7 days transactions if no date filter is applied
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      sevenDaysAgo.setHours(0, 0, 0, 0);
-
-      return filtered.filter(tx => {
-        const txDate = new Date(tx.dateRaw);
-        txDate.setHours(0, 0, 0, 0);
-        return txDate.getTime() >= sevenDaysAgo.getTime();
-      });
     }
+
+    // Default: Show all transactions sorted newest first
+    return [...filtered].sort((a, b) => {
+      const timeA = a.dateRaw ? new Date(a.dateRaw).getTime() : 0;
+      const timeB = b.dateRaw ? new Date(b.dateRaw).getTime() : 0;
+      return timeB - timeA;
+    });
   }, [transactions, txStartDate, txEndDate]);
 
   const [transactionToDelete, setTransactionToDelete] = useState<string | null>(null);
@@ -335,30 +361,16 @@ export default function App() {
   const [deleteAccessCode, setDeleteAccessCode] = useState<string>('');
   const [deleteError, setDeleteError] = useState<string>('');
 
-
   const [filterCategory, setFilterCategory] = useState<'all' | 'furniture' | 'electronics'>('all');
   const [filterSubcategory, setFilterSubcategory] = useState<string>('all');
   const [globalSearch, setGlobalSearch] = useState('');
   const [stockSearchTerm, setStockSearchTerm] = useState<string>('');
-  
+
   // Navigation & Drawer state
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Sidebar states
   const [showInStock, setShowInStock] = useState(true);
-
-  // Helper to map DB row to Transaction interface
-  const mapDbToTransaction = (item: any): Transaction => ({
-    id: item.id,
-    customerName: item.customer_name,
-    customerPhone: item.customer_phone || undefined,
-    customerAddress: item.customer_address || undefined,
-    notes: item.notes || item.description || undefined,
-    totalPrice: Number(item.total_price),
-    items: typeof item.items === 'string' ? JSON.parse(item.items) : item.items,
-    date: new Date(item.created_at).toLocaleString('id-ID'),
-    dateRaw: item.created_at, // Add raw ISO string
-  });
   const [showBackorder, setShowBackorder] = useState(true);
 
   // Modals state
@@ -536,15 +548,6 @@ export default function App() {
       }
     }
 
-    // Filter logic (same as before)
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
-
-    const todayIso = today.toISOString();
-    const tomorrowIso = tomorrow.toISOString();
-
     if (!isSupabaseConfigured) return;
     
     let attempts = 0;
@@ -555,35 +558,54 @@ export default function App() {
       attempts++;
       try {
         const abortController = new AbortController();
-        const timeoutId = setTimeout(() => abortController.abort('Query timed out'), 15000); // 15 seconds timeout
+        const timeoutId = setTimeout(() => abortController.abort('Query timed out'), 15000);
 
         const { data, error } = await supabase
           .from('transactions')
-          .select('id, customer_name, customer_phone, customer_address, total_price, items, created_at', { count: 'exact' })
-          .gte('created_at', todayIso)
-          .lt('created_at', tomorrowIso)
+          .select('id, customer_name, customer_phone, customer_address, notes, total_price, items, created_at')
           .order('created_at', { ascending: false })
+          .limit(300)
           .abortSignal(abortController.signal);
 
         clearTimeout(timeoutId);
 
         if (error) {
-          console.warn(`Attempt ${attempts} Supabase error:`, error.message);
+          console.warn(`Attempt ${attempts} Supabase transactions error:`, error.message);
           lastErr = error.message;
           if (attempts < maxRetries) {
             await new Promise(r => setTimeout(r, 300));
           }
         } else if (data) {
-          const mapped: Transaction[] = data.map(mapDbToTransaction);
-          setTransactions(mapped);
-          localStorage.setItem('agm2_transactions', JSON.stringify(mapped));
+          const dbMapped: Transaction[] = data.map(mapDbToTransaction);
+          
+          // Read local storage to preserve any offline/recent transactions
+          let existingLocal: Transaction[] = [];
+          const savedStr = localStorage.getItem('agm2_transactions');
+          if (savedStr) {
+            try {
+              const p = JSON.parse(savedStr);
+              if (Array.isArray(p)) existingLocal = p.map(mapDbToTransaction);
+            } catch (e) {}
+          }
+
+          // Merge: DB items take precedence, but keep local items not yet in DB
+          const dbIds = new Set(dbMapped.map(t => t.id));
+          const localOnly = existingLocal.filter(t => !dbIds.has(t.id));
+          const merged = [...dbMapped, ...localOnly].sort((a, b) => {
+            const timeA = a.dateRaw ? new Date(a.dateRaw).getTime() : 0;
+            const timeB = b.dateRaw ? new Date(b.dateRaw).getTime() : 0;
+            return timeB - timeA;
+          });
+
+          setTransactions(merged);
+          localStorage.setItem('agm2_transactions', JSON.stringify(merged));
           success = true;
         }
       } catch (err: any) {
         const msg = err?.name === 'AbortError' 
-          ? (err.message || 'Koneksi timeout. Jaringan terlalu lambat.') 
+          ? (err.message || 'Koneksi timeout.') 
           : (err?.message || 'Gagal terhubung ke database.');
-        console.warn(`Attempt ${attempts} fetch exception:`, msg);
+        console.warn(`Attempt ${attempts} fetch transactions exception:`, msg);
         lastErr = msg;
         if (attempts < maxRetries) {
           await new Promise(r => setTimeout(r, 300));
@@ -605,26 +627,37 @@ export default function App() {
 
 
   const addTransaction = async (tx: Transaction) => {
-    // Ensure dateRaw is present for optimistic update
-    const txWithRawDate = { ...tx, dateRaw: new Date().toISOString() };
-    const updated = [txWithRawDate, ...transactions];
-    setTransactions(updated);
-    localStorage.setItem('agm2_transactions', JSON.stringify(updated));
+    const rawDate = tx.dateRaw || new Date().toISOString();
+    const txWithRawDate: Transaction = { 
+      ...tx, 
+      dateRaw: rawDate,
+      date: tx.date || new Date(rawDate).toLocaleString('id-ID') 
+    };
+
+    setTransactions(prev => {
+      const updated = [txWithRawDate, ...prev.filter(t => t.id !== tx.id)];
+      localStorage.setItem('agm2_transactions', JSON.stringify(updated));
+      return updated;
+    });
 
     if (isSupabaseConfigured) {
       try {
-        await supabase
+        const { error } = await supabase
           .from('transactions')
           .insert([{
-            id: tx.id,
-            created_at: txWithRawDate.dateRaw, // Include created_at for Supabase insert
-            customer_name: tx.customerName,
-            customer_phone: tx.customerPhone || null,
-            customer_address: tx.customerAddress || null,
-            notes: tx.notes || null,
-            total_price: tx.totalPrice,
-            items: tx.items
+            id: txWithRawDate.id,
+            created_at: txWithRawDate.dateRaw,
+            customer_name: txWithRawDate.customerName,
+            customer_phone: txWithRawDate.customerPhone || null,
+            customer_address: txWithRawDate.customerAddress || null,
+            notes: txWithRawDate.notes || null,
+            total_price: txWithRawDate.totalPrice,
+            items: txWithRawDate.items
           }]);
+
+        if (error) {
+          console.warn('Supabase insert transaction error:', error.message);
+        }
       } catch (e) {
         console.warn('Supabase transaction insert exception:', e);
       }
