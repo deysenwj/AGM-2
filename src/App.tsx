@@ -309,17 +309,46 @@ export default function App() {
       }
     }
 
+    let itemsList: any[] = [];
+    let payAmt: number | undefined = undefined;
+    let remAmt: number | undefined = undefined;
+    let chgAmt: number | undefined = undefined;
+    let txNotes: string | undefined = undefined;
+
+    let parsedItems = item.items;
+    if (typeof parsedItems === 'string') {
+      try { parsedItems = JSON.parse(parsedItems); } catch (e) {}
+    }
+
+    if (Array.isArray(parsedItems)) {
+      itemsList = parsedItems;
+    } else if (parsedItems && typeof parsedItems === 'object') {
+      if (Array.isArray(parsedItems.list)) {
+        itemsList = parsedItems.list;
+      } else if (Array.isArray(parsedItems.items)) {
+        itemsList = parsedItems.items;
+      }
+      if (parsedItems.meta) {
+        payAmt = parsedItems.meta.payAmount;
+        remAmt = parsedItems.meta.remainingAmount;
+        chgAmt = parsedItems.meta.changeAmount;
+        txNotes = parsedItems.meta.notes;
+      }
+    }
+
+    const totalP = Number(item.total_price || item.totalPrice || 0);
+
     return {
       id: String(item.id || 'TX-' + Date.now()),
       customerName: item.customer_name || item.customerName || 'Pelanggan Toko',
       customerPhone: item.customer_phone || item.customerPhone || undefined,
       customerAddress: item.customer_address || item.customerAddress || undefined,
-      notes: item.notes || item.description || undefined,
-      totalPrice: Number(item.total_price || item.totalPrice || 0),
-      payAmount: item.pay_amount !== undefined ? Number(item.pay_amount) : (item.payAmount !== undefined ? Number(item.payAmount) : undefined),
-      changeAmount: item.change_amount !== undefined ? Number(item.change_amount) : (item.changeAmount !== undefined ? Number(item.changeAmount) : undefined),
-      remainingAmount: item.remaining_amount !== undefined ? Number(item.remaining_amount) : (item.remainingAmount !== undefined ? Number(item.remainingAmount) : undefined),
-      items: typeof item.items === 'string' ? JSON.parse(item.items) : (Array.isArray(item.items) ? item.items : []),
+      notes: txNotes || item.notes || item.description || undefined,
+      totalPrice: totalP,
+      payAmount: payAmt !== undefined ? payAmt : (item.pay_amount !== undefined ? Number(item.pay_amount) : (item.payAmount !== undefined ? Number(item.payAmount) : totalP)),
+      remainingAmount: remAmt !== undefined ? remAmt : (item.remaining_amount !== undefined ? Number(item.remaining_amount) : (item.remainingAmount !== undefined ? Number(item.remainingAmount) : 0)),
+      changeAmount: chgAmt !== undefined ? chgAmt : (item.change_amount !== undefined ? Number(item.change_amount) : (item.changeAmount !== undefined ? Number(item.changeAmount) : 0)),
+      items: itemsList,
       date: formattedDate,
       dateRaw: rawDate,
     };
@@ -450,9 +479,6 @@ export default function App() {
   };
 
 
-  // Helper to map DB row to Transaction interface
-
-  // Load state from Supabase with retry logic
   const fetchProducts = async (maxRetries = 1, showSpinner = true) => {
     if (showSpinner) setIsFetchingData(true);
     setFetchError(null);
@@ -582,27 +608,8 @@ export default function App() {
         } else if (data) {
           const dbMapped: Transaction[] = data.map(mapDbToTransaction);
           
-          // Read local storage to preserve any offline/recent transactions
-          let existingLocal: Transaction[] = [];
-          const savedStr = localStorage.getItem('agm2_transactions');
-          if (savedStr) {
-            try {
-              const p = JSON.parse(savedStr);
-              if (Array.isArray(p)) existingLocal = p.map(mapDbToTransaction);
-            } catch (e) {}
-          }
-
-          // Merge: DB items take precedence, but keep local items not yet in DB
-          const dbIds = new Set(dbMapped.map(t => t.id));
-          const localOnly = existingLocal.filter(t => !dbIds.has(t.id));
-          const merged = [...dbMapped, ...localOnly].sort((a, b) => {
-            const timeA = a.dateRaw ? new Date(a.dateRaw).getTime() : 0;
-            const timeB = b.dateRaw ? new Date(b.dateRaw).getTime() : 0;
-            return timeB - timeA;
-          });
-
-          setTransactions(merged);
-          localStorage.setItem('agm2_transactions', JSON.stringify(merged));
+          setTransactions(dbMapped);
+          try { localStorage.setItem('agm2_transactions', JSON.stringify(dbMapped)); } catch (e) {}
           success = true;
         }
       } catch (err: any) {
@@ -646,6 +653,16 @@ export default function App() {
 
     if (isSupabaseConfigured) {
       try {
+        const itemsPayload = {
+          meta: {
+            payAmount: txWithRawDate.payAmount,
+            remainingAmount: txWithRawDate.remainingAmount,
+            changeAmount: txWithRawDate.changeAmount,
+            notes: txWithRawDate.notes
+          },
+          list: txWithRawDate.items
+        };
+
         const { error } = await supabase
           .from('transactions')
           .insert([{
@@ -655,7 +672,7 @@ export default function App() {
             customer_phone: txWithRawDate.customerPhone || null,
             customer_address: txWithRawDate.customerAddress || null,
             total_price: txWithRawDate.totalPrice,
-            items: txWithRawDate.items
+            items: itemsPayload
           }]);
 
         if (error) {
@@ -725,10 +742,20 @@ export default function App() {
 
     if (isSupabaseConfigured) {
       try {
+        const itemsPayload = {
+          meta: {
+            payAmount: targetTx.totalPrice,
+            remainingAmount: 0,
+            changeAmount: 0,
+            notes: targetTx.notes
+          },
+          list: targetTx.items
+        };
+
         await supabase
           .from('transactions')
           .update({
-            items: targetTx.items,
+            items: itemsPayload,
             total_price: targetTx.totalPrice
           })
           .eq('id', txId);
@@ -791,14 +818,24 @@ export default function App() {
             const newTx = mapDbToTransaction(payload.new);
             setTransactions(prev => {
               if (prev.some(tx => tx.id === newTx.id)) return prev;
-              return [newTx, ...prev];
+              const updated = [newTx, ...prev];
+              try { localStorage.setItem('agm2_transactions', JSON.stringify(updated)); } catch (e) {}
+              return updated;
             });
           } else if (payload.eventType === 'UPDATE') {
             const updatedTx = mapDbToTransaction(payload.new);
-            setTransactions(prev => prev.map(tx => tx.id === updatedTx.id ? { ...tx, ...updatedTx } : tx));
+            setTransactions(prev => {
+              const updated = prev.map(tx => tx.id === updatedTx.id ? { ...tx, ...updatedTx } : tx);
+              try { localStorage.setItem('agm2_transactions', JSON.stringify(updated)); } catch (e) {}
+              return updated;
+            });
           } else if (payload.eventType === 'DELETE') {
             const deletedId = String(payload.old.id);
-            setTransactions(prev => prev.filter(tx => tx.id !== deletedId));
+            setTransactions(prev => {
+              const updated = prev.filter(tx => tx.id !== deletedId);
+              try { localStorage.setItem('agm2_transactions', JSON.stringify(updated)); } catch (e) {}
+              return updated;
+            });
           }
         }
       )
