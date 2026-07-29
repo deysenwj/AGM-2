@@ -15,7 +15,7 @@ export interface Product {
   image_url?: string;
   discount: number;
   image_public_id?: string | null;
-  arrivalType?: 'BARANG BARU' | 'EKSKLUSIF' | 'PRE-ORDER' | '';
+  arrivalType?: 'BARANG BARU' | 'PRODUK UNGGULAN' | 'EKSKLUSIF' | 'PRE-ORDER' | 'PROMO' | '';
 }
 
 export interface Transaction {
@@ -274,7 +274,7 @@ export default function App() {
   const [formUnit, setFormUnit] = useState('Pcs');
   const [formImage, setFormImage] = useState('');
   const [formImagePublicId, setFormImagePublicId] = useState<string | null>(null);
-  const [formArrivalType, setFormArrivalType] = useState<'BARANG BARU' | 'EKSKLUSIF' | 'PRE-ORDER' | ''>('');
+  const [formArrivalType, setFormArrivalType] = useState<'BARANG BARU' | 'PRODUK UNGGULAN' | 'EKSKLUSIF' | 'PRE-ORDER' | 'PROMO' | ''>('');
 
 
 
@@ -982,6 +982,8 @@ export default function App() {
         discount: discountVal,
         stock: stockVal,
         unit: formUnit,
+        image_url: formImage,
+        image_public_id: formImagePublicId,
         arrivalType: formArrivalType
       };
 
@@ -1622,7 +1624,17 @@ export default function App() {
                         </div>
                       )}
                       {p.arrivalType && (
-                        <div className="absolute top-3 left-3 bg-slate-900/90 text-white backdrop-blur-md px-2.5 py-1 rounded text-[9px] font-extrabold uppercase tracking-widest shadow-sm">
+                        <div className={`absolute top-3 left-3 text-white backdrop-blur-md px-2.5 py-1 rounded text-[9px] font-extrabold uppercase tracking-widest shadow-sm ${
+                          p.arrivalType === 'PRODUK UNGGULAN' 
+                            ? 'bg-amber-600/90' 
+                            : p.arrivalType === 'BARANG BARU'
+                            ? 'bg-emerald-600/90'
+                            : p.arrivalType === 'EKSKLUSIF'
+                            ? 'bg-slate-900/90'
+                            : p.arrivalType === 'PROMO'
+                            ? 'bg-rose-600/90'
+                            : 'bg-slate-800/90'
+                        }`}>
                           {p.arrivalType}
                         </div>
                       )}
@@ -2631,15 +2643,18 @@ export default function App() {
                   </select>
                 </div>
                 <div>
-                  <label className="block font-label-md text-label-md text-on-surface-variant mb-1 text-xs">Tag Kategori</label>
+                  <label className="block font-label-md text-label-md text-on-surface-variant mb-1 text-xs">Tag Kategori / Status</label>
                   <select
-                    className="w-full bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-sm focus:ring-1 focus:ring-primary focus:bg-surface-container"
-
+                    className="w-full bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-sm focus:ring-1 focus:ring-primary focus:bg-surface-container font-semibold"
+                    value={formArrivalType}
+                    onChange={(e) => setFormArrivalType(e.target.value as any)}
                   >
-                    <option value="">Tidak ada</option>
+                    <option value="">Tidak ada tag</option>
                     <option value="BARANG BARU">Barang Baru</option>
+                    <option value="PRODUK UNGGULAN">Produk Unggulan</option>
                     <option value="EKSKLUSIF">Eksklusif</option>
                     <option value="PRE-ORDER">Pre-Order</option>
+                    <option value="PROMO">Promo</option>
                   </select>
                 </div>
               </div>
