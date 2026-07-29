@@ -1105,15 +1105,17 @@ export default function App() {
           .insert([payloadWithImages])
           .select();
 
-        // Fallback if images column doesn't exist in Supabase DB schema
-        if (error && (error.message.includes('images') || error.code === 'PGRST204')) {
-          console.warn('Supabase images column missing, retrying with base schema...', error.message);
+        // Fallback retry if payloadWithImages fails due to missing DB column in Supabase schema
+        if (error) {
+          console.warn('Supabase insert with images column failed, retrying base payload...', error.message);
           const retryRes = await supabase
             .from('products')
             .insert([payloadFallback])
             .select();
-          error = retryRes.error;
-          data = retryRes.data;
+          if (!retryRes.error) {
+            error = null;
+            data = retryRes.data;
+          }
         }
 
         if (error) {
@@ -1199,14 +1201,16 @@ export default function App() {
           .update(payloadWithImages)
           .eq('id', editingId);
 
-        // Fallback if images column doesn't exist in Supabase DB schema
-        if (error && (error.message.includes('images') || error.code === 'PGRST204')) {
-          console.warn('Supabase images column missing, retrying with base schema...', error.message);
+        // Fallback retry if payloadWithImages fails due to missing DB column in Supabase schema
+        if (error) {
+          console.warn('Supabase update with images column failed, retrying base payload...', error.message);
           const retryRes = await supabase
             .from('products')
             .update(payloadFallback)
             .eq('id', editingId);
-          error = retryRes.error;
+          if (!retryRes.error) {
+            error = null;
+          }
         }
 
         if (error) {
