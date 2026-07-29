@@ -13,6 +13,7 @@ export interface Product {
   stock: number;
   unit: string;
   image_url?: string;
+  images?: string[]; // Array of additional gallery photo URLs (Shopee style)
   discount: number;
   image_public_id?: string | null;
   arrivalType?: 'BARANG BARU' | 'PRODUK UNGGULAN' | 'EKSKLUSIF' | 'PRE-ORDER' | 'PROMO' | '';
@@ -132,6 +133,104 @@ const StockControlInput = ({
       }}
       className="w-14 text-center font-bold text-sm text-primary py-1 bg-transparent border-none focus:ring-0 outline-none"
     />
+  );
+};
+
+const ProductPhotoGallery = ({ product }: { product: Product }) => {
+  const allImages = React.useMemo(() => {
+    const list: string[] = [];
+    if (product.image_url) list.push(product.image_url);
+    if (Array.isArray(product.images)) {
+      product.images.forEach(img => {
+        if (img && !list.includes(img)) list.push(img);
+      });
+    }
+    return list;
+  }, [product]);
+
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [product.id]);
+
+  const activeImage = allImages[activeIndex] || allImages[0] || '';
+
+  return (
+    <div className="space-y-3 mb-5">
+      {/* Main Preview Frame */}
+      <div className="aspect-[4/3] w-full rounded-2xl overflow-hidden bg-slate-100 relative border border-slate-200/80 group">
+        {activeImage ? (
+          <img 
+            src={getOptimizedImageUrl(activeImage, 800)} 
+            alt={product.name} 
+            className="w-full h-full object-cover transition-all duration-300"
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
+            <span className="material-symbols-outlined text-5xl">image_not_supported</span>
+            <span className="text-xs uppercase font-extrabold tracking-wider mt-2">Tidak Ada Foto</span>
+          </div>
+        )}
+
+        {/* Tag Badge */}
+        {product.arrivalType && (
+          <div className="absolute top-3 left-3 bg-slate-900/90 text-white backdrop-blur-md px-2.5 py-1 rounded-md text-[9px] font-extrabold uppercase tracking-widest border border-slate-700/50 shadow-2xs">
+            {product.arrivalType}
+          </div>
+        )}
+
+        {/* Next / Previous Arrows if multiple images */}
+        {allImages.length > 1 && (
+          <>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setActiveIndex(prev => (prev === 0 ? allImages.length - 1 : prev - 1)); }}
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-slate-900/70 hover:bg-slate-900 text-white flex items-center justify-center backdrop-blur-xs transition-all active:scale-95 shadow-md z-10"
+              title="Foto Sebelumnya"
+            >
+              <span className="material-symbols-outlined text-base">chevron_left</span>
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setActiveIndex(prev => (prev === allImages.length - 1 ? 0 : prev + 1)); }}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-slate-900/70 hover:bg-slate-900 text-white flex items-center justify-center backdrop-blur-xs transition-all active:scale-95 shadow-md z-10"
+              title="Foto Selanjutnya"
+            >
+              <span className="material-symbols-outlined text-base">chevron_right</span>
+            </button>
+            <div className="absolute bottom-3 right-3 bg-slate-900/80 text-white px-2.5 py-0.5 rounded-full text-[10px] font-extrabold backdrop-blur-xs tracking-wider">
+              {activeIndex + 1} / {allImages.length}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Shopee-style Thumbnail Strip */}
+      {allImages.length > 1 && (
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {allImages.map((imgUrl, idx) => (
+            <button
+              key={'thumb-' + idx}
+              type="button"
+              onClick={() => setActiveIndex(idx)}
+              className={`relative w-16 h-16 rounded-xl overflow-hidden shrink-0 border-2 transition-all cursor-pointer ${
+                activeIndex === idx
+                  ? 'border-slate-900 ring-2 ring-slate-900/20 scale-105 shadow-sm'
+                  : 'border-slate-200/80 opacity-70 hover:opacity-100 hover:border-slate-400'
+              }`}
+            >
+              <img src={getOptimizedImageUrl(imgUrl, 200)} alt="" className="w-full h-full object-cover" />
+              {idx === 0 && (
+                <span className="absolute bottom-0 inset-x-0 bg-slate-900/80 text-white text-[8px] font-extrabold uppercase text-center py-0.5">
+                  Utama
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -273,6 +372,7 @@ export default function App() {
   const [formStock, setFormStock] = useState('');
   const [formUnit, setFormUnit] = useState('Pcs');
   const [formImage, setFormImage] = useState('');
+  const [formImages, setFormImages] = useState<string[]>([]);
   const [formImagePublicId, setFormImagePublicId] = useState<string | null>(null);
   const [formArrivalType, setFormArrivalType] = useState<'BARANG BARU' | 'PRODUK UNGGULAN' | 'EKSKLUSIF' | 'PRE-ORDER' | 'PROMO' | ''>('');
 
@@ -281,20 +381,39 @@ export default function App() {
 
 
   // Helper to map DB row to Product interface
-  const mapDbToProduct = (item: any): Product => ({
-    id: String(item.id),
-    name: item.name || '',
-    category: item.category || 'furniture',
-    subcategory: item.subcategory || '',
-    description: item.description || '',
-    price: Number(item.price) || 0,
-    discount: Number(item.discount) || 0,
-    stock: isNaN(Number(item.stock)) ? 0 : Math.max(0, Number(item.stock)),
-    unit: item.unit || 'Pcs',
-    image_url: item.image_url || '',
-    image_public_id: item.image_public_id || '',
-    arrivalType: item.arrival_type || ''
-  });
+  const mapDbToProduct = (item: any): Product => {
+    let imagesList: string[] = [];
+    if (Array.isArray(item.images)) {
+      imagesList = item.images;
+    } else if (typeof item.images === 'string' && item.images.trim()) {
+      try {
+        imagesList = JSON.parse(item.images);
+      } catch (e) {
+        imagesList = [item.images];
+      }
+    }
+
+    const primaryImg = item.image_url || (imagesList.length > 0 ? imagesList[0] : '');
+    if (primaryImg && !imagesList.includes(primaryImg)) {
+      imagesList = [primaryImg, ...imagesList];
+    }
+
+    return {
+      id: String(item.id),
+      name: item.name || '',
+      category: item.category || 'furniture',
+      subcategory: item.subcategory || '',
+      description: item.description || '',
+      price: Number(item.price) || 0,
+      discount: Number(item.discount) || 0,
+      stock: isNaN(Number(item.stock)) ? 0 : Math.max(0, Number(item.stock)),
+      unit: item.unit || 'Pcs',
+      image_url: primaryImg,
+      images: imagesList,
+      image_public_id: item.image_public_id || '',
+      arrivalType: item.arrival_type || ''
+    };
+  };
 
 
   // Helper to map DB row to Transaction interface
@@ -762,8 +881,11 @@ export default function App() {
             }
           }
         }
-        setFormImage(data.secure_url); // Set formImage to the Cloudinary secure_url
-        setFormImagePublicId(data.public_id); // Store public_id
+        setFormImages(prev => [...prev.filter(url => url !== data.secure_url), data.secure_url]);
+        if (!formImage) {
+          setFormImage(data.secure_url);
+        }
+        setFormImagePublicId(data.public_id);
         triggerToast('Gambar berhasil diunggah & dikompres!');
       } else {
         throw new Error(data.message || data.error || 'Gagal mengunggah gambar ke Cloudinary.');
@@ -921,6 +1043,8 @@ export default function App() {
     const discountVal = parseInt(formDiscount.replace(/\D/g, '')) || 0;
     const stockVal = parseInt(formStock) || 0;
 
+    const primaryImage = formImages[0] || formImage || '';
+
     if (formMode === 'add') {
       const tempId = 'temp-' + Date.now();
       const newItem: Product = {
@@ -933,8 +1057,9 @@ export default function App() {
         discount: discountVal,
         stock: stockVal,
         unit: formUnit,
-        image_url: formImage, // Use image_url
-        image_public_id: formImagePublicId, // Use image_public_id
+        image_url: primaryImage,
+        images: formImages,
+        image_public_id: formImagePublicId,
         arrivalType: formArrivalType
       };
 
@@ -955,8 +1080,9 @@ export default function App() {
             discount: discountVal,
             stock: stockVal,
             unit: formUnit,
-            image_url: formImage, // Use image_url
-            image_public_id: formImagePublicId, // Use image_public_id
+            image_url: primaryImage,
+            images: formImages,
+            image_public_id: formImagePublicId,
             arrival_type: formArrivalType
           }])
           .select();
@@ -982,7 +1108,8 @@ export default function App() {
         discount: discountVal,
         stock: stockVal,
         unit: formUnit,
-        image_url: formImage,
+        image_url: primaryImage,
+        images: formImages,
         image_public_id: formImagePublicId,
         arrivalType: formArrivalType
       };
@@ -1021,8 +1148,9 @@ export default function App() {
             discount: discountVal,
             stock: stockVal,
             unit: formUnit,
-            image_url: formImage, // Use image_url
-            image_public_id: formImagePublicId, // Use image_public_id
+            image_url: primaryImage,
+            images: formImages,
+            image_public_id: formImagePublicId,
             arrival_type: formArrivalType
           })
           .eq('id', editingId);
@@ -1090,6 +1218,7 @@ export default function App() {
     setFormStock('');
     setFormUnit('Pcs');
     setFormImage('');
+    setFormImages([]);
     setFormArrivalType('');
     setIsFormOpen(true);
   };
@@ -1105,7 +1234,10 @@ export default function App() {
     setFormDiscount(p.discount ? p.discount.toLocaleString('id-ID') : '');
     setFormStock(p.stock.toString());
     setFormUnit(p.unit);
-    setFormImage(p.image_url || '');
+    
+    const initialImgs = p.images && p.images.length > 0 ? p.images : (p.image_url ? [p.image_url] : []);
+    setFormImages(initialImgs);
+    setFormImage(initialImgs[0] || '');
     setFormImagePublicId(p.image_public_id || null);
     setFormArrivalType(p.arrivalType || '');
     setIsFormOpen(true);
@@ -2404,26 +2536,8 @@ export default function App() {
               <span className="material-symbols-outlined text-lg">close</span>
             </button>
 
-            {/* Product Image */}
-            <div className="aspect-[4/3] w-full rounded-2xl overflow-hidden bg-slate-100 mb-5 relative border border-slate-200/80">
-              {selectedProductDetail.image_url ? (
-                <img 
-                  src={getOptimizedImageUrl(selectedProductDetail.image_url, 800)} 
-                  alt={selectedProductDetail.name} 
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
-                  <span className="material-symbols-outlined text-5xl">image_not_supported</span>
-                  <span className="text-xs uppercase font-extrabold tracking-wider mt-2">Tidak Ada Foto</span>
-                </div>
-              )}
-              {selectedProductDetail.arrivalType && (
-                <div className="absolute top-3 left-3 bg-slate-900/90 text-white backdrop-blur-md px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-widest shadow-sm">
-                  {selectedProductDetail.arrivalType}
-                </div>
-              )}
-            </div>
+            {/* Shopee-style Product Photo Gallery */}
+            <ProductPhotoGallery product={selectedProductDetail} />
 
             {/* Product Info */}
             <div className="space-y-3">
@@ -2707,24 +2821,96 @@ export default function App() {
               </div>
 
               <div>
-                <label className="block font-label-md text-label-md text-on-surface-variant mb-1 text-xs">URL Foto Produk atau Unggah File</label>
-                <div className="flex gap-2">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block font-label-md text-label-md text-on-surface-variant text-xs font-bold">
+                    Foto Produk (Opsional - Bisa Banyak Foto)
+                  </label>
+                  <span className="text-[10px] text-slate-400 font-semibold">
+                    {formImages.length} foto ditambahkan
+                  </span>
+                </div>
+
+                {/* Input row to add image URL or upload file */}
+                <div className="flex gap-2 mb-3">
                   <input
                     type="text"
                     className="flex-1 bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-xs focus:ring-1 focus:ring-primary focus:bg-surface-container"
-                    placeholder="Masukkan URL foto..."
+                    placeholder="Tempel URL foto produk..."
                     value={formImage}
                     onChange={(e) => setFormImage(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && formImage.trim()) {
+                        e.preventDefault();
+                        if (!formImages.includes(formImage.trim())) {
+                          setFormImages(prev => [...prev, formImage.trim()]);
+                          setFormImage('');
+                        }
+                      }
+                    }}
                   />
-                  <label className="cursor-pointer bg-primary text-pure-white px-3 flex items-center justify-center rounded-lg text-[10px] uppercase font-bold hover:bg-opacity-80 shrink-0">
-                    Unggah
+                  {formImage.trim() && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (formImage.trim() && !formImages.includes(formImage.trim())) {
+                          setFormImages(prev => [...prev, formImage.trim()]);
+                          setFormImage('');
+                        }
+                      }}
+                      className="px-3 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-slate-800 transition-colors shrink-0"
+                    >
+                      Tambah URL
+                    </button>
+                  )}
+                  <label className="cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 flex items-center justify-center rounded-lg text-[11px] font-bold shrink-0 transition-colors gap-1.5 shadow-2xs">
+                    <span className="material-symbols-outlined text-sm">upload</span>
+                    <span>Unggah File</span>
                     <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
                   </label>
                 </div>
-                {formImage && (
-                  <div className="mt-2 relative inline-block border border-border-light rounded-sm overflow-hidden">
-                    <img src={formImage} className="max-h-20 object-cover" alt="preview" />
-                    <button type="button" onClick={() => setFormImage('')} className="absolute top-1 right-1 bg-primary text-pure-white rounded-full w-5 h-5 flex items-center justify-center text-[10px]">✕</button>
+
+                {/* Thumbnails Gallery Preview List */}
+                {formImages.length > 0 ? (
+                  <div className="grid grid-cols-4 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
+                    {formImages.map((imgUrl, idx) => (
+                      <div key={'form-img-' + idx} className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 bg-white group">
+                        <img src={getOptimizedImageUrl(imgUrl, 200)} className="w-full h-full object-cover" alt="" />
+                        
+                        {/* Cover badge or set cover button */}
+                        {idx === 0 ? (
+                          <span className="absolute top-1 left-1 bg-slate-900 text-white text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded shadow-xs">
+                            Utama
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              // Move this image to first index (Set as cover)
+                              setFormImages(prev => [imgUrl, ...prev.filter((_, i) => i !== idx)]);
+                            }}
+                            className="absolute bottom-1 inset-x-1 bg-slate-900/80 hover:bg-slate-900 text-white text-[8px] font-bold rounded py-0.5 opacity-0 group-hover:opacity-100 transition-opacity text-center"
+                          >
+                            Set Utama
+                          </button>
+                        )}
+
+                        {/* Delete photo button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormImages(prev => prev.filter((_, i) => i !== idx));
+                          }}
+                          className="absolute top-1 right-1 bg-rose-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px] shadow-xs hover:bg-rose-700 transition-colors"
+                          title="Hapus foto ini"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 bg-slate-50 border border-dashed border-slate-200 rounded-xl text-center text-xs text-slate-400 font-medium">
+                    Belum ada foto ditambahkan (Foto Opsional). Unggah file atau tempel URL foto di atas.
                   </div>
                 )}
               </div>
