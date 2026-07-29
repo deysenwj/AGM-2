@@ -829,6 +829,12 @@ export default function App() {
               try { localStorage.setItem('agm2_transactions', JSON.stringify(updated)); } catch (e) {}
               return updated;
             });
+            setSelectedTxDetail(prev => {
+              if (prev && prev.id === updatedTx.id) {
+                return updatedTx;
+              }
+              return prev;
+            });
           } else if (payload.eventType === 'DELETE') {
             const deletedId = String(payload.old.id);
             setTransactions(prev => {
@@ -2337,9 +2343,9 @@ export default function App() {
           const salesByDate: { [date: string]: number } = {};
           const last7Days = Array.from({ length: 7 }).map((_, i) => {
             const d = new Date();
-            d.setDate(d.getDate() - i);
+            d.setDate(d.getDate() - (6 - i));
             return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
-          }).reverse();
+          });
 
           last7Days.forEach(day => {
             salesByDate[day] = 0;
@@ -2347,12 +2353,14 @@ export default function App() {
 
           transactions.forEach(tx => {
             try {
-              const parts = tx.date.split(',')[0].trim().split('/');
-              if (parts.length === 3) {
-                const d = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
-                const label = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
-                if (salesByDate[label] !== undefined) {
-                  salesByDate[label] += tx.totalPrice;
+              const raw = tx.dateRaw || tx.date;
+              if (raw) {
+                const d = new Date(raw);
+                if (!isNaN(d.getTime())) {
+                  const label = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+                  if (salesByDate[label] !== undefined) {
+                    salesByDate[label] += Number(tx.totalPrice || 0);
+                  }
                 }
               }
             } catch (e) {}
