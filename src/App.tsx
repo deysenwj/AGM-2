@@ -566,7 +566,7 @@ export default function App() {
 
         const { data, error } = await supabase
           .from('transactions')
-          .select('id, customer_name, customer_phone, customer_address, notes, total_price, items, created_at')
+          .select('id, customer_name, customer_phone, customer_address, total_price, items, created_at')
           .order('created_at', { ascending: false })
           .limit(300)
           .abortSignal(abortController.signal);
