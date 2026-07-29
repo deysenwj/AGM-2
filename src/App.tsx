@@ -2352,13 +2352,29 @@ export default function App() {
               {/* Column 4: Alamat Toko */}
               <div className="space-y-3">
                 <h4 className="text-xs font-extrabold uppercase tracking-widest text-white">Lokasi Toko</h4>
-                <p className="text-xs text-slate-400 leading-relaxed flex items-start gap-2">
-                  <svg className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <a 
+                  href="https://maps.app.goo.gl/hcSenYvttoaBXF519?g_st=it" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-xs text-slate-400 hover:text-slate-200 transition-colors leading-relaxed flex items-start gap-2 group cursor-pointer"
+                  title="Buka lokasi di Google Maps"
+                >
+                  <svg className="w-4 h-4 text-rose-400 group-hover:scale-110 transition-transform shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                     <circle cx="12" cy="10" r="3" />
                   </svg>
-                  <span>Jalan Rahadi Ismail, Desa Padang, Kecamatan Benua Kayong, Kabupaten Ketapang, Kalimantan Barat</span>
-                </p>
+                  <div>
+                    <span className="block font-medium group-hover:underline decoration-slate-400">Jalan Rahadi Ismail, Desa Padang, Kecamatan Benua Kayong, Kabupaten Ketapang, Kalimantan Barat</span>
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-400 mt-1.5 hover:text-rose-300">
+                      <span>Buka di Google Maps</span>
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                        <polyline points="15 3 21 3 21 9" />
+                        <line x1="10" y1="14" x2="21" y2="3" />
+                      </svg>
+                    </span>
+                  </div>
+                </a>
               </div>
 
             </div>
