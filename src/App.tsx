@@ -1624,17 +1624,7 @@ export default function App() {
                         </div>
                       )}
                       {p.arrivalType && (
-                        <div className={`absolute top-3 left-3 text-white backdrop-blur-md px-2.5 py-1 rounded text-[9px] font-extrabold uppercase tracking-widest shadow-sm ${
-                          p.arrivalType === 'PRODUK UNGGULAN' 
-                            ? 'bg-amber-600/90' 
-                            : p.arrivalType === 'BARANG BARU'
-                            ? 'bg-emerald-600/90'
-                            : p.arrivalType === 'EKSKLUSIF'
-                            ? 'bg-slate-900/90'
-                            : p.arrivalType === 'PROMO'
-                            ? 'bg-rose-600/90'
-                            : 'bg-slate-800/90'
-                        }`}>
+                        <div className="absolute top-3 left-3 bg-slate-900/90 text-white backdrop-blur-md px-2.5 py-1 rounded-md text-[9px] font-extrabold uppercase tracking-widest border border-slate-700/50 shadow-2xs">
                           {p.arrivalType}
                         </div>
                       )}
