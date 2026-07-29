@@ -178,8 +178,10 @@ const ProductPhotoGallery = ({
           />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
-            <span className="material-symbols-outlined text-5xl">image_not_supported</span>
-            <span className="text-xs uppercase font-extrabold tracking-wider mt-2">Tidak Ada Foto</span>
+            <svg className="w-12 h-12 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span className="text-xs uppercase font-extrabold tracking-wider mt-2 text-slate-400">Tidak Ada Foto</span>
           </div>
         )}
 
@@ -286,6 +288,7 @@ export default function App() {
   const [selectedTxDetail, setSelectedTxDetail] = useState<Transaction | null>(null);
   const [selectedProductDetail, setSelectedProductDetail] = useState<Product | null>(null);
   const [fullscreenImage, setFullscreenImage] = useState<{ urls: string[]; index: number } | null>(null);
+  const [activeFooterFaq, setActiveFooterFaq] = useState<number | null>(null);
 
   // @ts-ignore
   const filteredTransactions = React.useMemo(() => {
@@ -1349,9 +1352,9 @@ export default function App() {
 
   const getStockLabel = (stock: number) => {
     const s = isNaN(stock) ? 0 : Math.max(0, Number(stock) || 0);
-    if (s === 0) return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 ring-1 ring-rose-600/20"><span className="material-symbols-outlined text-[12px]">cancel</span> HABIS</span>;
-    if (s <= 3) return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 ring-1 ring-amber-600/20"><span className="material-symbols-outlined text-[12px]">error</span> TERBATAS</span>;
-    return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20"><span className="material-symbols-outlined text-[12px]">check_circle</span> TERSEDIA</span>;
+    if (s === 0) return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 ring-1 ring-rose-600/20"><svg className="w-3 h-3 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg> HABIS</span>;
+    if (s <= 3) return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 ring-1 ring-amber-600/20"><svg className="w-3 h-3 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg> TERBATAS</span>;
+    return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20"><svg className="w-3 h-3 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg> TERSEDIA</span>;
   };
 
   return (
@@ -1364,10 +1367,12 @@ export default function App() {
             {/* Mobile hamburger menu */}
             <button 
               onClick={() => setIsSidebarOpen(true)}
-              className="lg:hidden text-slate-700 hover:text-slate-900 flex items-center justify-center p-2 rounded-xl hover:bg-slate-100/80 transition-colors"
+              className="lg:hidden text-slate-700 hover:text-slate-900 flex items-center justify-center p-2 rounded-xl hover:bg-slate-100/80 transition-colors cursor-pointer"
               title="Buka Menu"
             >
-              <span className="material-symbols-outlined text-[24px]">menu</span>
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
             </button>
             <div 
               className="flex items-center gap-2.5 cursor-pointer select-none group"
@@ -1379,7 +1384,7 @@ export default function App() {
             <div className="hidden lg:flex items-center gap-1.5 bg-slate-100/70 p-1 rounded-xl border border-slate-200/50">
               <button
                 onClick={() => setCurrentView('catalog')}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${currentView === 'catalog' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${currentView === 'catalog' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
               >
                 Katalog
               </button>
@@ -1387,19 +1392,19 @@ export default function App() {
                 <>
                   <button
                     onClick={() => setCurrentView('stock')}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${currentView === 'stock' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${currentView === 'stock' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
                   >
                     Inventaris
                   </button>
                   <button
                     onClick={() => setCurrentView('dashboard')}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${currentView === 'dashboard' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${currentView === 'dashboard' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
                   >
                     Analisis
                   </button>
                   <button
                     onClick={() => setCurrentView('nota')}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${currentView === 'nota' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${currentView === 'nota' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
                   >
                     Nota
                   </button>
@@ -1414,7 +1419,7 @@ export default function App() {
             <button
               onClick={() => fetchProducts(2)}
               disabled={isFetchingData}
-              className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all shadow-2xs hover:shadow-xs active:scale-95 group ${
+              className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all shadow-2xs hover:shadow-xs active:scale-95 group cursor-pointer ${
                 isFetchingData
                   ? 'bg-amber-50 text-amber-600 border-amber-200/90 cursor-wait'
                   : fetchError
@@ -1438,7 +1443,10 @@ export default function App() {
             </button>
 
             <div className="relative max-w-[130px] sm:max-w-xs">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-base">search</span>
+              <svg className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" />
+                <path d="M21 21l-4.35-4.35" />
+              </svg>
               <input
                 type="text"
                 placeholder="Cari barang..."
@@ -1449,9 +1457,11 @@ export default function App() {
               {globalSearch ? (
                 <button 
                   onClick={() => setGlobalSearch('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-[14px]">close</span>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
               ) : (
                 <span className="hidden sm:inline absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-extrabold text-slate-400 bg-slate-200/60 px-1.5 py-0.5 rounded border border-slate-300/60 select-none">
@@ -1463,19 +1473,26 @@ export default function App() {
             {isAdmin ? (
               <button 
                 onClick={handleLogout}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-all active:scale-[0.98] shadow-xs"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-all active:scale-[0.98] shadow-xs cursor-pointer"
                 title="Logout Admin"
               >
-                <span className="material-symbols-outlined text-[16px]">logout</span>
+                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
                 <span className="hidden md:inline uppercase tracking-wider">LOGOUT</span>
               </button>
             ) : (
               <button 
                 onClick={() => setIsLoginOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-all active:scale-[0.98] shadow-xs"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-all active:scale-[0.98] shadow-xs cursor-pointer"
                 title="Login Admin"
               >
-                <span className="material-symbols-outlined text-[16px]">account_circle</span>
+                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
                 <span className="hidden md:inline uppercase tracking-wider">LOGIN ADMIN</span>
               </button>
             )}
@@ -1500,8 +1517,10 @@ export default function App() {
                 <img src="/logo.png" alt="AGM 2 Logo" className="h-6.5 w-auto object-contain" />
                 <span className="font-extrabold text-slate-900 text-xs tracking-tight">Katalog Padang</span>
               </div>
-              <button onClick={() => setIsSidebarOpen(false)} className="text-slate-400 hover:text-slate-900 flex items-center justify-center p-1 rounded-lg">
-                <span className="material-symbols-outlined text-[20px]">close</span>
+              <button onClick={() => setIsSidebarOpen(false)} className="text-slate-400 hover:text-slate-900 flex items-center justify-center p-1 rounded-lg cursor-pointer">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
 
@@ -1589,7 +1608,10 @@ export default function App() {
               <h3 className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 mb-2">Kontak &amp; Toko</h3>
               
               <div className="flex items-center gap-2 text-slate-600 font-medium">
-                <span className="material-symbols-outlined text-[16px] text-amber-500">schedule</span>
+                <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
                 <span>07.30 - 21.00 WIB</span>
               </div>
 
@@ -1646,9 +1668,11 @@ export default function App() {
               {isAdmin && currentView === 'catalog' && (
                 <button
                   onClick={openAdd}
-                  className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-all flex items-center gap-1.5 shadow-sm active:scale-[0.98]"
+                  className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-all flex items-center gap-1.5 shadow-sm active:scale-[0.98] cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-[16px]">add</span>
+                  <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                  </svg>
                   <span>Tambah Produk</span>
                 </button>
               )}
@@ -1757,15 +1781,20 @@ export default function App() {
             {fetchError && products.length > 0 && (
               <div className="mb-6 p-3 px-4 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg flex items-center justify-between gap-3 shadow-xs">
                 <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-amber-600 text-base shrink-0">wifi_off</span>
+                  <svg className="w-4 h-4 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 5.636a9 9 0 0 1 0 12.728m-2.828-9.9a6 6 0 0 1 0 8.485m-2.829-5.657a2 2 0 0 1 0 2.829m-4.243 2.829a9 9 0 0 1 0-12.728m2.828 9.9a6 6 0 0 1 0-8.485m2.829 5.657a2 2 0 0 1 0-2.829" />
+                    <line x1="1" y1="1" x2="23" y2="23" />
+                  </svg>
                   <span>Menampilkan data tersimpan. Gagal menyinkronkan data terbaru dari server database.</span>
                 </div>
                 <button
                   onClick={() => fetchProducts(3)}
                   disabled={isFetchingData}
-                  className="px-3 py-1 bg-amber-600 text-white font-bold rounded text-[11px] hover:bg-amber-700 transition-colors shrink-0 flex items-center gap-1"
+                  className="px-3 py-1 bg-amber-600 text-white font-bold rounded text-[11px] hover:bg-amber-700 transition-colors shrink-0 flex items-center gap-1 cursor-pointer"
                 >
-                  <span className={`material-symbols-outlined text-[14px] ${isFetchingData ? 'animate-spin' : ''}`}>sync</span>
+                  <svg className={`w-3.5 h-3.5 ${isFetchingData ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 0 0 4.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 0 1-15.357-2m15.357 2H15" />
+                  </svg>
                   {isFetchingData ? 'Memproses...' : 'Coba Lagi'}
                 </button>
               </div>
@@ -1785,21 +1814,27 @@ export default function App() {
               </div>
             ) : fetchError && products.length === 0 ? (
               <div className="text-center py-12 px-6 bg-red-50/60 border border-red-200 rounded-xl text-secondary max-w-md mx-auto my-8">
-                <span className="material-symbols-outlined text-4xl text-error mb-2 block">cloud_off</span>
+                <svg className="w-10 h-10 text-rose-500 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
                 <h4 className="font-bold text-primary text-base mb-1">Gagal Memuat Data Database</h4>
                 <p className="text-xs text-secondary mb-5 leading-relaxed">{fetchError}</p>
                 <button
                   onClick={() => fetchProducts(3)}
-                  className="px-5 py-2.5 bg-primary text-pure-white text-xs font-bold uppercase rounded-lg hover:bg-opacity-90 transition-all inline-flex items-center gap-2 shadow-sm"
+                  className="px-5 py-2.5 bg-primary text-pure-white text-xs font-bold uppercase rounded-lg hover:bg-opacity-90 transition-all inline-flex items-center gap-2 shadow-sm cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-sm">refresh</span>
+                  <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 0 0 4.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 0 1-15.357-2m15.357 2H15" />
+                  </svg>
                   Coba Muat Ulang Data
                 </button>
               </div>
             ) : filteredProducts.length === 0 ? (
               <div className="text-center py-16 text-secondary">
-                <span className="material-symbols-outlined text-4xl block mb-2 text-border-light">inventory_2</span>
-                <p className="text-sm">Tidak ada produk yang cocok dengan kriteria.</p>
+                <svg className="w-10 h-10 text-slate-400 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+                <p className="text-sm font-semibold text-slate-600">Tidak ada produk yang cocok dengan kriteria.</p>
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5 sm:gap-7">
@@ -1820,7 +1855,9 @@ export default function App() {
                         />
                       ) : (
                         <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 text-slate-400">
-                          <span className="material-symbols-outlined text-4xl stroke-1">image_not_supported</span>
+                          <svg className="w-9 h-9 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
                           <span className="text-[10px] uppercase font-extrabold tracking-wider mt-1 text-slate-400">Tidak Ada Foto</span>
                         </div>
                       )}
@@ -1926,16 +1963,19 @@ export default function App() {
             <div className="flex flex-col sm:flex-row justify-end items-start sm:items-center gap-4 mb-6">
               <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
                 <div className="relative w-full sm:max-w-xs">
-                  <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-secondary text-base">search</span>
+                  <svg className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <circle cx="11" cy="11" r="8" />
+                    <path d="M21 21l-4.35-4.35" />
+                  </svg>
                   <input
                     type="text"
                     placeholder="Cari produk..."
-                    className="pl-8 pr-3 py-1.5 bg-surface-container border-none text-xs rounded-lg w-full focus:ring-1 focus:ring-primary focus:bg-surface-container-high transition-all"
+                    className="pl-8 pr-3 py-1.5 bg-slate-100 border border-slate-200 text-xs rounded-xl w-full focus:ring-2 focus:ring-slate-900 focus:bg-white transition-all outline-none"
                     value={stockSearchTerm}
                     onChange={(e) => setStockSearchTerm(e.target.value)}
                   />
                 </div>
-                <button onClick={openAdd} className="bg-primary text-pure-white px-6 py-3 font-button text-button uppercase tracking-wider rounded-sm w-full sm:w-auto">
+                <button onClick={openAdd} className="bg-slate-900 text-white px-5 py-2 text-xs font-bold rounded-xl w-full sm:w-auto hover:bg-slate-800 transition-all cursor-pointer">
                   Tambah SKU Baru
                 </button>
               </div>
@@ -1945,7 +1985,9 @@ export default function App() {
             <div className="md:hidden space-y-3">
               {filteredProducts.length === 0 ? (
                 <div className="text-center py-12 bg-white border border-slate-200 rounded-xl text-slate-500">
-                  <span className="material-symbols-outlined text-3xl block mb-1">inventory_2</span>
+                  <svg className="w-10 h-10 text-slate-400 mx-auto mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                  </svg>
                   <p className="text-xs font-semibold">Tidak ada data produk tersimpan.</p>
                 </div>
               ) : (
@@ -1997,11 +2039,17 @@ export default function App() {
                       </div>
 
                       <div className="flex items-center gap-1.5">
-                        <button onClick={() => openEdit(p)} className="p-2 border border-border-light rounded-md text-secondary hover:text-primary transition-colors">
-                          <span className="material-symbols-outlined text-[18px]">edit</span>
+                        <button onClick={() => openEdit(p)} className="p-2 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer" title="Edit Produk">
+                          <svg className="w-4 h-4 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                          </svg>
                         </button>
-                        <button onClick={() => setDeleteConfirmId(p.id)} className="p-2 border border-border-light rounded-md text-error hover:bg-error/10 transition-colors">
-                          <span className="material-symbols-outlined text-[18px]">delete</span>
+                        <button onClick={() => setDeleteConfirmId(p.id)} className="p-2 border border-slate-200 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer" title="Hapus Produk">
+                          <svg className="w-4 h-4 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                          </svg>
                         </button>
                       </div>
                     </div>
@@ -2407,7 +2455,10 @@ export default function App() {
                                     className="p-1 text-slate-400 hover:text-rose-600 active:scale-95 transition-all rounded-lg hover:bg-rose-50"
                                     title="Hapus Transaksi"
                                   >
-                                    <span className="material-symbols-outlined text-base">delete</span>
+                                    <svg className="w-4 h-4 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                      <polyline points="3 6 5 6 21 6" />
+                                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                    </svg>
                                   </button>
                                 )}
                               </div>
@@ -2430,13 +2481,15 @@ export default function App() {
 
         {/* ── TRANSACTION DETAIL MODAL ── */}
         {selectedTxDetail && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface/90 backdrop-blur-md" onClick={() => setSelectedTxDetail(null)}>
-            <div className="w-full max-w-[460px] bg-pure-white border border-border-light rounded-xl p-6 sm:p-8 shadow-xl relative" onClick={(e) => e.stopPropagation()}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" onClick={() => setSelectedTxDetail(null)}>
+            <div className="w-full max-w-[460px] bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
               <button 
                 onClick={() => setSelectedTxDetail(null)}
-                className="absolute top-4 right-4 text-secondary hover:text-primary transition-colors flex items-center justify-center w-8 h-8 rounded-full hover:bg-surface-container"
+                className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 w-8 h-8 rounded-full flex items-center justify-center transition-colors z-10 cursor-pointer"
               >
-                <span className="material-symbols-outlined text-lg">close</span>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
 
               <h3 className="font-bold text-base text-primary mb-1">Detail Transaksi Penjualan</h3>
@@ -2521,24 +2574,59 @@ export default function App() {
                 <p className="text-xs text-slate-400 leading-relaxed">
                   Pusat penjualan Furniture &amp; Elektronik berkualitas terbaik di Padang. Melayani kebutuhan rumah tangga, kantor, dan instansi dengan harga kompetitif dan layanan prima.
                 </p>
-
+                <div className="pt-1 flex items-center gap-2 text-xs text-slate-400 font-semibold">
+                  <svg className="w-4 h-4 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                  <span>Buka 07.30 - 21.00 WIB (Setiap Hari)</span>
+                </div>
               </div>
 
-              {/* Column 2: Jam Operasional & Layanan */}
+              {/* Column 2: Interactive Footer FAQ (100% Relevant for Toko AGM 2 Padang Showcase Catalog) */}
               <div className="space-y-3">
-                <h4 className="text-xs font-extrabold uppercase tracking-widest text-white">Jam Operasional Toko</h4>
-                <ul className="space-y-2 text-xs text-slate-400">
-                  <li className="flex items-center gap-2 text-slate-200 font-semibold">
-                    <svg className="w-4 h-4 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="12" r="10" />
-                      <polyline points="12 6 12 12 16 14" />
-                    </svg>
-                    <span>07.30 - 21.00 WIB (Buka Setiap Hari)</span>
-                  </li>
-                  <li className="text-slate-400 pt-1">
-                    Pelayanan cepat pesan antar &amp; konsultasi produk langsung via WhatsApp.
-                  </li>
-                </ul>
+                <h4 className="text-xs font-extrabold uppercase tracking-widest text-white">Informasi &amp; FAQ</h4>
+                <div className="space-y-2 text-xs">
+                  {[
+                    {
+                      q: 'Bagaimana cara kerja web katalog ini?',
+                      a: 'Web ini menampilkan stok persediaan barang dan harga secara real-time. Anda dapat melihat foto produk penuh, lalu menghubungi kasir via WhatsApp atau datang langsung ke toko fisik di Padang.'
+                    },
+                    {
+                      q: 'Apakah stok dan harga selalu akurat?',
+                      a: 'Ya, data katalog ini terhubung langsung dengan sistem kontrol stok kasir toko kami sehingga ketersediaan produk selalu diperbarui.'
+                    },
+                    {
+                      q: 'Bisakah pesan custom (ukuran & warna)?',
+                      a: 'Bisa. Khusus produk lemari alumunium ACP, rak piring kaca, bupet TV, dan kitchen set melayani pembuatan pesanan khusus (Custom Pre-Order).'
+                    },
+                    {
+                      q: 'Apakah toko menyediakan pengantaran ke rumah?',
+                      a: 'Ya, toko kami menyediakan kurir dan armada pengangkut untuk mengantar barang langsung ke alamat rumah Anda di wilayah Padang dan sekitarnya.'
+                    }
+                  ].map((faq, idx) => {
+                    const isOpen = activeFooterFaq === idx;
+                    return (
+                      <div key={'footer-faq-' + idx} className="border-b border-slate-800/80 pb-2">
+                        <button
+                          type="button"
+                          onClick={() => setActiveFooterFaq(isOpen ? null : idx)}
+                          className="w-full text-left font-semibold text-slate-300 hover:text-white flex items-center justify-between gap-2 py-1 cursor-pointer transition-colors"
+                        >
+                          <span className="text-[11px] leading-snug">{faq.q}</span>
+                          <svg className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180 text-white' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                            <polyline points="6 9 12 15 18 9" />
+                          </svg>
+                        </button>
+                        {isOpen && (
+                          <p className="text-[11px] text-slate-400 leading-relaxed pt-1.5 pb-1 animate-fade-in pl-2 border-l-2 border-slate-700">
+                            {faq.a}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Column 3: Kontak & Media Sosial */}
@@ -2628,9 +2716,11 @@ export default function App() {
             {/* Close Button */}
             <button 
               onClick={() => setSelectedProductDetail(null)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 w-8 h-8 rounded-full flex items-center justify-center transition-colors z-10"
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 w-8 h-8 rounded-full flex items-center justify-center transition-colors z-10 cursor-pointer"
             >
-              <span className="material-symbols-outlined text-lg">close</span>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
 
             {/* Shopee-style Product Photo Gallery with Fullscreen Preview */}
@@ -2687,15 +2777,18 @@ export default function App() {
                   <svg className="w-4 h-4 fill-white shrink-0" viewBox="0 0 24 24">
                     <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
                   </svg>
-                  <span>Tanyakan Harga &amp; Pesan via WhatsApp</span>
+                  <span>Tanyakan Detail &amp; Pesan via WhatsApp</span>
                 </a>
 
                 {isAdmin && (
                   <button 
                     onClick={() => { const p = selectedProductDetail; setSelectedProductDetail(null); openEdit(p); }}
-                    className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5"
+                    className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    <span className="material-symbols-outlined text-[16px]">edit</span>
+                    <svg className="w-4 h-4 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
                     <span>Edit Produk (Mode Admin)</span>
                   </button>
                 )}
@@ -2718,7 +2811,9 @@ export default function App() {
             className="absolute top-5 right-5 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all z-20 cursor-pointer"
             title="Tutup Foto"
           >
-            <span className="material-symbols-outlined text-xl">close</span>
+            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
 
           {/* Counter Badge */}
@@ -2743,7 +2838,9 @@ export default function App() {
                 className="absolute left-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/15 hover:bg-white/30 text-white flex items-center justify-center backdrop-blur-md transition-all active:scale-95 z-20 cursor-pointer"
                 title="Foto Sebelumnya"
               >
-                <span className="material-symbols-outlined text-2xl">chevron_left</span>
+                <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
               </button>
               <button
                 type="button"
@@ -2757,7 +2854,9 @@ export default function App() {
                 className="absolute right-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/15 hover:bg-white/30 text-white flex items-center justify-center backdrop-blur-md transition-all active:scale-95 z-20 cursor-pointer"
                 title="Foto Selanjutnya"
               >
-                <span className="material-symbols-outlined text-2xl">chevron_right</span>
+                <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
               </button>
             </>
           )}
@@ -2776,12 +2875,10 @@ export default function App() {
         </div>
       )}
 
- 
-
-       {/* ── LOGIN MODAL ── */}
+      {/* ── LOGIN MODAL ── */}
       {isLoginOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface/90 backdrop-blur-md animate-fade-in" onClick={() => setIsLoginOpen(false)}>
-          <div className="w-full max-w-[400px] bg-pure-white border border-border-light rounded-xl p-6 sm:p-8 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={() => setIsLoginOpen(false)}>
+          <div className="w-full max-w-[400px] bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-6 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <img src="/logo.png" alt="AGM 2 Logo" className="h-8 w-auto object-contain" />
@@ -2790,63 +2887,76 @@ export default function App() {
                   <p className="text-xs text-slate-500">Panel Manajemen AGM 2 Padang</p>
                 </div>
               </div>
-              <button onClick={() => setIsLoginOpen(false)} className="text-slate-400 hover:text-slate-900 p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
-                <span className="material-symbols-outlined text-[20px]">close</span>
+              <button onClick={() => setIsLoginOpen(false)} className="text-slate-400 hover:text-slate-900 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
 
             {loginError && (
-              <div className="mb-4 text-xs text-error font-bold bg-error/10 p-3 rounded-lg border border-error/20">
+              <div className="mb-4 text-xs text-rose-700 font-bold bg-rose-50 p-3 rounded-xl border border-rose-200">
                 {loginError}
               </div>
             )}
 
             <form onSubmit={handleLoginSubmit} className="space-y-4">
               <div className="relative group">
-                <label className="block font-label-md text-label-md text-on-surface-variant mb-1.5 ml-1 text-xs">Username</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 ml-1">Username</label>
                 <input
                   type="text"
                   required
-                  className="w-full bg-surface-container-low border-none rounded-lg px-4 py-2.5 font-body-md text-sm focus:bg-surface-container-high focus:ring-0"
+                  className="w-full bg-slate-100 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 focus:bg-white focus:ring-2 focus:ring-slate-900 transition-all outline-none"
                   placeholder="Masukkan username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   autoComplete="username"
                 />
-                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pt-5 text-secondary">
-                  <span className="material-symbols-outlined text-sm">person</span>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pt-5 text-slate-400 pointer-events-none">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
                 </div>
               </div>
 
               <div className="relative group">
-                <label className="block font-label-md text-label-md text-on-surface-variant mb-1.5 ml-1 text-xs">Password</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 ml-1">Password</label>
                 <input
                   type="password"
                   required
-                  className="w-full bg-surface-container-low border-none rounded-lg px-4 py-2.5 font-body-md text-sm focus:bg-surface-container-high focus:ring-0"
+                  className="w-full bg-slate-100 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 focus:bg-white focus:ring-2 focus:ring-slate-900 transition-all outline-none"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
                 />
-                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pt-5 text-secondary">
-                  <span className="material-symbols-outlined text-sm">lock</span>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pt-5 text-slate-400 pointer-events-none">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
                 </div>
               </div>
 
               <button
                 type="submit"
                 disabled={isAuthenticating}
-                className="w-full bg-primary text-on-primary font-button text-sm py-3.5 rounded-full transition-all hover:bg-opacity-90 mt-4 uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+                className="w-full bg-slate-900 text-white font-bold text-xs py-3 rounded-xl transition-all hover:bg-slate-800 mt-4 uppercase tracking-wider flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 cursor-pointer shadow-md"
               >
                 {isAuthenticating ? (
                   <>
-                    <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span> Memproses...
+                    <svg className="w-4 h-4 animate-spin text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 0 0 4.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 0 1-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span>Memproses...</span>
                   </>
                 ) : (
                   <>
-                    Masuk
-                    <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                    <span>Masuk</span>
+                    <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
                   </>
                 )}
               </button>
@@ -3181,9 +3291,11 @@ export default function App() {
       )}
       {/* ── TOAST NOTIFICATION ── */}
       {toastMsg && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-primary text-pure-white px-5 py-3 rounded-sm shadow-xl font-bold uppercase tracking-widest text-[10px] z-50 flex items-center gap-2 border border-border-light">
-          <span className="material-symbols-outlined text-sm">check_circle</span>
-          {toastMsg}
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-2xl font-bold tracking-wide text-xs z-50 flex items-center gap-2 border border-slate-700 animate-pop-in">
+          <svg className="w-4 h-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+          <span>{toastMsg}</span>
         </div>
       )}
 
