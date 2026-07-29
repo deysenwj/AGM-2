@@ -2431,22 +2431,26 @@ export default function App() {
                     ) : (
                       <>
                         {outOfStockProducts.map(p => (
-                          <div key={'alert-out-' + p.id} className="p-2.5 bg-slate-50 border border-slate-200/70 rounded-xl flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-2">
+                          <div key={'alert-out-' + p.id} className="p-2.5 bg-slate-50 border border-slate-200/70 rounded-xl flex items-center justify-between gap-3 text-xs">
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
                               <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0 animate-pulse"></span>
-                              <span className="font-extrabold text-slate-900">{p.name}</span>
+                              <span className="font-bold text-slate-900 text-xs leading-snug line-clamp-2">{p.name}</span>
                             </div>
-                            <span className="font-black text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200 text-[11px]">Stok Habis (0 Unit)</span>
+                            <span className="font-black text-rose-600 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200 text-[11px] shrink-0 whitespace-nowrap self-center">
+                              Stok Habis (0 Unit)
+                            </span>
                           </div>
                         ))}
 
                         {lowStockProducts.map(p => (
-                          <div key={'alert-low-' + p.id} className="p-2.5 bg-slate-50 border border-slate-200/70 rounded-xl flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-2">
+                          <div key={'alert-low-' + p.id} className="p-2.5 bg-slate-50 border border-slate-200/70 rounded-xl flex items-center justify-between gap-3 text-xs">
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
                               <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0"></span>
-                              <span className="font-extrabold text-slate-900">{p.name}</span>
+                              <span className="font-bold text-slate-900 text-xs leading-snug line-clamp-2">{p.name}</span>
                             </div>
-                            <span className="font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 text-[11px]">Sisa {p.stock} {p.unit}</span>
+                            <span className="font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200 text-[11px] shrink-0 whitespace-nowrap self-center">
+                              Sisa {p.stock} {p.unit}
+                            </span>
                           </div>
                         ))}
                       </>

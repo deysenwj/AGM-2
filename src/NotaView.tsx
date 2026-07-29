@@ -575,7 +575,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
                             <td className="px-4 py-3 text-sm font-semibold text-slate-900">{p.name}</td>
                             <td className="px-4 py-3 text-sm text-slate-700 font-medium">{formatCurrency(p.price - p.discount)}</td>
                             <td className="px-4 py-3 text-sm text-center">
-                              <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold ${p.stock <= 3 && p.stock > 0 ? 'bg-amber-50 text-amber-800 border border-amber-200' : p.stock === 0 ? 'bg-rose-50 text-rose-800 border border-rose-200' : 'bg-slate-100 text-slate-700 border border-slate-200'}`}>
+                              <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold shrink-0 whitespace-nowrap ${p.stock <= 3 && p.stock > 0 ? 'bg-amber-50 text-amber-800 border border-amber-200' : p.stock === 0 ? 'bg-rose-50 text-rose-800 border border-rose-200' : 'bg-slate-100 text-slate-700 border border-slate-200'}`}>
                                 {p.stock} {p.unit}
                               </span>
                             </td>
