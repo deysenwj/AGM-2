@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Fallback default credentials if Vercel environment variables are not configured in Vercel dashboard
-const DEFAULT_SUPABASE_URL = 'https://jqxxfntzjkjoebgzeqxv.supabase.co';
-const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_ATg7m6Y4xDlC57iT_w0OHA_Rpoy06lq';
+const DEFAULT_SUPABASE_URL = 'https://raizwhqfiowyzbhiwbnq.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_Yv1DNnIWI-PJUbQwdTfttQ_ji6W4Ssj';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
