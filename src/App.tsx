@@ -2304,7 +2304,10 @@ export default function App() {
                 <h4 className="text-xs font-extrabold uppercase tracking-widest text-white">Jam Operasional Toko</h4>
                 <ul className="space-y-2 text-xs text-slate-400">
                   <li className="flex items-center gap-2 text-slate-200 font-semibold">
-                    <span className="material-symbols-outlined text-[16px] text-amber-400">schedule</span>
+                    <svg className="w-4 h-4 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10" />
+                      <polyline points="12 6 12 12 16 14" />
+                    </svg>
                     <span>07.30 - 21.00 WIB (Buka Setiap Hari)</span>
                   </li>
                   <li className="text-slate-400 pt-1">
@@ -2350,7 +2353,10 @@ export default function App() {
               <div className="space-y-3">
                 <h4 className="text-xs font-extrabold uppercase tracking-widest text-white">Lokasi Toko</h4>
                 <p className="text-xs text-slate-400 leading-relaxed flex items-start gap-2">
-                  <span className="material-symbols-outlined text-[16px] text-rose-400 shrink-0 mt-0.5">location_on</span>
+                  <svg className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
                   <span>Jalan Rahadi Ismail, Desa Padang, Kecamatan Benua Kayong, Kabupaten Ketapang, Kalimantan Barat</span>
                 </p>
               </div>
