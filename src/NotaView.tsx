@@ -657,25 +657,15 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
                     onChange={handlePayAmountChange}
                   />
                 </div>
-                {/* Preset Cash Buttons */}
+                {/* Preset Cash Button */}
                 <div className="flex flex-wrap gap-1 mt-2">
                   <button 
                     type="button" 
                     onClick={() => setPayAmount(subtotal.toLocaleString('id-ID'))}
-                    className="px-2 py-1 bg-slate-200 hover:bg-slate-300 text-slate-900 rounded-md text-[10px] font-bold transition-all cursor-pointer"
+                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs"
                   >
                     Uang Pas
                   </button>
-                  {[50000, 100000, 200000, 500000, 1000000].map(amt => (
-                    <button 
-                      key={'preset-' + amt} 
-                      type="button" 
-                      onClick={() => setPayAmount(amt.toLocaleString('id-ID'))}
-                      className="px-2 py-1 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-md text-[10px] font-semibold transition-all cursor-pointer"
-                    >
-                      {amt.toLocaleString('id-ID')}
-                    </button>
-                  ))}
                 </div>
               </div>
 
