@@ -2886,12 +2886,12 @@ export default function App() {
                   </span>
                 </div>
 
-                {/* Input row to add image URL or upload file */}
+                {/* Unified Input Row for URL Paste and File Upload (Single Smart Button) */}
                 <div className="flex gap-2 mb-3">
                   <input
                     type="text"
                     className="flex-1 bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-xs focus:ring-1 focus:ring-primary focus:bg-surface-container"
-                    placeholder="Tempel URL foto produk..."
+                    placeholder="Tempel URL foto atau unggah dari galeri..."
                     value={formImage}
                     onChange={(e) => setFormImage(e.target.value)}
                     onKeyDown={(e) => {
@@ -2904,7 +2904,8 @@ export default function App() {
                       }
                     }}
                   />
-                  {formImage.trim() && (
+
+                  {formImage.trim() ? (
                     <button
                       type="button"
                       onClick={() => {
@@ -2913,16 +2914,18 @@ export default function App() {
                           setFormImage('');
                         }
                       }}
-                      className="px-3 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-slate-800 transition-colors shrink-0"
+                      className="px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold shrink-0 transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
                     >
-                      Tambah URL
+                      <span className="material-symbols-outlined text-sm">add</span>
+                      <span>Tambah Foto</span>
                     </button>
+                  ) : (
+                    <label className="cursor-pointer bg-slate-900 hover:bg-slate-800 text-white px-4 flex items-center justify-center rounded-lg text-xs font-bold shrink-0 transition-colors gap-1.5 shadow-2xs">
+                      <span className="material-symbols-outlined text-sm">add_a_photo</span>
+                      <span>Unggah Foto</span>
+                      <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                    </label>
                   )}
-                  <label className="cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 flex items-center justify-center rounded-lg text-[11px] font-bold shrink-0 transition-colors gap-1.5 shadow-2xs">
-                    <span className="material-symbols-outlined text-sm">upload</span>
-                    <span>Unggah File</span>
-                    <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-                  </label>
                 </div>
 
                 {/* Thumbnails Gallery Preview List */}
