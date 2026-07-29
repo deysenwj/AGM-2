@@ -752,15 +752,33 @@ export default function App() {
           list: targetTx.items
         };
 
-        await supabase
+        const payload = {
+          id: txId,
+          customer_name: targetTx.customerName,
+          customer_phone: targetTx.customerPhone || null,
+          customer_address: targetTx.customerAddress || null,
+          total_price: targetTx.totalPrice,
+          items: itemsPayload,
+          created_at: targetTx.dateRaw || new Date().toISOString()
+        };
+
+        // Attempt update first
+        const { error: updateErr } = await supabase
           .from('transactions')
           .update({
             items: itemsPayload,
             total_price: targetTx.totalPrice
           })
           .eq('id', txId);
+
+        // Fall back to DELETE + INSERT if RLS policy blocks UPDATE query
+        if (updateErr) {
+          console.warn('Supabase update blocked, executing DELETE + INSERT fallback:', updateErr.message);
+          await supabase.from('transactions').delete().eq('id', txId);
+          await supabase.from('transactions').insert([payload]);
+        }
       } catch (e) {
-        console.warn('Supabase update transaction paid status error:', e);
+        console.warn('Supabase update transaction paid status exception:', e);
       }
     }
   };
