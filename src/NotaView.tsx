@@ -771,9 +771,9 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
               </div>
 
               {numericPay > 0 && numericPay < subtotal && (
-                <div className="flex justify-between items-center text-xs p-2 bg-orange-50 border border-orange-200 rounded-lg text-orange-800">
-                  <span className="font-bold">Kurang (Sisa):</span>
-                  <strong className="font-bold text-sm">{formatCurrency(subtotal - numericPay)}</strong>
+                <div className="flex justify-between items-center text-xs pt-1">
+                  <span className="font-semibold text-slate-600">Kurang (Sisa):</span>
+                  <span className="font-bold text-slate-900 text-sm">{formatCurrency(subtotal - numericPay)}</span>
                 </div>
               )}
 
@@ -841,9 +841,9 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
                   <span>{formatCurrency(numericPay)}</span>
                 </div>
                 {remainingAmount > 0 && (
-                  <div className="flex justify-between font-bold text-xs text-orange-700 bg-orange-50 px-2 py-1 rounded">
+                  <div className="flex justify-between font-semibold text-xs text-slate-700 pt-1">
                     <span>Kurang (Sisa):</span>
-                    <span>{formatCurrency(remainingAmount)}</span>
+                    <span className="font-bold text-slate-900">{formatCurrency(remainingAmount)}</span>
                   </div>
                 )}
                 {changeAmount > 0 && (

@@ -654,13 +654,15 @@ export default function App() {
             customer_name: txWithRawDate.customerName,
             customer_phone: txWithRawDate.customerPhone || null,
             customer_address: txWithRawDate.customerAddress || null,
-            notes: txWithRawDate.notes || null,
             total_price: txWithRawDate.totalPrice,
             items: txWithRawDate.items
           }]);
 
         if (error) {
           console.warn('Supabase insert transaction error:', error.message);
+          triggerToast('Gagal menyinkronkan transaksi ke server: ' + error.message);
+        } else {
+          console.log('Supabase insert transaction SUCCESS for ID:', txWithRawDate.id);
         }
       } catch (e) {
         console.warn('Supabase transaction insert exception:', e);
@@ -2620,10 +2622,10 @@ export default function App() {
               {/* Status Badge Indicator */}
               <div className="mb-4">
                 {selectedTxDetail.remainingAmount !== undefined && selectedTxDetail.remainingAmount > 0 ? (
-                  <div className="flex items-center justify-between bg-amber-50 border border-amber-200/80 p-3 rounded-xl text-amber-900 text-xs">
-                    <span className="font-semibold flex items-center gap-1.5">
+                  <div className="flex items-center justify-between bg-slate-50 border border-slate-200 p-3 rounded-xl text-slate-800 text-xs font-semibold">
+                    <span className="flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
-                      Status: <strong>Belum Lunas (Sisa: Rp {selectedTxDetail.remainingAmount.toLocaleString('id-ID')})</strong>
+                      Status: <strong className="text-slate-900">Belum Lunas (Sisa: Rp {selectedTxDetail.remainingAmount.toLocaleString('id-ID')})</strong>
                     </span>
                     {isAdmin && (
                       <button
@@ -2700,9 +2702,9 @@ export default function App() {
                     </div>
                   )}
                   {selectedTxDetail.remainingAmount !== undefined && selectedTxDetail.remainingAmount > 0 && (
-                    <div className="flex justify-between font-bold text-orange-800 bg-orange-50 p-2 rounded-lg border border-orange-200">
+                    <div className="flex justify-between font-semibold text-slate-700 pt-0.5">
                       <span>Kurang (Sisa):</span>
-                      <span>Rp {selectedTxDetail.remainingAmount.toLocaleString('id-ID')}</span>
+                      <span className="font-bold text-slate-900">Rp {selectedTxDetail.remainingAmount.toLocaleString('id-ID')}</span>
                     </div>
                   )}
                   {selectedTxDetail.changeAmount !== undefined && selectedTxDetail.changeAmount > 0 && (
