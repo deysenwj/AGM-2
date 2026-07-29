@@ -85,7 +85,7 @@ const formatRupiahInput = (val: string) => {
 const getOptimizedImageUrl = (url?: string, width = 600) => {
   if (!url) return '';
   if (url.includes('res.cloudinary.com') && url.includes('/upload/')) {
-    return url.replace('/upload/', `/upload/f_auto,q_auto:good,w_${width},c_limit/`);
+    return url.replace('/upload/', `/upload/f_auto,q_auto,w_${width},c_limit/`);
   }
   return url;
 };
@@ -136,7 +136,13 @@ const StockControlInput = ({
   );
 };
 
-const ProductPhotoGallery = ({ product }: { product: Product }) => {
+const ProductPhotoGallery = ({ 
+  product, 
+  onOpenFullscreen 
+}: { 
+  product: Product; 
+  onOpenFullscreen?: (urls: string[], index: number) => void;
+}) => {
   const allImages = React.useMemo(() => {
     const list: string[] = [];
     if (product.image_url) list.push(product.image_url);
@@ -159,12 +165,16 @@ const ProductPhotoGallery = ({ product }: { product: Product }) => {
   return (
     <div className="space-y-3 mb-5">
       {/* Main Preview Frame */}
-      <div className="aspect-[4/3] w-full rounded-2xl overflow-hidden bg-slate-100 relative border border-slate-200/80 group">
+      <div 
+        className="aspect-[4/3] w-full rounded-2xl overflow-hidden bg-slate-100 relative border border-slate-200/80 group cursor-pointer"
+        onClick={() => activeImage && onOpenFullscreen?.(allImages, activeIndex)}
+        title="Klik untuk melihat foto penuh (full screen)"
+      >
         {activeImage ? (
           <img 
             src={getOptimizedImageUrl(activeImage, 800)} 
             alt={product.name} 
-            className="w-full h-full object-cover transition-all duration-300"
+            className="w-full h-full object-cover transition-all duration-300 group-hover:scale-105"
           />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
@@ -175,31 +185,35 @@ const ProductPhotoGallery = ({ product }: { product: Product }) => {
 
         {/* Tag Badge */}
         {product.arrivalType && (
-          <div className="absolute top-3 left-3 bg-slate-900/90 text-white backdrop-blur-md px-2.5 py-1 rounded-md text-[9px] font-extrabold uppercase tracking-widest border border-slate-700/50 shadow-2xs">
+          <div className="absolute top-3 left-3 bg-slate-900/90 text-white backdrop-blur-md px-2.5 py-1 rounded-md text-[9px] font-extrabold uppercase tracking-widest border border-slate-700/50 shadow-2xs z-10">
             {product.arrivalType}
           </div>
         )}
 
-        {/* Next / Previous Arrows if multiple images */}
+        {/* Next / Previous Sleek Monoline SVG Arrows (Fades in on Hover) */}
         {allImages.length > 1 && (
           <>
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setActiveIndex(prev => (prev === 0 ? allImages.length - 1 : prev - 1)); }}
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-slate-900/70 hover:bg-slate-900 text-white flex items-center justify-center backdrop-blur-xs transition-all active:scale-95 shadow-md z-10"
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-slate-900/60 hover:bg-slate-900 text-white flex items-center justify-center backdrop-blur-md transition-all duration-200 active:scale-90 opacity-0 group-hover:opacity-100 shadow-sm z-10 cursor-pointer"
               title="Foto Sebelumnya"
             >
-              <span className="material-symbols-outlined text-base">chevron_left</span>
+              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
             </button>
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setActiveIndex(prev => (prev === allImages.length - 1 ? 0 : prev + 1)); }}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-slate-900/70 hover:bg-slate-900 text-white flex items-center justify-center backdrop-blur-xs transition-all active:scale-95 shadow-md z-10"
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-slate-900/60 hover:bg-slate-900 text-white flex items-center justify-center backdrop-blur-md transition-all duration-200 active:scale-90 opacity-0 group-hover:opacity-100 shadow-sm z-10 cursor-pointer"
               title="Foto Selanjutnya"
             >
-              <span className="material-symbols-outlined text-base">chevron_right</span>
+              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
             </button>
-            <div className="absolute bottom-3 right-3 bg-slate-900/80 text-white px-2.5 py-0.5 rounded-full text-[10px] font-extrabold backdrop-blur-xs tracking-wider">
+            <div className="absolute bottom-3 right-3 bg-slate-900/80 text-white px-2.5 py-0.5 rounded-full text-[10px] font-extrabold backdrop-blur-xs tracking-wider z-10 opacity-80 group-hover:opacity-100 transition-opacity">
               {activeIndex + 1} / {allImages.length}
             </div>
           </>
@@ -271,6 +285,7 @@ export default function App() {
 
   const [selectedTxDetail, setSelectedTxDetail] = useState<Transaction | null>(null);
   const [selectedProductDetail, setSelectedProductDetail] = useState<Product | null>(null);
+  const [fullscreenImage, setFullscreenImage] = useState<{ urls: string[]; index: number } | null>(null);
 
   // @ts-ignore
   const filteredTransactions = React.useMemo(() => {
@@ -463,7 +478,7 @@ export default function App() {
 
         const { data, error } = await supabase
           .from('products')
-          .select('id, name, category, subcategory, description, price, stock, unit, image_url, image_public_id, discount, arrival_type') // Select specific columns
+          .select('*')
           .order('created_at', { ascending: false })
           .abortSignal(abortController.signal);
         
@@ -779,7 +794,7 @@ export default function App() {
   };
 
   // Helper to compress image file using HTML5 Canvas before uploading
-  const compressImageFile = (file: File, maxWidth = 1200, maxHeight = 1200, quality = 0.75): Promise<string> => {
+  const compressImageFile = (file: File, maxWidth = 1000, maxHeight = 1000, quality = 0.7): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onerror = () => reject(new Error('Gagal membaca file gambar.'));
@@ -1041,9 +1056,9 @@ export default function App() {
     const discountVal = parseInt(formDiscount.replace(/\D/g, '')) || 0;
     const stockVal = parseInt(formStock) || 0;
 
-    const allImgs = [...formImages];
-    if (formImage.trim() && !allImgs.includes(formImage.trim())) {
-      allImgs.push(formImage.trim());
+    let allImgs = [...formImages];
+    if (allImgs.length === 0 && formImage.trim()) {
+      allImgs = [formImage.trim()];
     }
     const primaryImage = allImgs[0] || '';
 
@@ -1874,17 +1889,25 @@ export default function App() {
                           <div className="flex items-center gap-1">
                             <button 
                               onClick={(e) => { e.stopPropagation(); openEdit(p); }}
-                              className="p-1 text-slate-400 hover:text-slate-900 transition-colors rounded-lg hover:bg-slate-100"
+                              className="p-1.5 text-slate-400 hover:text-slate-900 transition-colors rounded-lg hover:bg-slate-100 flex items-center justify-center cursor-pointer"
                               title="Edit Produk"
                             >
-                              <span className="material-symbols-outlined text-[18px]">edit</span>
+                              <svg className="w-4 h-4 text-slate-500 hover:text-slate-900 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                              </svg>
                             </button>
                             <button 
                               onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(p.id); }}
-                              className="p-1 text-slate-400 hover:text-rose-600 transition-colors rounded-lg hover:bg-rose-50"
+                              className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors rounded-lg hover:bg-rose-50 flex items-center justify-center cursor-pointer"
                               title="Hapus Produk"
                             >
-                              <span className="material-symbols-outlined text-[18px]">delete</span>
+                              <svg className="w-4 h-4 text-slate-400 hover:text-rose-600 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                <line x1="10" y1="11" x2="10" y2="17" />
+                                <line x1="14" y1="11" x2="14" y2="17" />
+                              </svg>
                             </button>
                           </div>
                         )}
@@ -2064,12 +2087,28 @@ export default function App() {
                           </div>
                         </td>
                         <td className="p-4 text-right">
-                          <div className="flex justify-end gap-2">
-                            <button onClick={() => openEdit(p)} className="p-2 border border-border-light text-secondary hover:text-primary transition-colors">
-                              <span className="material-symbols-outlined text-[18px]">edit</span>
+                          <div className="flex justify-end gap-1.5">
+                            <button 
+                              onClick={() => openEdit(p)} 
+                              className="p-1.5 border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors rounded-lg flex items-center justify-center cursor-pointer"
+                              title="Edit Produk"
+                            >
+                              <svg className="w-4 h-4 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                              </svg>
                             </button>
-                            <button onClick={() => setDeleteConfirmId(p.id)} className="p-2 border border-border-light text-error hover:bg-error/10 transition-colors">
-                              <span className="material-symbols-outlined text-[18px]">delete</span>
+                            <button 
+                              onClick={() => setDeleteConfirmId(p.id)} 
+                              className="p-1.5 border border-slate-200 text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition-colors rounded-lg flex items-center justify-center cursor-pointer"
+                              title="Hapus Produk"
+                            >
+                              <svg className="w-4 h-4 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                <line x1="10" y1="11" x2="10" y2="17" />
+                                <line x1="14" y1="11" x2="14" y2="17" />
+                              </svg>
                             </button>
                           </div>
                         </td>
@@ -2594,8 +2633,11 @@ export default function App() {
               <span className="material-symbols-outlined text-lg">close</span>
             </button>
 
-            {/* Shopee-style Product Photo Gallery */}
-            <ProductPhotoGallery product={selectedProductDetail} />
+            {/* Shopee-style Product Photo Gallery with Fullscreen Preview */}
+            <ProductPhotoGallery 
+              product={selectedProductDetail} 
+              onOpenFullscreen={(urls, idx) => setFullscreenImage({ urls, index: idx })}
+            />
 
             {/* Product Info */}
             <div className="space-y-3">
@@ -2659,6 +2701,77 @@ export default function App() {
                 )}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── FULLSCREEN IMAGE LIGHTBOX MODAL ── */}
+      {fullscreenImage && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-fade-in"
+          onClick={() => setFullscreenImage(null)}
+        >
+          {/* Close Button */}
+          <button 
+            type="button"
+            onClick={() => setFullscreenImage(null)}
+            className="absolute top-5 right-5 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all z-20 cursor-pointer"
+            title="Tutup Foto"
+          >
+            <span className="material-symbols-outlined text-xl">close</span>
+          </button>
+
+          {/* Counter Badge */}
+          {fullscreenImage.urls.length > 1 && (
+            <div className="absolute top-5 left-5 text-white/90 bg-white/10 px-3.5 py-1 rounded-full text-xs font-extrabold tracking-widest backdrop-blur-md z-20">
+              {fullscreenImage.index + 1} / {fullscreenImage.urls.length}
+            </div>
+          )}
+
+          {/* Prev / Next Navigation Arrows */}
+          {fullscreenImage.urls.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setFullscreenImage(prev => prev ? {
+                    ...prev,
+                    index: prev.index === 0 ? prev.urls.length - 1 : prev.index - 1
+                  } : null);
+                }}
+                className="absolute left-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/15 hover:bg-white/30 text-white flex items-center justify-center backdrop-blur-md transition-all active:scale-95 z-20 cursor-pointer"
+                title="Foto Sebelumnya"
+              >
+                <span className="material-symbols-outlined text-2xl">chevron_left</span>
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setFullscreenImage(prev => prev ? {
+                    ...prev,
+                    index: prev.index === prev.urls.length - 1 ? 0 : prev.index + 1
+                  } : null);
+                }}
+                className="absolute right-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/15 hover:bg-white/30 text-white flex items-center justify-center backdrop-blur-md transition-all active:scale-95 z-20 cursor-pointer"
+                title="Foto Selanjutnya"
+              >
+                <span className="material-symbols-outlined text-2xl">chevron_right</span>
+              </button>
+            </>
+          )}
+
+          {/* Fullsize Image Frame */}
+          <div 
+            className="max-w-5xl max-h-[90vh] p-2 relative flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img 
+              src={fullscreenImage.urls[fullscreenImage.index]} 
+              alt="Foto Penuh Produk" 
+              className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl animate-pop-in"
+            />
           </div>
         </div>
       )}
@@ -2888,7 +3001,7 @@ export default function App() {
                   </span>
                 </div>
 
-                {/* Unified Input Row for URL Paste and File Upload */}
+                {/* Unified Input Row for File Upload */}
                 <div className="flex gap-2 mb-3">
                   <input
                     type="text"
@@ -2909,35 +3022,14 @@ export default function App() {
                     }}
                   />
 
-                  {formImage.trim() ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const val = formImage.trim();
-                        if (val && !formImages.includes(val)) {
-                          setFormImages(prev => [...prev, val]);
-                          setFormImage('');
-                          triggerToast('URL foto ditambahkan!');
-                        }
-                      }}
-                      className="px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold shrink-0 transition-colors flex items-center gap-2 shadow-2xs cursor-pointer active:scale-95"
-                    >
-                      <svg className="w-4 h-4 shrink-0 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="12" y1="5" x2="12" y2="19" />
-                        <line x1="5" y1="12" x2="19" y2="12" />
-                      </svg>
-                      <span>Tambah Foto</span>
-                    </button>
-                  ) : (
-                    <label className="cursor-pointer bg-slate-900 hover:bg-slate-800 text-white px-4 flex items-center justify-center rounded-lg text-xs font-bold shrink-0 transition-colors gap-2 shadow-2xs active:scale-95">
-                      <svg className="w-4 h-4 shrink-0 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                        <circle cx="12" cy="13" r="4" />
-                      </svg>
-                      <span>Unggah Foto</span>
-                      <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-                    </label>
-                  )}
+                  <label className="cursor-pointer bg-slate-900 hover:bg-slate-800 text-white px-4 flex items-center justify-center rounded-lg text-xs font-bold shrink-0 transition-colors gap-2 shadow-2xs active:scale-95">
+                    <svg className="w-4 h-4 shrink-0 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                      <circle cx="12" cy="13" r="4" />
+                    </svg>
+                    <span>{formImages.length > 0 ? 'Tambah Foto' : 'Unggah Foto'}</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                  </label>
                 </div>
 
                 {/* Thumbnails Gallery Preview List */}
@@ -2969,9 +3061,13 @@ export default function App() {
                         <button
                           type="button"
                           onClick={() => {
+                            const deletedUrl = imgUrl;
                             setFormImages(prev => prev.filter((_, i) => i !== idx));
+                            if (formImage === deletedUrl) {
+                              setFormImage('');
+                            }
                           }}
-                          className="absolute top-1 right-1 bg-rose-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px] shadow-xs hover:bg-rose-700 transition-colors"
+                          className="absolute top-1 right-1 bg-rose-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px] shadow-xs hover:bg-rose-700 transition-colors cursor-pointer"
                           title="Hapus foto ini"
                         >
                           ✕
@@ -2999,59 +3095,85 @@ export default function App() {
         </div>
       )}
 
-      {/* ── DELETE CONFIRMATION MODAL ── */}
-      {deleteConfirmId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface/90 backdrop-blur-md" onClick={() => setDeleteConfirmId(null)}>
-          <div className="w-full max-w-[360px] bg-pure-white border border-border-light rounded-xl p-6 sm:p-8 shadow-xl text-center" onClick={(e) => e.stopPropagation()}>
-            <span className="material-symbols-outlined text-[40px] text-error mb-2">delete_forever</span>
-            <h3 className="font-headline-md text-headline-md text-primary mb-2 text-base">Konfirmasi Hapus</h3>
-            <p className="font-body-md text-body-md text-secondary text-sm mb-6">Apakah Anda yakin ingin menghapus produk ini? Tindakan ini bersifat permanen.</p>
-            <div className="flex gap-4">
-              <button onClick={() => setDeleteConfirmId(null)} className="flex-1 py-2.5 border border-border-light text-secondary font-button text-xs uppercase rounded-sm hover:border-primary transition-all">
-                Batal
-              </button>
-              <button onClick={() => deleteProduct(deleteConfirmId)} className="flex-grow py-2.5 bg-error text-pure-white font-button text-xs uppercase rounded-sm hover:bg-opacity-90 transition-all">
-                Ya, Hapus
-              </button>
+      {/* ── DELETE CONFIRMATION MODAL (Ultra-Clean Minimalist) ── */}
+      {deleteConfirmId && (() => {
+        const targetProduct = products.find(p => p.id === deleteConfirmId);
+        return (
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in" 
+            onClick={() => setDeleteConfirmId(null)}
+          >
+            <div 
+              className="w-full max-w-[340px] bg-white border border-slate-200 rounded-2xl p-5 shadow-lg relative animate-pop-in space-y-4" 
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div>
+                <h3 className="font-bold text-sm text-slate-900">Hapus Produk?</h3>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                  Apakah Anda yakin ingin menghapus <strong className="text-slate-800">{targetProduct?.name || 'produk ini'}</strong>? Data akan dihapus dari katalog.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button 
+                  onClick={() => setDeleteConfirmId(null)} 
+                  className="px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button 
+                  onClick={() => deleteProduct(deleteConfirmId)} 
+                  className="px-3.5 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors shadow-2xs cursor-pointer"
+                >
+                  Hapus
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
 
-      {/* ── DELETE TRANSACTION CONFIRMATION MODAL ── */}
+      {/* ── DELETE TRANSACTION CONFIRMATION MODAL (Ultra-Clean Minimalist) ── */}
       {isDeleteTransactionModalOpen && isAdmin && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface/90 backdrop-blur-md" onClick={() => !isAuthenticating && setIsDeleteTransactionModalOpen(false)}>
-          <div className="w-full max-w-[380px] bg-pure-white border border-border-light rounded-xl p-6 sm:p-8 shadow-xl text-center" onClick={(e) => e.stopPropagation()}>
-            <span className="material-symbols-outlined text-[40px] text-error mb-2">warning</span>
-            <h3 className="font-headline-md text-headline-md text-primary mb-2 text-base">Konfirmasi Hapus Transaksi</h3>
-            <p className="font-body-md text-body-md text-secondary text-sm mb-4">Transaksi ini akan dihapus secara permanen. Mohon masukkan kode akses untuk konfirmasi.</p>
-            
-            <div className="mb-4">
-              <input
-                type="password"
-                placeholder="Kode Akses"
-                className="w-full bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-sm focus:ring-1 focus:ring-primary focus:bg-surface-container text-center"
-                value={deleteAccessCode}
-                onChange={(e) => { setDeleteAccessCode(e.target.value); setDeleteError(''); }}
-              />
-              {deleteError && <p className="text-error text-xs mt-2">{deleteError}</p>}
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in" 
+          onClick={() => !isAuthenticating && setIsDeleteTransactionModalOpen(false)}
+        >
+          <div 
+            className="w-full max-w-[340px] bg-white border border-slate-200 rounded-2xl p-5 shadow-lg relative animate-pop-in space-y-4" 
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div>
+              <h3 className="font-bold text-sm text-slate-900">Hapus Transaksi?</h3>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                Masukkan kode akses admin untuk menghapus transaksi ini.
+              </p>
             </div>
+            
+            <input
+              type="password"
+              placeholder="Kode Akses"
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-slate-900 text-center font-bold tracking-wider"
+              value={deleteAccessCode}
+              onChange={(e) => { setDeleteAccessCode(e.target.value); setDeleteError(''); }}
+            />
+            {deleteError && <p className="text-rose-600 text-[11px] font-semibold text-center">{deleteError}</p>}
 
-            <div className="flex gap-4">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
               <button 
                 onClick={() => { setIsDeleteTransactionModalOpen(false); setDeleteAccessCode(''); setDeleteError(''); }} 
-                disabled={isAuthenticating} // Use isAuthenticating as a general busy state
-                className="flex-1 py-2.5 border border-border-light text-secondary font-button text-xs uppercase rounded-sm hover:border-primary transition-all disabled:opacity-50"
+                disabled={isAuthenticating}
+                className="px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
               >
                 Batal
               </button>
               <button 
                 onClick={handleDeleteTransaction} 
                 disabled={isAuthenticating}
-                className="flex-grow py-2.5 bg-error text-pure-white font-button text-xs uppercase rounded-sm hover:bg-opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+                className="px-3.5 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors shadow-2xs disabled:opacity-50 cursor-pointer"
               >
-                {isAuthenticating ? 'Memproses...' : 'Hapus Sekarang'}
+                {isAuthenticating ? 'Memproses...' : 'Hapus'}
               </button>
             </div>
           </div>
