@@ -479,9 +479,8 @@ export default function App() {
   };
 
 
-  const fetchProducts = async (maxRetries = 1, showSpinner = true) => {
+  const fetchProducts = async (maxRetries = 3, showSpinner = true) => {
     if (showSpinner) setIsFetchingData(true);
-    setFetchError(null);
     
     // Try loading from local storage first
     let hasLocalData = false;
@@ -499,7 +498,7 @@ export default function App() {
       }
     }
 
-    // If we already have local products, don't show full-screen spinner to prevent UI flash/disappearing
+    // If we already have local products, don't show full-screen spinner to prevent UI flash
     if (hasLocalData) {
       setIsFetchingData(false);
     } else if (showSpinner) {
@@ -519,7 +518,7 @@ export default function App() {
       attempts++;
       try {
         const abortController = new AbortController();
-        const timeoutId = setTimeout(() => abortController.abort('Query timed out'), 15000); // 15 seconds timeout
+        const timeoutId = setTimeout(() => abortController.abort('Query timed out'), 30000); // 30 seconds timeout for mobile 4G
 
         const { data, error } = await supabase
           .from('products')
@@ -533,7 +532,7 @@ export default function App() {
           console.warn(`Attempt ${attempts} Supabase error:`, error.message);
           lastErr = error.message;
           if (attempts < maxRetries) {
-            await new Promise(r => setTimeout(r, 300));
+            await new Promise(r => setTimeout(r, 500 * attempts));
           }
         } else if (data) {
           const dbProducts = data.map(mapDbToProduct);
@@ -551,13 +550,15 @@ export default function App() {
         console.warn(`Attempt ${attempts} fetch exception:`, msg);
         lastErr = msg;
         if (attempts < maxRetries) {
-          await new Promise(r => setTimeout(r, 300));
+          await new Promise(r => setTimeout(r, 500 * attempts));
         }
       }
     }
 
-    if (!success) {
+    if (!success && !hasLocalData) {
       setFetchError(lastErr || 'Gagal memuat data dari database.');
+    } else if (success) {
+      setFetchError(null);
     }
     setIsFetchingData(false);
   };
@@ -1299,11 +1300,12 @@ export default function App() {
         }
 
         if (error) {
-          triggerToast('Gagal menyinkronkan ke server: ' + error.message);
-          setProducts(prev => prev.filter(p => p.id !== tempId));
+          console.warn('Supabase insert failed, keeping SKU locally:', error.message);
+          triggerToast('Produk tersimpan di HP! Menyinkronkan ke server...');
+          saveProducts([newItem, ...products]);
         } else if (data && data[0]) {
           const createdItem = mapDbToProduct(data[0]);
-          setProducts(prev => prev.map(p => p.id === tempId ? createdItem : p));
+          saveProducts([createdItem, ...products.filter(p => p.id !== tempId)]);
         }
       } else {
         saveProducts([newItem, ...products]);

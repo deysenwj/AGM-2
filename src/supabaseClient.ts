@@ -31,13 +31,13 @@ export const supabase = createClient(
       },
     },
     global: {
-      // 10s fetch timeout for slow mobile connections
+      // 45s generous fetch timeout for mobile 4G/cellular connections
       fetch: (url, options = {}) => {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        const timeoutId = setTimeout(() => controller.abort(), 45000);
         return fetch(url, {
           ...options,
-          signal: controller.signal,
+          signal: options.signal || controller.signal,
         }).finally(() => clearTimeout(timeoutId));
       },
     },
