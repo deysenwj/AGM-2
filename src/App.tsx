@@ -3570,7 +3570,6 @@ export default function App() {
               <div className="flex items-center gap-2.5">
                 <div>
                   <h3 className="font-extrabold text-base text-slate-900 leading-tight">Riwayat SKU Barang Dihapus</h3>
-                  <p className="text-xs text-slate-500 font-medium">Log arsip barang yang dihapus &amp; opsi pemulihan kembali ke katalog</p>
                 </div>
               </div>
               <button 
