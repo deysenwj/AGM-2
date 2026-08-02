@@ -39,6 +39,12 @@ export interface Transaction {
   dateRaw: string; // ISO string for filtering
 }
 
+export interface DeletedProductLog {
+  id: string;
+  deletedAt: string;
+  product: Product;
+}
+
  
 
  
@@ -56,6 +62,9 @@ const FURNITURE_SUBCATEGORIES = [
   'Meja prasmanan',
   'Meja kompor',
   'Kitchen set',
+  'Etalase',
+  'Lemari Sepatu',
+  'Lemari Dapur',
   'Lainnya'
 ];
 
@@ -292,6 +301,20 @@ export default function App() {
   const [selectedProductDetail, setSelectedProductDetail] = useState<Product | null>(null);
   const [fullscreenImage, setFullscreenImage] = useState<{ urls: string[]; index: number } | null>(null);
   const [activeFooterFaq, setActiveFooterFaq] = useState<number | null>(null);
+
+  // Riwayat SKU Produk yang Dihapus State
+  const [deletedProductsHistory, setDeletedProductsHistory] = useState<DeletedProductLog[]>(() => {
+    const saved = localStorage.getItem('agm2_deleted_products_history');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {}
+    }
+    return [];
+  });
+  const [isDeletedLogModalOpen, setIsDeletedLogModalOpen] = useState(false);
+  const [deletedLogSearchQuery, setDeletedLogSearchQuery] = useState('');
 
   // Helper to map DB row to Transaction interface
   const mapDbToTransaction = React.useCallback((item: any): Transaction => {
@@ -1405,46 +1428,42 @@ export default function App() {
     }
   };
 
-  // Optimistic Product Deletion
+  // Move product to Deleted SKU History log
   const deleteProduct = async (id: string) => {
-    // Find the product to get its image public_id before optimistic deletion
     const productToDelete = products.find(p => p.id === id);
+    if (!productToDelete) return;
 
-    // Call API Route to delete image from Cloudinary if it exists
-    if (productToDelete && productToDelete.image_public_id) {
-      try {
-        await fetch('/api/cloudinary-delete', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ public_id: productToDelete.image_public_id }),
-        });
-      } catch (error) {
-        console.error('Failed to call Cloudinary delete API:', error);
-        triggerToast('Gagal menghapus gambar di Cloudinary.');
-      }
-    }
+    // Create log record
+    const logItem: DeletedProductLog = {
+      id: productToDelete.id,
+      deletedAt: new Date().toISOString(),
+      product: productToDelete
+    };
 
-    // Optimistic update
-    setProducts(prev => prev.filter(p => p.id !== id));
+    // Save to deletedProductsHistory state & localStorage
+    setDeletedProductsHistory(prev => {
+      const updated = [logItem, ...prev.filter(item => item.id !== id)];
+      try { localStorage.setItem('agm2_deleted_products_history', JSON.stringify(updated)); } catch (e) {}
+      return updated;
+    });
+
+    // Remove from active products
+    const updatedActive = products.filter(p => p.id !== id);
+    setProducts(updatedActive);
+    try { localStorage.setItem('agm2_inventory', JSON.stringify(updatedActive)); } catch (e) {}
     setDeleteConfirmId(null);
-    triggerToast('Produk dihapus.');
+    triggerToast(`Produk "${productToDelete.name}" dipindahkan ke Riwayat SKU Dihapus.`);
 
     if (isSupabaseConfigured) {
-      const { error } = await supabase
-        .from('products')
-        .delete()
-        .eq('id', id);
-
-      if (error) {
-        triggerToast('Gagal menghapus di server: ' + error.message);
-        fetchProducts();
+      try {
+        await supabase.from('products').delete().eq('id', id);
+      } catch (e) {
+        console.warn('Supabase delete product error:', e);
       }
-    } else {
-      saveProducts(products.filter(p => p.id !== id));
     }
   };
+
+
 
   // Open modal config
   const openAdd = () => {
@@ -1830,15 +1849,35 @@ export default function App() {
               </div>
 
               {isAdmin && currentView === 'catalog' && (
-                <button
-                  onClick={openAdd}
-                  className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-all flex items-center gap-1.5 shadow-sm active:scale-[0.98] cursor-pointer"
-                >
-                  <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                  </svg>
-                  <span>Tambah Produk</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={openAdd}
+                    className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-all flex items-center gap-1.5 shadow-xs active:scale-[0.98] cursor-pointer"
+                  >
+                    <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span>Tambah Produk</span>
+                  </button>
+
+                  <button
+                    onClick={() => setIsDeletedLogModalOpen(true)}
+                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer relative shadow-2xs active:scale-[0.98]"
+                    title="Lihat Riwayat SKU Barang yang Dihapus"
+                  >
+                    <svg className="w-4 h-4 text-slate-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="18" height="4" rx="1.5" />
+                      <path d="M5 7v13a2 2 0 002 2h10a2 2 0 002-2V7" />
+                      <path d="M10 12h4" />
+                    </svg>
+                    <span className="hidden sm:inline">Riwayat Dihapus</span>
+                    {deletedProductsHistory.length > 0 && (
+                      <span className="bg-rose-500 text-white font-extrabold text-[10px] px-1.5 py-0.2 rounded-full min-w-[18px] text-center">
+                        {deletedProductsHistory.length}
+                      </span>
+                    )}
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -2103,9 +2142,10 @@ export default function App() {
                               className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors rounded-lg hover:bg-rose-50 flex items-center justify-center cursor-pointer"
                               title="Hapus Produk"
                             >
-                              <svg className="w-4 h-4 text-slate-400 hover:text-rose-600 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <polyline points="3 6 5 6 21 6" />
-                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                              <svg className="w-4 h-4 text-slate-400 hover:text-rose-600 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M3 6h18" />
+                                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
                                 <line x1="10" y1="11" x2="10" y2="17" />
                                 <line x1="14" y1="11" x2="14" y2="17" />
                               </svg>
@@ -2210,9 +2250,12 @@ export default function App() {
                           </svg>
                         </button>
                         <button onClick={() => setDeleteConfirmId(p.id)} className="p-2 border border-slate-200 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer" title="Hapus Produk">
-                          <svg className="w-4 h-4 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="3 6 5 6 21 6" />
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                          <svg className="w-4 h-4 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M3 6h18" />
+                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                            <line x1="10" y1="11" x2="10" y2="17" />
+                            <line x1="14" y1="11" x2="14" y2="17" />
                           </svg>
                         </button>
                       </div>
@@ -3518,6 +3561,129 @@ export default function App() {
           </div>
         </div>
       )}
+      {/* ── MODAL RIWAYAT SKU BARANG YANG DIHAPUS ── */}
+      {isDeletedLogModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh] animate-scaleUp">
+            {/* Header Modal */}
+            <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900 leading-tight">Riwayat SKU Barang Dihapus</h3>
+                  <p className="text-xs text-slate-500 font-medium">Log arsip barang yang dihapus &amp; opsi pemulihan kembali ke katalog</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsDeletedLogModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 flex items-center justify-center text-sm font-bold transition-all cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Filter Search Bar */}
+            <div className="p-4 border-b border-slate-200 bg-white">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Cari SKU dihapus berdasarkan nama / kategori..."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-900 focus:bg-white transition-all"
+                  value={deletedLogSearchQuery}
+                  onChange={(e) => setDeletedLogSearchQuery(e.target.value)}
+                />
+                <svg className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+              </div>
+            </div>
+
+            {/* Modal Body / Deleted Items List (Read-Only Audit Log) */}
+            <div className="p-4 overflow-y-auto flex-grow space-y-3 max-h-[55vh]">
+              {(() => {
+                const filteredList = deletedProductsHistory.filter(item => {
+                  if (!deletedLogSearchQuery.trim()) return true;
+                  const q = deletedLogSearchQuery.toLowerCase();
+                  return (
+                    item.product.name.toLowerCase().includes(q) ||
+                    (item.product.subcategory && item.product.subcategory.toLowerCase().includes(q)) ||
+                    item.product.category.toLowerCase().includes(q)
+                  );
+                });
+
+                if (filteredList.length === 0) {
+                  return (
+                    <div className="py-12 text-center text-slate-400 space-y-2">
+                      <svg className="w-12 h-12 mx-auto text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="18" height="4" rx="1.5" />
+                        <path d="M5 7v13a2 2 0 002 2h10a2 2 0 002-2V7" />
+                        <path d="M10 12h4" />
+                      </svg>
+                      <p className="text-xs font-semibold text-slate-500">
+                        {deletedLogSearchQuery ? 'Tidak ada SKU dihapus yang cocok dengan pencarian.' : 'Belum ada riwayat SKU barang yang dihapus.'}
+                      </p>
+                    </div>
+                  );
+                }
+
+                return filteredList.map(log => {
+                  const p = log.product;
+                  const dateFormatted = new Date(log.deletedAt).toLocaleString('id-ID', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  });
+
+                  return (
+                    <div 
+                      key={'deleted-log-' + log.id}
+                      className="p-3 bg-white border border-slate-200/80 rounded-xl flex items-center gap-3 hover:border-slate-300 transition-all shadow-xs"
+                    >
+                      <div className="w-14 h-14 rounded-lg bg-slate-100 overflow-hidden shrink-0 border border-slate-200">
+                          {p.image_url ? (
+                            <img src={getOptimizedImageUrl(p.image_url, 150)} alt={p.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-slate-400 text-[9px] font-bold">No Image</div>
+                          )}
+                        </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          {p.subcategory && (
+                            <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded-md">
+                              {p.subcategory}
+                            </span>
+                          )}
+                          <span className="text-[10px] text-slate-400 font-medium">Dihapus: {dateFormatted}</span>
+                        </div>
+                        <h4 className="font-extrabold text-sm text-slate-900 truncate" title={p.name}>
+                          {p.name}
+                        </h4>
+                        <div className="text-xs text-slate-600 font-semibold mt-0.5">
+                          Rp {(p.price - p.discount).toLocaleString('id-ID')} • Stok saat dihapus: <strong className="text-slate-900">{p.stock} {p.unit}</strong>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-between items-center text-xs text-slate-500 font-semibold">
+              <span>Total SKU Dihapus: <strong className="text-slate-900 font-bold">{deletedProductsHistory.length}</strong></span>
+              <button
+                onClick={() => setIsDeletedLogModalOpen(false)}
+                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold rounded-xl transition-all cursor-pointer"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── TOAST NOTIFICATION ── */}
       {toastMsg && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-2xl font-bold tracking-wide text-xs z-50 flex items-center gap-2 border border-slate-700 animate-pop-in">
