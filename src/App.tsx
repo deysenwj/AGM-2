@@ -1880,22 +1880,22 @@ export default function App() {
             {/* Grid Filters Row */}
             <div className="flex flex-col gap-4 mb-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div className="flex p-1 bg-slate-200/60 rounded-xl gap-1 w-full sm:w-auto">
+                <div className="flex p-1 bg-slate-200/60 rounded-xl gap-1 w-full sm:w-auto overflow-x-auto hide-scrollbar">
                   <button
                     onClick={() => selectCategoryFilter('all')}
-                    className={`flex-1 sm:flex-initial px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${filterCategory === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`flex-1 sm:flex-initial px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${filterCategory === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
                   >
                     Semua ({products.length})
                   </button>
                   <button
                     onClick={() => selectCategoryFilter('furniture')}
-                    className={`flex-1 sm:flex-initial px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${filterCategory === 'furniture' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`flex-1 sm:flex-initial px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${filterCategory === 'furniture' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
                   >
                     Furniture ({products.filter(p => p.category === 'furniture').length})
                   </button>
                   <button
                     onClick={() => selectCategoryFilter('electronics')}
-                    className={`flex-1 sm:flex-initial px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${filterCategory === 'electronics' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`flex-1 sm:flex-initial px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${filterCategory === 'electronics' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
                   >
                     Elektronik ({products.filter(p => p.category === 'electronics').length})
                   </button>
@@ -2009,7 +2009,7 @@ export default function App() {
                 <p className="text-sm font-semibold text-slate-600">Tidak ada produk yang cocok dengan kriteria.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5 sm:gap-7">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-6">
                 {filteredProducts.map(p => (
                   <div 
                     key={p.id} 
