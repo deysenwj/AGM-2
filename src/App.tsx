@@ -29,6 +29,7 @@ export interface Transaction {
   payAmount?: number;
   changeAmount?: number;
   remainingAmount?: number;
+  deliveryFee?: number; // Optional delivery fee
   items: {
     productId: string;
     productName: string;
@@ -43,6 +44,27 @@ export interface DeletedProductLog {
   id: string;
   deletedAt: string;
   product: Product;
+  changedBy?: string;
+}
+
+export interface StockHistoryLog {
+  id: string;
+  productId: string;
+  productName: string;
+  oldStock: number;
+  newStock: number;
+  changeAmount: number;
+  changedBy: string;
+  changedAt: string;
+  notes?: string;
+}
+
+export interface AdminSession {
+  id: string;
+  name: string;
+  email: string;
+  status: 'online' | 'offline';
+  lastSeen: string;
 }
 
  
@@ -280,9 +302,20 @@ export default function App() {
   });
   const [isFetchingData, setIsFetchingData] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [currentView, setCurrentView] = useState<'catalog' | 'stock' | 'dashboard' | 'nota'>('catalog');
   
+  // Current logged in admin user state (Ardian or Widya)
+  const [currentAdminUser, setCurrentAdminUser] = useState<{ name: string; email: string } | null>(() => {
+    const saved = localStorage.getItem('agm2_admin_user');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    const isOldMode = localStorage.getItem('agm2_admin_mode') === 'true';
+    return isOldMode ? { name: 'Ardian', email: 'deysen10@gmail.com' } : null;
+  });
+  const isAdmin = Boolean(currentAdminUser);
+
+  const [currentView, setCurrentView] = useState<'catalog' | 'stock' | 'dashboard' | 'nota'>('catalog');
+
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
     const saved = localStorage.getItem('agm2_transactions');
     try {
@@ -315,6 +348,33 @@ export default function App() {
   });
   const [isDeletedLogModalOpen, setIsDeletedLogModalOpen] = useState(false);
   const [deletedLogSearchQuery, setDeletedLogSearchQuery] = useState('');
+
+  // Riwayat Edit Stok State
+  const [stockHistory, setStockHistory] = useState<StockHistoryLog[]>(() => {
+    const saved = localStorage.getItem('agm2_stock_history');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {}
+    }
+    return [];
+  });
+  const [isStockLogModalOpen, setIsStockLogModalOpen] = useState(false);
+  const [stockLogSearchQuery, setStockLogSearchQuery] = useState('');
+
+  // Konfirmasi Toggle Edit Stok State
+  const [stockEditConfirmation, setStockEditConfirmation] = useState<{
+    productId: string;
+    productName: string;
+    oldStock: number;
+    newStock: number;
+  } | null>(null);
+
+  // Active Online Admins State (Supabase Realtime Presence)
+  const [activeOnlineAdmins, setActiveOnlineAdmins] = useState<{ name: string; email: string; onlineAt: string }[]>([]);
+  const [isOnlineAdminsModalOpen, setIsOnlineAdminsModalOpen] = useState(false);
+  const presenceChannelRef = React.useRef<any>(null);
 
   // Helper to map DB row to Transaction interface
   const mapDbToTransaction = React.useCallback((item: any): Transaction => {
@@ -655,17 +715,49 @@ export default function App() {
         .order('deleted_at', { ascending: false })
         .limit(300);
 
-      if (!error && data) {
+      if (!error && data && data.length > 0) {
         const mapped: DeletedProductLog[] = data.map((item: any) => ({
           id: String(item.id),
           deletedAt: item.deleted_at || new Date().toISOString(),
-          product: typeof item.product === 'string' ? JSON.parse(item.product) : item.product
+          product: typeof item.product === 'string' ? JSON.parse(item.product) : item.product,
+          changedBy: (item.changed_by && item.changed_by !== 'Admin' && item.changed_by !== 'Unknown/System') ? item.changed_by : 'Ardian'
         }));
         setDeletedProductsHistory(mapped);
         try { localStorage.setItem('agm2_deleted_products_history', JSON.stringify(mapped)); } catch (e) {}
       }
     } catch (e) {
       console.warn('Fetch deleted_logs exception (fallback to local):', e);
+    }
+  };
+
+  const fetchStockHistory = async () => {
+    if (!isSupabaseConfigured) return;
+    try {
+      const { data, error } = await supabase
+        .from('stock_history')
+        .select('*')
+        .order('changed_at', { ascending: false })
+        .limit(300);
+
+      if (!error && data && data.length > 0) {
+        const mapped: StockHistoryLog[] = data.map((item: any) => ({
+          id: String(item.id),
+          productId: String(item.product_id),
+          productName: item.product_name || '',
+          oldStock: Number(item.old_stock) || 0,
+          newStock: Number(item.new_stock) || 0,
+          changeAmount: Number(item.change_amount) || 0,
+          changedBy: (item.changed_by && item.changed_by !== 'Admin') ? item.changed_by : 'Ardian',
+          changedAt: item.changed_at || new Date().toISOString(),
+          notes: item.notes || ''
+        }));
+        setStockHistory(mapped);
+        try { localStorage.setItem('agm2_stock_history', JSON.stringify(mapped)); } catch (e) {}
+      } else if (error) {
+        console.warn('Fetch stock_history error:', error.message);
+      }
+    } catch (e) {
+      console.warn('Fetch stock_history exception:', e);
     }
   };
 
@@ -711,7 +803,8 @@ export default function App() {
             customer_phone: txWithRawDate.customerPhone || null,
             customer_address: txWithRawDate.customerAddress || null,
             total_price: txWithRawDate.totalPrice,
-            items: itemsPayload
+            items: itemsPayload,
+            delivery_fee: txWithRawDate.deliveryFee || 0
           }]);
 
         if (error) {
@@ -798,7 +891,8 @@ export default function App() {
           customer_address: targetTx.customerAddress || null,
           total_price: targetTx.totalPrice,
           items: itemsPayload,
-          created_at: targetTx.dateRaw || new Date().toISOString()
+          created_at: targetTx.dateRaw || new Date().toISOString(),
+          delivery_fee: targetTx.deliveryFee || 0
         };
 
         // Attempt update first
@@ -806,7 +900,8 @@ export default function App() {
           .from('transactions')
           .update({
             items: itemsPayload,
-            total_price: targetTx.totalPrice
+            total_price: targetTx.totalPrice,
+            delivery_fee: targetTx.deliveryFee || 0
           })
           .eq('id', txId);
 
@@ -919,7 +1014,8 @@ export default function App() {
             const newItem: DeletedProductLog = {
               id: String(payload.new.id),
               deletedAt: payload.new.deleted_at || new Date().toISOString(),
-              product: typeof payload.new.product === 'string' ? JSON.parse(payload.new.product) : payload.new.product
+              product: typeof payload.new.product === 'string' ? JSON.parse(payload.new.product) : payload.new.product,
+              changedBy: payload.new.changed_by || 'Admin'
             };
             setDeletedProductsHistory(prev => {
               if (prev.some(item => item.id === newItem.id)) return prev;
@@ -932,11 +1028,42 @@ export default function App() {
       )
       .subscribe();
 
+    // Stock History Listener
+    const stockHistoryChannel = supabase
+      .channel('realtime-stock-history-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'stock_history' },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const newItem: StockHistoryLog = {
+              id: String(payload.new.id),
+              productId: String(payload.new.product_id),
+              productName: payload.new.product_name || '',
+              oldStock: Number(payload.new.old_stock) || 0,
+              newStock: Number(payload.new.new_stock) || 0,
+              changeAmount: Number(payload.new.change_amount) || 0,
+              changedBy: payload.new.changed_by || 'Admin',
+              changedAt: payload.new.changed_at || new Date().toISOString(),
+              notes: payload.new.notes || ''
+            };
+            setStockHistory(prev => {
+              if (prev.some(item => item.id === newItem.id)) return prev;
+              const updated = [newItem, ...prev];
+              try { localStorage.setItem('agm2_stock_history', JSON.stringify(updated)); } catch (e) {}
+              return updated;
+            });
+          }
+        }
+      )
+      .subscribe();
+
     // Return an unsubscribe function
     return () => {
       productChannel.unsubscribe();
       transactionChannel.unsubscribe();
       deletedLogChannel.unsubscribe();
+      stockHistoryChannel.unsubscribe();
       console.log('Realtime channels unsubscribed.');
     };
   };
@@ -949,6 +1076,7 @@ export default function App() {
     Promise.all([
       fetchProducts(1, true),
       fetchDeletedLogs(),
+      fetchStockHistory(),
       new Promise(r => setTimeout(r, 100)).then(() => fetchTransactions())
     ]).then(() => {
       if (isSupabaseConfigured && import.meta.env.VITE_SUPABASE_REALTIME_ENABLED === 'true') {
@@ -962,6 +1090,7 @@ export default function App() {
       if (document.visibilityState === 'visible') {
         fetchProducts(2, false);
         fetchDeletedLogs();
+        fetchStockHistory();
         new Promise(r => setTimeout(r, 100)).then(() => fetchTransactions());
       }
     };
@@ -971,12 +1100,18 @@ export default function App() {
     const autoSyncInterval = setInterval(() => {
       fetchProducts(1, false);
       fetchDeletedLogs();
+      fetchStockHistory();
       fetchTransactions();
     }, 30000);
 
     const auth = localStorage.getItem('agm2_admin_mode');
     if (auth === 'true') {
-      setIsAdmin(true);
+      const savedUser = localStorage.getItem('agm2_admin_user');
+      if (savedUser) {
+        try { setCurrentAdminUser(JSON.parse(savedUser)); } catch (e) {}
+      } else {
+        setCurrentAdminUser({ name: 'Ardian', email: 'deysen10@gmail.com' });
+      }
     }
 
     return () => {
@@ -985,6 +1120,70 @@ export default function App() {
       clearInterval(autoSyncInterval);
     };
   }, []);
+
+  // Supabase Realtime Presence for Active Online Admins (Ardian & Widya)
+  useEffect(() => {
+    if (!isSupabaseConfigured || !currentAdminUser) {
+      if (presenceChannelRef.current) {
+        presenceChannelRef.current.untrack().catch(() => {});
+        presenceChannelRef.current.unsubscribe();
+        presenceChannelRef.current = null;
+      }
+      setActiveOnlineAdmins([]);
+      return;
+    }
+
+    const presenceChannel = supabase.channel('online-admins-presence', {
+      config: {
+        presence: {
+          key: currentAdminUser.name,
+        },
+      },
+    });
+
+    presenceChannelRef.current = presenceChannel;
+
+    const syncPresenceUsers = () => {
+      const state = presenceChannel.presenceState();
+      const usersList: { name: string; email: string; onlineAt: string }[] = [];
+      
+      Object.values(state).forEach((presences: any) => {
+        if (Array.isArray(presences)) {
+          presences.forEach((p: any) => {
+            if (p.name && !usersList.some(u => u.name === p.name)) {
+              usersList.push({
+                name: p.name,
+                email: p.email || '',
+                onlineAt: p.onlineAt || new Date().toISOString()
+              });
+            }
+          });
+        }
+      });
+
+      setActiveOnlineAdmins(usersList);
+    };
+
+    presenceChannel
+      .on('presence', { event: 'sync' }, syncPresenceUsers)
+      .on('presence', { event: 'join' }, syncPresenceUsers)
+      .on('presence', { event: 'leave' }, syncPresenceUsers)
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await presenceChannel.track({
+            name: currentAdminUser.name,
+            email: currentAdminUser.email,
+            onlineAt: new Date().toISOString(),
+          });
+        }
+      });
+
+    return () => {
+      presenceChannel.untrack().catch(() => {});
+      presenceChannel.unsubscribe();
+      presenceChannelRef.current = null;
+    };
+  }, [currentAdminUser]);
 
   const saveProducts = (list: Product[]) => {
     setProducts(list);
@@ -1129,90 +1328,232 @@ export default function App() {
     }
   }, [formCategory]);
 
-  // Auth Handling
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  // Auth Handling for Admin Users (Ardian & Widya)
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsAuthenticating(true);
     setLoginError('');
 
-    setTimeout(() => {
-      if (username.toLowerCase() === 'admin' && password === 'admin123') {
-        setIsAdmin(true);
-        localStorage.setItem('agm2_admin_mode', 'true');
-        setIsLoginOpen(false);
-        setUsername('');
-        setPassword('');
-        triggerToast('Autentikasi Admin Berhasil');
-      } else {
-        setLoginError('Username atau Password Admin salah.');
+    const inputClean = username.trim().toLowerCase();
+    const passClean = password.trim();
+
+    // Determine candidate accounts to test with Supabase Auth
+    let candidateAccounts: { name: string; email: string }[] = [];
+
+    if (inputClean.includes('widya') || inputClean === 'deysen95@gmail.com' || passClean.toLowerCase().includes('widya')) {
+      candidateAccounts = [
+        { name: 'Widya', email: 'deysen95@gmail.com' },
+        { name: 'Ardian', email: 'deysen10@gmail.com' }
+      ];
+    } else if (inputClean.includes('ardian') || inputClean === 'deysen10@gmail.com' || passClean.toLowerCase().includes('ardian')) {
+      candidateAccounts = [
+        { name: 'Ardian', email: 'deysen10@gmail.com' },
+        { name: 'Widya', email: 'deysen95@gmail.com' }
+      ];
+    } else {
+      // Default 'admin' username: test both Widya & Ardian accounts
+      candidateAccounts = [
+        { name: 'Widya', email: 'deysen95@gmail.com' },
+        { name: 'Ardian', email: 'deysen10@gmail.com' }
+      ];
+    }
+
+    if (isSupabaseConfigured) {
+      for (const account of candidateAccounts) {
+        try {
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email: account.email,
+            password: passClean,
+          });
+
+          if (!error && data?.user) {
+            const userObj = { name: account.name, email: data.user.email || account.email };
+            setCurrentAdminUser(userObj);
+            localStorage.setItem('agm2_admin_user', JSON.stringify(userObj));
+            localStorage.setItem('agm2_admin_mode', 'true');
+            setIsLoginOpen(false);
+            setUsername('');
+            setPassword('');
+            triggerToast(`Autentikasi Berhasil. Selamat Datang Admin ${account.name}!`);
+            setIsAuthenticating(false);
+            return;
+          }
+        } catch (err) {
+          console.warn('Supabase auth attempt error:', err);
+        }
       }
+    }
+
+    // Local fallback check
+    if (
+      (inputClean.includes('widya') || inputClean.includes('deysen95') || passClean.toLowerCase().includes('widya')) &&
+      (passClean === 'kambing123' || passClean === 'widya123')
+    ) {
+      const userObj = { name: 'Widya', email: 'deysen95@gmail.com' };
+      setCurrentAdminUser(userObj);
+      localStorage.setItem('agm2_admin_user', JSON.stringify(userObj));
+      localStorage.setItem('agm2_admin_mode', 'true');
+      setIsLoginOpen(false);
+      setUsername('');
+      setPassword('');
+      triggerToast('Autentikasi Berhasil. Selamat Datang Admin Widya!');
       setIsAuthenticating(false);
-    }, 1200);
+      return;
+    }
+
+    if (
+      (inputClean.includes('ardian') || inputClean.includes('deysen10') || (inputClean === 'admin' && (passClean === 'kambing123' || passClean === 'ardian123'))) &&
+      (passClean === 'kambing123' || passClean === 'ardian123')
+    ) {
+      const userObj = { name: 'Ardian', email: 'deysen10@gmail.com' };
+      setCurrentAdminUser(userObj);
+      localStorage.setItem('agm2_admin_user', JSON.stringify(userObj));
+      localStorage.setItem('agm2_admin_mode', 'true');
+      setIsLoginOpen(false);
+      setUsername('');
+      setPassword('');
+      triggerToast('Autentikasi Berhasil. Selamat Datang Admin Ardian!');
+      setIsAuthenticating(false);
+      return;
+    }
+
+    if (
+      inputClean === 'admin' && (passClean === 'widya123' || passClean === 'kambing123')
+    ) {
+      const userObj = { name: 'Widya', email: 'deysen95@gmail.com' };
+      setCurrentAdminUser(userObj);
+      localStorage.setItem('agm2_admin_user', JSON.stringify(userObj));
+      localStorage.setItem('agm2_admin_mode', 'true');
+      setIsLoginOpen(false);
+      setUsername('');
+      setPassword('');
+      triggerToast('Autentikasi Berhasil. Selamat Datang Admin Widya!');
+      setIsAuthenticating(false);
+      return;
+    }
+
+    setIsAuthenticating(false);
+    setLoginError('Email / Username atau Password salah.');
   };
 
-  const handleLogout = () => {
-    setIsAdmin(false);
+  const handleLogout = async () => {
+    if (presenceChannelRef.current) {
+      try {
+        await presenceChannelRef.current.untrack();
+        presenceChannelRef.current.unsubscribe();
+      } catch (e) {}
+      presenceChannelRef.current = null;
+    }
+
+    setCurrentAdminUser(null);
+    setActiveOnlineAdmins([]);
     localStorage.setItem('agm2_admin_mode', 'false');
+    localStorage.removeItem('agm2_admin_user');
+    if (isSupabaseConfigured) {
+      supabase.auth.signOut().catch(() => {});
+    }
     setCurrentView('catalog');
     triggerToast('Berhasil Keluar');
   };
 
-  // Super-Responsive Stock Update Functions (0ms optimistic delay)
+  // Request stock adjustment (triggers confirmation toggle modal first)
   const adjustStock = async (id: string, amount: number) => {
-    // 1. Find target product
     const currentProduct = products.find(p => p.id === id);
     if (!currentProduct) return;
 
-    // Calculate base stock from current local state or pending updates
     let baseStock = currentProduct.stock;
     if (pendingStockUpdatesRef.current[id]) {
       baseStock = pendingStockUpdatesRef.current[id].targetStock;
     }
 
     const updatedStock = Math.max(0, baseStock + amount);
+    if (updatedStock === baseStock) return;
 
-    // Update state immediately for instant UI response
+    setStockEditConfirmation({
+      productId: currentProduct.id,
+      productName: currentProduct.name,
+      oldStock: baseStock,
+      newStock: updatedStock
+    });
+  };
+
+  const setDirectStock = (id: string, newStock: number) => {
+    const currentProduct = products.find(p => p.id === id);
+    if (!currentProduct) return;
+
+    const safeStock = Math.max(0, newStock);
+    if (safeStock === currentProduct.stock) return;
+
+    setStockEditConfirmation({
+      productId: currentProduct.id,
+      productName: currentProduct.name,
+      oldStock: currentProduct.stock,
+      newStock: safeStock
+    });
+  };
+
+  // Confirmed stock update execution
+  const confirmAndExecuteStockAdjustment = async () => {
+    if (!stockEditConfirmation) return;
+    const { productId, productName, oldStock, newStock } = stockEditConfirmation;
+    setStockEditConfirmation(null);
+
+    const changeAmount = newStock - oldStock;
+    const changedBy = currentAdminUser?.name || 'Ardian';
+    const changedAt = new Date().toISOString();
+
+    // 1. Update state immediately for instant UI response
     setProducts(prev => {
-      const updatedList = prev.map(p => p.id === id ? { ...p, stock: updatedStock } : p);
-      try {
-        localStorage.setItem('agm2_inventory', JSON.stringify(updatedList));
-      } catch (e) {}
+      const updatedList = prev.map(p => p.id === productId ? { ...p, stock: newStock } : p);
+      try { localStorage.setItem('agm2_inventory', JSON.stringify(updatedList)); } catch (e) {}
       return updatedList;
     });
 
-    // Record the edit to prevent WebSocket update overwrite
-    lastLocalStockEditsRef.current[id] = { stock: updatedStock, time: Date.now() };
+    // 2. Add log record to local stockHistory state
+    const newLogItem: StockHistoryLog = {
+      id: 'log-' + Date.now(),
+      productId,
+      productName,
+      oldStock,
+      newStock,
+      changeAmount,
+      changedBy,
+      changedAt,
+      notes: changeAmount > 0 ? `Penambahan +${changeAmount} unit` : `Pengurangan ${Math.abs(changeAmount)} unit`
+    };
 
-    // Clear any existing debounce timer for this product
-    if (pendingStockUpdatesRef.current[id]) {
-      clearTimeout(pendingStockUpdatesRef.current[id].timer);
-    }
+    setStockHistory(prev => {
+      const updated = [newLogItem, ...prev];
+      try { localStorage.setItem('agm2_stock_history', JSON.stringify(updated)); } catch (e) {}
+      return updated;
+    });
 
-    // Debounce the Supabase DB write (500ms)
-    const timer = setTimeout(async () => {
-      delete pendingStockUpdatesRef.current[id];
-      if (isSupabaseConfigured) {
-        try {
-          const { data, error } = await supabase
-            .from('products')
-            .update({ stock: updatedStock })
-            .eq('id', id)
-            .select(); // Add .select() to return the updated item
+    triggerToast(`Stok "${productName}" diperbarui ke ${newStock} unit.`);
 
-          if (error) {
-            console.error('Supabase stock update ERROR:', error);
-            triggerToast('Gagal memperbarui stok di server: ' + error.message);
-          } else {
-            console.log('Supabase stock update SUCCESS:', data); // Should now contain the updated row
-          }
-        } catch (e: any) {
-          console.error('Supabase stock update EXCEPTION (debounced):', e);
-          triggerToast('Kesalahan saat memperbarui stok di server: ' + e.message);
-        }
+    // 3. Write to Supabase DB (products table & stock_history table)
+    if (isSupabaseConfigured) {
+      try {
+        await supabase
+          .from('products')
+          .update({ stock: newStock })
+          .eq('id', productId);
+
+        await supabase
+          .from('stock_history')
+          .insert([{
+            product_id: productId,
+            product_name: productName,
+            old_stock: oldStock,
+            new_stock: newStock,
+            change_amount: changeAmount,
+            changed_by: changedBy,
+            changed_at: changedAt,
+            notes: newLogItem.notes
+          }]);
+      } catch (e: any) {
+        console.error('Supabase stock history update exception:', e);
       }
-    }, 500);
-
-    pendingStockUpdatesRef.current[id] = { timer, targetStock: updatedStock };
+    }
   };
 
   const deductBulkStock = async (itemsToDeduct: { productId: string; quantity: number }[]) => {
@@ -1254,35 +1595,7 @@ export default function App() {
     }
   };
 
-  const setDirectStock = async (id: string, newStockVal: number) => {
-    const sanitizedStock = isNaN(newStockVal) ? 0 : Math.max(0, Math.floor(Number(newStockVal) || 0));
 
-    setProducts(prev => {
-      const updatedList = prev.map(p => p.id === id ? { ...p, stock: sanitizedStock } : p);
-      
-      lastLocalStockEditsRef.current[id] = { stock: sanitizedStock, time: Date.now() };
-
-      try {
-        localStorage.setItem('agm2_inventory', JSON.stringify(updatedList));
-      } catch (e) {}
-      return updatedList;
-    });
-
-    if (isSupabaseConfigured) {
-      try {
-        const { error } = await supabase
-          .from('products')
-          .update({ stock: sanitizedStock })
-          .eq('id', id);
-
-        if (error) {
-          console.warn('Sync notice:', error.message);
-        }
-      } catch (e) {
-        console.warn('Sync notice:', e);
-      }
-    }
-  };
 
   // Optimistic Add / Edit Form Submission
   const handleFormSubmit = async (e: React.FormEvent) => {
@@ -1485,7 +1798,8 @@ export default function App() {
     const logItem: DeletedProductLog = {
       id: productToDelete.id,
       deletedAt: new Date().toISOString(),
-      product: productToDelete
+      product: productToDelete,
+      changedBy: currentAdminUser?.name || 'Ardian'
     };
 
     // Save to deletedProductsHistory state & localStorage
@@ -1510,7 +1824,8 @@ export default function App() {
         await supabase.from('deleted_logs').insert([{
           id: productToDelete.id,
           product: productToDelete,
-          deleted_at: logItem.deletedAt
+          deleted_at: logItem.deletedAt,
+          changed_by: currentAdminUser?.name || 'Ardian'
         }]);
       } catch (e) {
         console.warn('Supabase delete product error:', e);
@@ -1678,18 +1993,27 @@ export default function App() {
             </div>
             
             {isAdmin ? (
-              <button 
-                onClick={handleLogout}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-all active:scale-[0.98] shadow-xs cursor-pointer"
-                title="Logout Admin"
-              >
-                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                  <polyline points="16 17 21 12 16 7" />
-                  <line x1="21" y1="12" x2="9" y2="12" />
-                </svg>
-                <span className="hidden md:inline uppercase tracking-wider">LOGOUT</span>
-              </button>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <button
+                  onClick={() => setIsOnlineAdminsModalOpen(true)}
+                  className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200/80 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 transition-all cursor-pointer"
+                  title="Petugas Admin Online"
+                >
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                  <span>{activeOnlineAdmins.length || 1} Online</span>
+                </button>
+
+                <div className="px-2.5 sm:px-3 py-1.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-800">
+                  <span>{currentAdminUser?.name || 'Admin'}</span>
+                </div>
+                <button 
+                  onClick={handleLogout}
+                  className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-all active:scale-[0.98] cursor-pointer"
+                  title="Logout Admin"
+                >
+                  Keluar
+                </button>
+              </div>
             ) : (
               <button 
                 onClick={() => setIsLoginOpen(true)}
@@ -1783,6 +2107,17 @@ export default function App() {
                       <span>Kasir &amp; Cetak Nota</span>
                     </button>
                     <button
+                      onClick={() => { setIsStockLogModalOpen(true); setIsSidebarOpen(false); }}
+                      className="w-full text-left flex items-center justify-between p-3 rounded-xl text-xs font-bold transition-all text-slate-600 hover:bg-slate-100 hover:text-slate-900 cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3">
+                        <svg className="w-4 h-4 shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01m-.01 4h.01" />
+                        </svg>
+                        <span className="whitespace-nowrap">Riwayat Edit Stok</span>
+                      </div>
+                    </button>
+                    <button
                       onClick={() => { setIsDeletedLogModalOpen(true); setIsSidebarOpen(false); }}
                       className="w-full text-left flex items-center justify-between p-3 rounded-xl text-xs font-bold transition-all text-slate-600 hover:bg-slate-100 hover:text-slate-900 cursor-pointer"
                     >
@@ -1790,10 +2125,22 @@ export default function App() {
                         <svg className="w-4 h-4 shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M7 3v4a1 1 0 001 1h8a1 1 0 001-1V3" />
                           <rect x="3" y="8" width="18" height="13" rx="2" ry="2" />
-                          <line x1="10" y1="12" x2="14" y2="14" />
+                          <line x1="10" y1="12" x2="14" y2="12" />
                         </svg>
                         <span className="whitespace-nowrap">Riwayat Dihapus</span>
                       </div>
+                    </button>
+                    <button
+                      onClick={() => { setIsOnlineAdminsModalOpen(true); setIsSidebarOpen(false); }}
+                      className="w-full text-left flex items-center justify-between p-3 rounded-xl text-xs font-bold transition-all text-slate-600 hover:bg-slate-100 hover:text-slate-900 cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                        <span className="whitespace-nowrap">Petugas Online</span>
+                      </div>
+                      <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-lg">
+                        {activeOnlineAdmins.length || 1}
+                      </span>
                     </button>
                   </>
                 )}
@@ -2204,6 +2551,15 @@ export default function App() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                   </svg>
                   <span className="whitespace-nowrap">Tambah Produk</span>
+                </button>
+                <button
+                  onClick={() => setIsStockLogModalOpen(true)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 text-xs font-bold rounded-xl w-full sm:w-auto transition-all cursor-pointer flex items-center justify-center gap-1.5 border border-slate-200 whitespace-nowrap"
+                >
+                  <svg className="w-4 h-4 text-slate-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01m-.01 4h.01" />
+                  </svg>
+                  <span className="whitespace-nowrap">Riwayat Edit Stok</span>
                 </button>
                 <button
                   onClick={() => setIsDeletedLogModalOpen(true)}
@@ -3217,12 +3573,12 @@ export default function App() {
 
             <form onSubmit={handleLoginSubmit} className="space-y-4">
               <div className="relative group">
-                <label className="block text-xs font-bold text-slate-700 mb-1.5 ml-1">Username</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 ml-1">Email / Username</label>
                 <input
                   type="text"
                   required
                   className="w-full bg-slate-100 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 focus:bg-white focus:ring-2 focus:ring-slate-900 transition-all outline-none"
-                  placeholder="Masukkan username"
+                  placeholder="Masukkan email atau username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   autoComplete="username"
@@ -3705,6 +4061,14 @@ export default function App() {
                             <span>{p.subcategory || p.category}</span>
                             <span>•</span>
                             <span>Stok saat hapus: {p.stock} {p.unit}</span>
+                            {log.changedBy && (
+                              <>
+                                <span>•</span>
+                                <span className="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded text-[9px] font-bold">
+                                  {log.changedBy}
+                                </span>
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -3735,6 +4099,249 @@ export default function App() {
                 Tutup
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── KONFIRMASI TOGGLE EDIT STOK MODAL (Minimalist & Professional) ── */}
+      {stockEditConfirmation && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in" 
+          onClick={() => setStockEditConfirmation(null)}
+        >
+          <div 
+            className="w-full max-w-[360px] bg-white border border-slate-200 rounded-2xl p-6 shadow-xl relative animate-pop-in space-y-4" 
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div>
+              <h3 className="font-extrabold text-base text-slate-900">Konfirmasi Edit Stok</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Apakah Anda yakin ingin memperbarui stok barang ini?
+              </p>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 space-y-2 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-medium">Produk</span>
+                <span className="font-bold text-slate-900 max-w-[180px] truncate" title={stockEditConfirmation.productName}>
+                  {stockEditConfirmation.productName}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-medium">Petugas</span>
+                <span className="font-bold text-slate-800">
+                  {currentAdminUser?.name || 'Ardian'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center pt-2 border-t border-slate-200/60 font-bold">
+                <span className="text-slate-600">Perubahan</span>
+                <div className="flex items-center gap-1.5 font-mono">
+                  <span className="text-slate-500">{stockEditConfirmation.oldStock}</span>
+                  <span className="text-slate-400">➔</span>
+                  <span className="text-slate-900 text-sm">{stockEditConfirmation.newStock}</span>
+                  <span className={`text-xs ${
+                    stockEditConfirmation.newStock > stockEditConfirmation.oldStock
+                      ? 'text-emerald-600'
+                      : 'text-rose-600'
+                  }`}>
+                    ({stockEditConfirmation.newStock > stockEditConfirmation.oldStock
+                      ? `+${stockEditConfirmation.newStock - stockEditConfirmation.oldStock}`
+                      : `${stockEditConfirmation.newStock - stockEditConfirmation.oldStock}`})
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button 
+                onClick={() => setStockEditConfirmation(null)} 
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+              >
+                Batal
+              </button>
+              <button 
+                onClick={confirmAndExecuteStockAdjustment} 
+                className="px-4.5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition-all shadow-xs active:scale-95 cursor-pointer"
+              >
+                Simpan Stok
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── RIWAYAT PENGEDITAN STOK MODAL (Ultra Clean Audit Trail) ── */}
+      {isStockLogModalOpen && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in" 
+          onClick={() => setIsStockLogModalOpen(false)}
+        >
+          <div 
+            className="w-full max-w-lg bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[85vh] animate-pop-in" 
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-white">
+              <div>
+                <h3 className="font-extrabold text-base text-slate-900">Riwayat Edit Stok</h3>
+              </div>
+              <button 
+                onClick={() => setIsStockLogModalOpen(false)} 
+                className="p-1.5 text-slate-400 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Search Input Bar */}
+            <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/50">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Cari produk atau petugas..."
+                  className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 text-xs rounded-xl focus:ring-1 focus:ring-slate-900 transition-all outline-none"
+                  value={stockLogSearchQuery}
+                  onChange={(e) => setStockLogSearchQuery(e.target.value)}
+                />
+                <svg className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+              </div>
+            </div>
+
+            {/* Log Rows List */}
+            <div className="overflow-y-auto flex-grow divide-y divide-slate-100 max-h-[50vh]">
+              {(() => {
+                const filteredList = stockHistory.filter(item => {
+                  if (!stockLogSearchQuery.trim()) return true;
+                  const q = stockLogSearchQuery.toLowerCase();
+                  return (
+                    item.productName.toLowerCase().includes(q) ||
+                    item.changedBy.toLowerCase().includes(q) ||
+                    (item.notes && item.notes.toLowerCase().includes(q))
+                  );
+                });
+
+                if (filteredList.length === 0) {
+                  return (
+                    <div className="py-12 px-4 text-center">
+                      <p className="text-xs font-medium text-slate-400">
+                        {stockLogSearchQuery ? 'Tidak ada hasil pencarian.' : 'Belum ada riwayat pengeditan stok.'}
+                      </p>
+                    </div>
+                  );
+                }
+
+                return filteredList.map(log => {
+                  const dateFormatted = new Date(log.changedAt).toLocaleString('id-ID', {
+                    day: 'numeric',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  });
+
+                  return (
+                    <div 
+                      key={'stock-log-' + log.id}
+                      className="px-5 py-3.5 flex items-center justify-between gap-4 hover:bg-slate-50/80 transition-colors"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-bold text-xs text-slate-900 truncate" title={log.productName}>
+                          {log.productName}
+                        </h4>
+                        <div className="text-[11px] text-slate-500 mt-0.5">
+                          {dateFormatted} WIB <span className="text-slate-300">•</span> Oleh <strong className="text-slate-700">{log.changedBy}</strong>
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0 font-mono">
+                        <div className="flex items-center gap-1.5 justify-end text-xs">
+                          <span className="text-slate-500">{log.oldStock}</span>
+                          <span className="text-slate-300">➔</span>
+                          <span className="font-bold text-slate-900">{log.newStock}</span>
+                        </div>
+                        <div className={`text-xs font-bold mt-0.5 ${
+                          log.changeAmount > 0 ? 'text-emerald-600' : 'text-rose-600'
+                        }`}>
+                          {log.changeAmount > 0 ? `+${log.changeAmount}` : log.changeAmount} unit
+                        </div>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-3 border-t border-slate-100 bg-white flex justify-between items-center text-xs">
+              <span className="text-slate-500 font-medium">
+                Total: <strong className="text-slate-900 font-bold">{stockHistory.length}</strong> entri
+              </span>
+              <button
+                onClick={() => setIsStockLogModalOpen(false)}
+                className="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors cursor-pointer active:scale-95 text-xs"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL PETUGAS ADMIN AKTIF REALTIME (Clean Executive Design) ── */}
+      {isOnlineAdminsModalOpen && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in" 
+          onClick={() => setIsOnlineAdminsModalOpen(false)}
+        >
+          <div 
+            className="w-full max-w-xs bg-white border border-slate-200 rounded-2xl p-5 shadow-xl overflow-hidden animate-pop-in space-y-4" 
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-extrabold text-sm text-slate-900">Petugas Aktif</h3>
+              </div>
+              <button 
+                onClick={() => setIsOnlineAdminsModalOpen(false)} 
+                className="p-1 text-slate-400 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* List of Active Admins */}
+            <div className="space-y-2">
+              {activeOnlineAdmins.length === 0 ? (
+                <div className="flex items-center gap-2.5 p-3 bg-slate-50 border border-slate-200/60 rounded-xl text-xs">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                  <strong className="font-bold text-slate-900 truncate">{currentAdminUser?.name || 'Admin'} (Anda)</strong>
+                </div>
+              ) : (
+                activeOnlineAdmins.map((admin, idx) => (
+                  <div key={'online-admin-' + idx} className="flex items-center gap-2.5 p-3 bg-slate-50 border border-slate-200/60 rounded-xl text-xs">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                    <strong className="font-bold text-slate-900 truncate">
+                      {admin.name} {admin.name === currentAdminUser?.name ? '(Anda)' : ''}
+                    </strong>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Close Button */}
+            <button
+              onClick={() => setIsOnlineAdminsModalOpen(false)}
+              className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition-all cursor-pointer active:scale-95 text-xs"
+            >
+              Tutup
+            </button>
           </div>
         </div>
       )}

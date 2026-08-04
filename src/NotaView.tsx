@@ -39,15 +39,17 @@ const generateNotaHtml = (
   customerNotes?: string,
   selectedProducts: NotaItem[] = [],
   payVal: number = 0,
+  deliveryFee: number = 0, // New parameter for delivery fee
   isPrintMode: boolean = false
 ) => {
   const subtotalVal = selectedProducts.reduce((acc, item) => {
     return acc + ((item.product.price - item.product.discount) * item.quantity);
   }, 0);
+  const totalWithDelivery = subtotalVal + deliveryFee;
 
   const numericPay = Math.max(0, payVal);
-  const kembaliVal = numericPay > subtotalVal ? numericPay - subtotalVal : 0;
-  const kurangVal = numericPay > 0 && numericPay < subtotalVal ? subtotalVal - numericPay : (numericPay === 0 ? subtotalVal : 0);
+  const kembaliVal = numericPay > totalWithDelivery ? numericPay - totalWithDelivery : 0;
+  const kurangVal = numericPay > 0 && numericPay < totalWithDelivery ? totalWithDelivery - numericPay : (numericPay === 0 ? totalWithDelivery : 0);
 
   const itemsHtml = selectedProducts.map(item => {
     const discountedPrice = item.product.price - item.product.discount;
@@ -221,6 +223,15 @@ const generateNotaHtml = (
             <td>Subtotal:</td>
             <td style="text-align: right;">${formatCurrency(subtotalVal)}</td>
           </tr>
+          ${deliveryFee > 0 ? `
+          <tr>
+            <td>Ongkos Antar:</td>
+            <td style="text-align: right;">${formatCurrency(deliveryFee)}</td>
+          </tr>` : ''}
+          <tr class="row-total">
+            <td>Total:</td>
+            <td style="text-align: right;">${formatCurrency(totalWithDelivery)}</td>
+          </tr>
           <tr class="row-pay">
             <td>Bayar:</td>
             <td style="text-align: right;">${formatCurrency(numericPay)}</td>
@@ -262,6 +273,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
   const [customerAddress, setCustomerAddress] = useState<string>('');
   const [customerNotes, setCustomerNotes] = useState<string>('');
   const [payAmount, setPayAmount] = useState<string>('');
+  const [deliveryFee, setDeliveryFee] = useState<string>(''); // New state for delivery fee
 
   const [isConfirming, setIsConfirming] = useState<boolean>(false);
   const [isProcessingPrint, setIsProcessingPrint] = useState<boolean>(false);
@@ -385,10 +397,11 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
         customerPhone: customerPhone.trim() || undefined,
         customerAddress: customerAddress.trim() || undefined,
         notes: customerNotes.trim() || undefined,
-        totalPrice: totalVal,
+        totalPrice: totalVal + parseDotsToNumber(deliveryFee), // Include delivery fee in total price
         payAmount: payVal,
         changeAmount: kembaliVal,
         remainingAmount: kurangVal,
+        deliveryFee: parseDotsToNumber(deliveryFee), // Add delivery fee
         items: txItems,
         date: dateStr,
         dateRaw: new Date().toISOString(),
@@ -408,7 +421,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
           if (printWindow) {
             const htmlStr = generateNotaHtml(
               notaId, dateStr, customerName, customerPhone, customerAddress, customerNotes,
-              selectedProducts, payVal, true
+              selectedProducts, payVal, parseDotsToNumber(deliveryFee), true
             );
             printWindow.document.write(htmlStr);
             printWindow.document.close();
@@ -417,7 +430,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
             triggerToast('Gagal memproses cetak. Izinkan pop-up browser Anda.');
           }
         } else {
-          await handlePrintAsImageInternal(notaId, dateStr, payVal, selectedProducts);
+          await handlePrintAsImageInternal(notaId, dateStr, payVal, parseDotsToNumber(deliveryFee), selectedProducts);
         }
       } finally {
         buttonsToHide.forEach(button => (button as HTMLElement).style.display = '');
@@ -427,6 +440,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
         setCustomerAddress('');
         setCustomerNotes('');
         setPayAmount('');
+        setDeliveryFee(''); // Reset delivery fee
         setIsConfirming(false);
         setIsProcessingPrint(false);
       }
@@ -442,11 +456,12 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
     notaId: string,
     dateStr: string,
     payVal: number,
+    deliveryFee: number, // New parameter for delivery fee
     selectedProducts: NotaItem[]
   ) => {
     const printHtml = generateNotaHtml(
       notaId, dateStr, customerName, customerPhone, customerAddress, customerNotes,
-      selectedProducts, payVal, false
+      selectedProducts, payVal, deliveryFee, false
     );
 
     const iframe = document.createElement('iframe');
@@ -508,9 +523,11 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
   };
 
   const subtotal = calculateTotal();
+  const numericDeliveryFee = parseDotsToNumber(deliveryFee);
+  const totalWithDelivery = subtotal + numericDeliveryFee;
   const numericPay = parseDotsToNumber(payAmount);
-  const changeAmount = numericPay > subtotal ? numericPay - subtotal : 0;
-  const remainingAmount = numericPay > 0 && numericPay < subtotal ? subtotal - numericPay : (numericPay === 0 ? subtotal : 0);
+  const changeAmount = numericPay > totalWithDelivery ? numericPay - totalWithDelivery : 0;
+  const remainingAmount = numericPay > 0 && numericPay < totalWithDelivery ? totalWithDelivery - numericPay : (numericPay === 0 ? totalWithDelivery : 0);
 
   const handlePayAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawVal = e.target.value.replace(/\D/g, '');
@@ -519,6 +536,15 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
       return;
     }
     setPayAmount(Number(rawVal).toLocaleString('id-ID'));
+  };
+
+  const handleDeliveryFeeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawVal = e.target.value.replace(/\D/g, '');
+    if (!rawVal) {
+      setDeliveryFee('');
+      return;
+    }
+    setDeliveryFee(Number(rawVal).toLocaleString('id-ID'));
   };
 
   return (
@@ -693,6 +719,21 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
               </div>
 
               <div>
+                <label className="block font-semibold text-slate-700 mb-1 text-xs">Ongkos Antar (Opsional)</label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">Rp</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="0 (cth: 20.000)"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2 text-sm font-bold text-slate-900 focus:ring-1 focus:ring-slate-900 focus:bg-white transition-all outline-none"
+                    value={deliveryFee}
+                    onChange={handleDeliveryFeeChange}
+                  />
+                </div>
+              </div>
+              
+              <div>
                 <label className="block font-semibold text-slate-700 mb-1 text-xs">Keterangan (Opsional)</label>
                 <input
                   type="text"
@@ -766,25 +807,31 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
                 <span className="font-semibold text-slate-600">Subtotal:</span>
                 <span className="font-bold text-slate-900 text-sm">{formatCurrency(subtotal)}</span>
               </div>
-              
-              <div className="flex justify-between items-center text-xs">
+              {numericDeliveryFee > 0 && (
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-semibold text-slate-600">Ongkos Antar:</span>
+                  <span className="font-bold text-slate-900 text-sm">{formatCurrency(numericDeliveryFee)}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center text-xs pt-2 border-t border-slate-100 mt-2">
+                <span className="font-semibold text-slate-600">TOTAL:</span>
+                <span className="font-bold text-slate-900 text-base">{formatCurrency(totalWithDelivery)}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs pt-2">
                 <span className="font-semibold text-slate-600">Bayar:</span>
                 <span className="font-bold text-slate-900 text-sm">{formatCurrency(numericPay)}</span>
               </div>
-
-              {numericPay > 0 && numericPay < subtotal && (
+              {(numericPay > 0 && numericPay < totalWithDelivery) ? (
                 <div className="flex justify-between items-center text-xs pt-1">
                   <span className="font-semibold text-slate-600">Kurang (Sisa):</span>
-                  <span className="font-bold text-slate-900 text-sm">{formatCurrency(subtotal - numericPay)}</span>
+                  <span className="font-bold text-slate-900 text-sm">{formatCurrency(totalWithDelivery - numericPay)}</span>
                 </div>
-              )}
-
-              {numericPay > subtotal && (
+              ) : numericPay > totalWithDelivery ? (
                 <div className="flex justify-between items-center text-xs pt-1">
                   <span className="font-semibold text-slate-600">Kembalian:</span>
-                  <span className="font-bold text-slate-900 text-sm">{formatCurrency(numericPay - subtotal)}</span>
+                  <span className="font-bold text-slate-900 text-sm">{formatCurrency(numericPay - totalWithDelivery)}</span>
                 </div>
-              )}
+              ) : null}
 
               <button
                 onClick={handlePrintNota}
