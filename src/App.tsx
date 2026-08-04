@@ -927,6 +927,12 @@ export default function App() {
     };
     document.addEventListener('visibilitychange', handleVisibility);
 
+    // Automatic background polling interval (every 30s) to keep data fresh automatically
+    const autoSyncInterval = setInterval(() => {
+      fetchProducts(1, false);
+      fetchTransactions();
+    }, 30000);
+
     const auth = localStorage.getItem('agm2_admin_mode');
     if (auth === 'true') {
       setIsAdmin(true);
@@ -935,6 +941,7 @@ export default function App() {
     return () => {
       if (cleanupRealtime) cleanupRealtime(); // Call the cleanup function
       document.removeEventListener('visibilitychange', handleVisibility);
+      clearInterval(autoSyncInterval);
     };
   }, []);
 
@@ -1598,33 +1605,6 @@ export default function App() {
 
           {/* Right Top Items (Responsive Search and Login) */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Pure Icon Refresh/Sync Button (No Text Label) */}
-            <button
-              onClick={() => fetchProducts(2)}
-              disabled={isFetchingData}
-              className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all shadow-2xs hover:shadow-xs active:scale-95 group cursor-pointer ${
-                isFetchingData
-                  ? 'bg-amber-50 text-amber-600 border-amber-200/90 cursor-wait'
-                  : fetchError
-                  ? 'bg-rose-50 text-rose-600 border-rose-200/90 hover:bg-rose-100'
-                  : 'bg-slate-100/90 text-slate-700 hover:text-slate-900 border-slate-200/90 hover:bg-slate-200/80 hover:border-slate-300'
-              }`}
-              title={isFetchingData ? 'Menyinkronkan data database...' : fetchError ? 'Gagal sinkron. Klik untuk coba lagi' : 'Refresh / Sinkronkan data'}
-            >
-              <svg 
-                className={`w-4 h-4 transition-transform ${isFetchingData ? 'animate-spin' : 'group-hover:rotate-180 duration-500'}`} 
-                fill="none" 
-                viewBox="0 0 24 24" 
-                stroke="currentColor" 
-                strokeWidth="2.2" 
-                strokeLinecap="round" 
-                strokeLinejoin="round"
-              >
-                <path d="M21.5 2v6h-6M2.5 22v-6h6" />
-                <path d="M2 11.5a10 10 0 0 1 18.8-4.3L21.5 8M22 12.5a10 10 0 0 1-18.8 4.3L2.5 16" />
-              </svg>
-            </button>
-
             <div className="relative max-w-[130px] sm:max-w-xs">
               <svg className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="11" cy="11" r="8" />
@@ -1637,7 +1617,7 @@ export default function App() {
                 value={globalSearch}
                 onChange={(e) => setGlobalSearch(e.target.value)}
               />
-              {globalSearch ? (
+              {globalSearch && (
                 <button 
                   onClick={() => setGlobalSearch('')}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
@@ -1646,10 +1626,6 @@ export default function App() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
-              ) : (
-                <span className="hidden sm:inline absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-extrabold text-slate-400 bg-slate-200/60 px-1.5 py-0.5 rounded border border-slate-300/60 select-none">
-                  /
-                </span>
               )}
             </div>
             
@@ -1758,6 +1734,19 @@ export default function App() {
                       </svg>
                       <span>Kasir &amp; Cetak Nota</span>
                     </button>
+                    <button
+                      onClick={() => { setIsDeletedLogModalOpen(true); setIsSidebarOpen(false); }}
+                      className="w-full text-left flex items-center justify-between p-3 rounded-xl text-xs font-bold transition-all text-slate-600 hover:bg-slate-100 hover:text-slate-900 cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3">
+                        <svg className="w-4 h-4 shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M7 3v4a1 1 0 001 1h8a1 1 0 001-1V3" />
+                          <rect x="3" y="8" width="18" height="13" rx="2" ry="2" />
+                          <line x1="10" y1="12" x2="14" y2="14" />
+                        </svg>
+                        <span className="whitespace-nowrap">Riwayat Dihapus</span>
+                      </div>
+                    </button>
                   </>
                 )}
               </div>
@@ -1849,19 +1838,15 @@ export default function App() {
               </div>
 
               {isAdmin && currentView === 'catalog' && (
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={openAdd}
-                    className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-all flex items-center gap-1.5 shadow-xs active:scale-[0.98] cursor-pointer"
-                  >
-                    <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                    </svg>
-                    <span>Tambah Produk</span>
-                  </button>
-
-
-                </div>
+                <button
+                  onClick={openAdd}
+                  className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-all flex items-center gap-1.5 shadow-xs active:scale-[0.98] cursor-pointer"
+                >
+                  <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span>Tambah Produk</span>
+                </button>
               )}
             </div>
           </div>
@@ -2163,8 +2148,25 @@ export default function App() {
                     onChange={(e) => setStockSearchTerm(e.target.value)}
                   />
                 </div>
-                <button onClick={openAdd} className="bg-slate-900 text-white px-5 py-2 text-xs font-bold rounded-xl w-full sm:w-auto hover:bg-slate-800 transition-all cursor-pointer">
-                  Tambah SKU Baru
+                <button 
+                  onClick={openAdd} 
+                  className="bg-slate-900 text-white px-4 py-2 text-xs font-bold rounded-xl w-full sm:w-auto hover:bg-slate-800 transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap shadow-xs active:scale-95"
+                >
+                  <svg className="w-4 h-4 text-white shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span className="whitespace-nowrap">Tambah Produk</span>
+                </button>
+                <button
+                  onClick={() => setIsDeletedLogModalOpen(true)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 text-xs font-bold rounded-xl w-full sm:w-auto transition-all cursor-pointer flex items-center justify-center gap-1.5 border border-slate-200 whitespace-nowrap"
+                >
+                  <svg className="w-4 h-4 text-slate-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M7 3v4a1 1 0 001 1h8a1 1 0 001-1V3" />
+                    <rect x="3" y="8" width="18" height="13" rx="2" ry="2" />
+                    <line x1="10" y1="12" x2="14" y2="12" />
+                  </svg>
+                  <span className="whitespace-nowrap">Riwayat Dihapus</span>
                 </button>
               </div>
             </div>
@@ -2825,7 +2827,7 @@ export default function App() {
         )}
 
         {/* ── PROFESSIONAL FOOTER CV ADI GUNA MANDIRI ── */}
-        <footer className="bg-slate-900 text-slate-300 border-t border-slate-800 mt-auto">
+        <footer className="bg-slate-900 text-slate-300 border-t border-slate-800 mt-auto pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
           <div className="max-w-[1400px] mx-auto px-4 md:px-8 py-12 lg:py-16">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
               
@@ -3234,47 +3236,63 @@ export default function App() {
         </div>
       )}
 
-      {/* ── ADD / EDIT SKU FORM MODAL ── */}
+      {/* ── ADD / EDIT SKU FORM MODAL (EXECUTIVE & CLEAN DESIGN) ── */}
       {isFormOpen && isAdmin && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface/90 backdrop-blur-md" onClick={() => setIsFormOpen(false)}>
-          <div className="w-full max-w-[500px] bg-pure-white border border-border-light rounded-xl p-6 sm:p-8 shadow-xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-6">
-              <h2 className="font-headline-lg text-headline-lg text-primary">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-fadeIn" onClick={() => setIsFormOpen(false)}>
+          <div className="w-full max-w-xl bg-white border border-slate-200/90 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-scaleUp" onClick={(e) => e.stopPropagation()}>
+            
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-slate-100 bg-white flex items-center justify-between">
+              <h2 className="font-extrabold text-base text-slate-900 tracking-tight">
                 {formMode === 'add' ? 'Tambah Produk Baru' : 'Edit Detail Produk'}
               </h2>
-              <p className="font-body-md text-body-md text-secondary text-sm">Perbarui data sistem inventaris toko.</p>
+              <button 
+                type="button"
+                onClick={() => setIsFormOpen(false)} 
+                className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Tutup"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
             </div>
 
-            <form onSubmit={handleFormSubmit} className="space-y-4">
+            {/* Modal Form Content */}
+            <form onSubmit={handleFormSubmit} className="p-6 space-y-4 overflow-y-auto flex-grow">
+              {/* Nama Produk */}
               <div>
-                <label className="block font-label-md text-label-md text-on-surface-variant mb-1 text-xs">Nama Produk</label>
+                <label className="block text-xs font-bold text-slate-800 mb-1">Nama Produk</label>
                 <input
                   type="text"
                   required
-                  className="w-full bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-sm focus:ring-1 focus:ring-primary focus:bg-surface-container"
-                  placeholder="cth: KONTUR LOUNGE"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-900 placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 transition-all shadow-2xs"
+                  placeholder="Contoh: KONTUR LOUNGE"
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
                 />
               </div>
 
+              {/* Deskripsi / Spesifikasi */}
               <div>
-                <label className="block font-label-md text-label-md text-on-surface-variant mb-1 text-xs">Deskripsi / Spesifikasi</label>
+                <label className="block text-xs font-bold text-slate-800 mb-1">Deskripsi / Spesifikasi</label>
                 <input
                   type="text"
                   required
-                  className="w-full bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-sm focus:ring-1 focus:ring-primary focus:bg-surface-container"
-                  placeholder="cth: Seri 04 / Serat Karbon & Wol"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-900 placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 transition-all shadow-2xs"
+                  placeholder="Contoh: Seri 04 / Serat Karbon & Wol"
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              {/* Kategori & Sub-Kategori */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block font-label-md text-label-md text-on-surface-variant mb-1 text-xs">Kategori</label>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">Kategori</label>
                   <select
-                    className="w-full bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-sm focus:ring-1 focus:ring-primary focus:bg-surface-container"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 transition-all cursor-pointer shadow-2xs"
                     value={formCategory}
                     onChange={(e) => setFormCategory(e.target.value)}
                   >
@@ -3283,9 +3301,9 @@ export default function App() {
                   </select>
                 </div>
                 <div>
-                  <label className="block font-label-md text-label-md text-on-surface-variant mb-1 text-xs">Sub-Kategori</label>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">Sub-Kategori</label>
                   <select
-                    className="w-full bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-sm focus:ring-1 focus:ring-primary focus:bg-surface-container"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 transition-all cursor-pointer shadow-2xs"
                     value={formSubcategory}
                     onChange={(e) => setFormSubcategory(e.target.value)}
                   >
@@ -3297,11 +3315,49 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              {/* Harga Dasar & Diskon */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block font-label-md text-label-md text-on-surface-variant mb-1 text-xs">Satuan</label>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">Harga Dasar (Rp)</label>
+                  <input
+                    type="text"
+                    required
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-900 placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 transition-all shadow-2xs"
+                    placeholder="Contoh: 5.000.000"
+                    value={formPrice}
+                    onChange={(e) => setFormPrice(formatRupiahInput(e.target.value))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">Diskon (Rp)</label>
+                  <input
+                    type="text"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-900 placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 transition-all shadow-2xs"
+                    placeholder="Contoh: 500.000"
+                    value={formDiscount}
+                    onChange={(e) => setFormDiscount(formatRupiahInput(e.target.value))}
+                  />
+                </div>
+              </div>
+
+              {/* Jumlah Stok, Satuan & Tag Status */}
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">Jumlah Stok</label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-900 placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 transition-all shadow-2xs"
+                    placeholder="Contoh: 10"
+                    value={formStock}
+                    onChange={(e) => setFormStock(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">Satuan</label>
                   <select
-                    className="w-full bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-sm focus:ring-1 focus:ring-primary focus:bg-surface-container"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 transition-all cursor-pointer shadow-2xs"
                     value={formUnit}
                     onChange={(e) => setFormUnit(e.target.value)}
                   >
@@ -3311,13 +3367,13 @@ export default function App() {
                   </select>
                 </div>
                 <div>
-                  <label className="block font-label-md text-label-md text-on-surface-variant mb-1 text-xs">Tag Kategori / Status</label>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">Tag Status</label>
                   <select
-                    className="w-full bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-sm focus:ring-1 focus:ring-primary focus:bg-surface-container font-semibold"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 transition-all cursor-pointer shadow-2xs"
                     value={formArrivalType}
                     onChange={(e) => setFormArrivalType(e.target.value as any)}
                   >
-                    <option value="">Tidak ada tag</option>
+                    <option value="">Tanpa tag</option>
                     <option value="BARANG BARU">Barang Baru</option>
                     <option value="PRODUK UNGGULAN">Produk Unggulan</option>
                     <option value="EKSKLUSIF">Eksklusif</option>
@@ -3327,60 +3383,22 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-label-md text-label-md text-on-surface-variant mb-1 text-xs">Harga Dasar (Rp)</label>
-                  <input
-                    type="text"
-                    required
-                    className="w-full bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-sm focus:ring-1 focus:ring-primary focus:bg-surface-container"
-                    placeholder="cth: 5.000.000"
-                    value={formPrice}
-                    onChange={(e) => setFormPrice(formatRupiahInput(e.target.value))}
-                  />
-                </div>
-                <div>
-                  <label className="block font-label-md text-label-md text-on-surface-variant mb-1 text-xs">Diskon (Rp)</label>
-                  <input
-                    type="text"
-                    className="w-full bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-sm focus:ring-1 focus:ring-primary focus:bg-surface-container"
-                    placeholder="cth: 500.000"
-                    value={formDiscount}
-                    onChange={(e) => setFormDiscount(formatRupiahInput(e.target.value))}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-label-md text-label-md text-on-surface-variant mb-1 text-xs">Jumlah Stok</label>
-                  <input
-                    type="number"
-                    required
-                    min="0"
-                    className="w-full bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-sm focus:ring-1 focus:ring-primary focus:bg-surface-container"
-                    placeholder="cth: 10"
-                    value={formStock}
-                    onChange={(e) => setFormStock(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div>
+              {/* Photo Upload Section */}
+              <div className="pt-2">
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="block font-label-md text-label-md text-on-surface-variant text-xs font-bold">
-                    Foto Produk (Opsional - Bisa Banyak Foto)
+                  <label className="block text-xs font-bold text-slate-800">
+                    Foto Produk (Opsional)
                   </label>
                   <span className="text-[10px] text-slate-400 font-semibold">
                     {formImages.length} foto ditambahkan
                   </span>
                 </div>
 
-                {/* Unified Input Row for File Upload */}
+                {/* Input & Upload Button Row */}
                 <div className="flex gap-2 mb-3">
                   <input
                     type="text"
-                    className="flex-1 bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-xs focus:ring-1 focus:ring-primary focus:bg-surface-container font-medium"
+                    className="flex-1 bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 transition-all shadow-2xs"
                     placeholder="Tempel URL foto atau unggah dari galeri..."
                     value={formImage}
                     onChange={(e) => setFormImage(e.target.value)}
@@ -3397,8 +3415,8 @@ export default function App() {
                     }}
                   />
 
-                  <label className="cursor-pointer bg-slate-900 hover:bg-slate-800 text-white px-4 flex items-center justify-center rounded-lg text-xs font-bold shrink-0 transition-colors gap-2 shadow-2xs active:scale-95">
-                    <svg className="w-4 h-4 shrink-0 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <label className="cursor-pointer bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-bold shrink-0 transition-all flex items-center gap-1.5 shadow-2xs active:scale-95">
+                    <svg className="w-3.5 h-3.5 shrink-0 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
                       <circle cx="12" cy="13" r="4" />
                     </svg>
@@ -3414,7 +3432,6 @@ export default function App() {
                       <div key={'form-img-' + idx} className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 bg-white group">
                         <img src={getOptimizedImageUrl(imgUrl, 200)} className="w-full h-full object-cover" alt="" />
                         
-                        {/* Cover badge or set cover button */}
                         {idx === 0 ? (
                           <span className="absolute top-1 left-1 bg-slate-900 text-white text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded shadow-xs">
                             Utama
@@ -3423,7 +3440,6 @@ export default function App() {
                           <button
                             type="button"
                             onClick={() => {
-                              // Move this image to first index (Set as cover)
                               setFormImages(prev => [imgUrl, ...prev.filter((_, i) => i !== idx)]);
                             }}
                             className="absolute bottom-1 inset-x-1 bg-slate-900/80 hover:bg-slate-900 text-white text-[8px] font-bold rounded py-0.5 opacity-0 group-hover:opacity-100 transition-opacity text-center"
@@ -3432,7 +3448,6 @@ export default function App() {
                           </button>
                         )}
 
-                        {/* Delete photo button */}
                         <button
                           type="button"
                           onClick={() => {
@@ -3451,18 +3466,26 @@ export default function App() {
                     ))}
                   </div>
                 ) : (
-                  <div className="p-4 bg-slate-50 border border-dashed border-slate-200 rounded-xl text-center text-xs text-slate-400 font-medium">
+                  <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl text-center text-xs text-slate-400 font-medium">
                     Belum ada foto ditambahkan (Foto Opsional). Unggah file atau tempel URL foto di atas.
                   </div>
                 )}
               </div>
 
-              <div className="flex gap-4 pt-2">
-                <button type="button" onClick={() => setIsFormOpen(false)} className="flex-1 py-3 border border-border-light text-secondary font-button text-xs uppercase rounded-sm hover:border-primary transition-all">
+              {/* Modal Actions Footer */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                <button 
+                  type="button" 
+                  onClick={() => setIsFormOpen(false)} 
+                  className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all active:scale-95 cursor-pointer"
+                >
                   Batal
                 </button>
-                <button type="submit" className="flex-grow py-3 bg-primary text-pure-white font-button text-xs uppercase rounded-sm hover:bg-opacity-90 transition-all">
-                  Simpan Produk
+                <button 
+                  type="submit" 
+                  className="px-6 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-all shadow-xs active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <span>Simpan Produk</span>
                 </button>
               </div>
             </form>
@@ -3545,44 +3568,45 @@ export default function App() {
           </div>
         </div>
       )}
-      {/* ── MODAL RIWAYAT SKU BARANG YANG DIHAPUS ── */}
+      {/* ── MODAL RIWAYAT BARANG DIHAPUS (CLEAN & PROFESSIONAL) ── */}
       {isDeletedLogModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh] animate-scaleUp">
-            {/* Header Modal */}
-            <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div>
-                  <h3 className="font-extrabold text-base text-slate-900 leading-tight">Riwayat SKU Barang Dihapus</h3>
-                </div>
-              </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[80vh] animate-scaleUp">
+            
+            {/* Header */}
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-white">
+              <h3 className="font-extrabold text-sm text-slate-900 tracking-tight">Riwayat Barang Dihapus</h3>
               <button 
                 onClick={() => setIsDeletedLogModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 flex items-center justify-center text-sm font-bold transition-all cursor-pointer"
+                className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Tutup"
               >
-                ✕
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
               </button>
             </div>
 
-            {/* Filter Search Bar */}
-            <div className="p-4 border-b border-slate-200 bg-white">
+            {/* Search Input */}
+            <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/50">
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="Cari SKU dihapus berdasarkan nama / kategori..."
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-slate-900 focus:bg-white transition-all"
+                  placeholder="Cari barang dihapus..."
+                  className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 transition-all shadow-2xs"
                   value={deletedLogSearchQuery}
                   onChange={(e) => setDeletedLogSearchQuery(e.target.value)}
                 />
-                <svg className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <svg className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
                   <circle cx="11" cy="11" r="8" />
                   <line x1="21" y1="21" x2="16.65" y2="16.65" />
                 </svg>
               </div>
             </div>
 
-            {/* Modal Body / Deleted Items List (Read-Only Audit Log) */}
-            <div className="p-4 overflow-y-auto flex-grow space-y-3 max-h-[55vh]">
+            {/* Items List (Read-Only Log Rows) */}
+            <div className="overflow-y-auto flex-grow divide-y divide-slate-100 max-h-[50vh]">
               {(() => {
                 const filteredList = deletedProductsHistory.filter(item => {
                   if (!deletedLogSearchQuery.trim()) return true;
@@ -3596,14 +3620,9 @@ export default function App() {
 
                 if (filteredList.length === 0) {
                   return (
-                    <div className="py-12 text-center text-slate-400 space-y-2">
-                      <svg className="w-12 h-12 mx-auto text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="3" width="18" height="4" rx="1.5" />
-                        <path d="M5 7v13a2 2 0 002 2h10a2 2 0 002-2V7" />
-                        <path d="M10 12h4" />
-                      </svg>
-                      <p className="text-xs font-semibold text-slate-500">
-                        {deletedLogSearchQuery ? 'Tidak ada SKU dihapus yang cocok dengan pencarian.' : 'Belum ada riwayat SKU barang yang dihapus.'}
+                    <div className="py-12 px-4 text-center">
+                      <p className="text-xs font-medium text-slate-400">
+                        {deletedLogSearchQuery ? 'Tidak ada hasil pencarian.' : 'Belum ada riwayat barang yang dihapus.'}
                       </p>
                     </div>
                   );
@@ -3611,40 +3630,43 @@ export default function App() {
 
                 return filteredList.map(log => {
                   const p = log.product;
-                  const dateFormatted = new Date(log.deletedAt).toLocaleString('id-ID', {
+                  const dateFormatted = new Date(log.deletedAt).toLocaleDateString('id-ID', {
                     day: 'numeric',
                     month: 'short',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
+                    year: 'numeric'
                   });
 
                   return (
                     <div 
                       key={'deleted-log-' + log.id}
-                      className="p-3 bg-white border border-slate-200/80 rounded-xl flex items-center gap-3 hover:border-slate-300 transition-all shadow-xs"
+                      className="px-5 py-3 flex items-center justify-between gap-3 hover:bg-slate-50 transition-colors"
                     >
-                      <div className="w-14 h-14 rounded-lg bg-slate-100 overflow-hidden shrink-0 border border-slate-200">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-lg bg-slate-100 overflow-hidden shrink-0 border border-slate-200/80">
                           {p.image_url ? (
-                            <img src={getOptimizedImageUrl(p.image_url, 150)} alt={p.name} className="w-full h-full object-cover" />
+                            <img src={getOptimizedImageUrl(p.image_url, 100)} alt={p.name} className="w-full h-full object-cover" />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center text-slate-400 text-[9px] font-bold">No Image</div>
+                            <div className="w-full h-full flex items-center justify-center text-slate-300 text-[8px] font-bold">N/A</div>
                           )}
                         </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          {p.subcategory && (
-                            <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded-md">
-                              {p.subcategory}
-                            </span>
-                          )}
-                          <span className="text-[10px] text-slate-400 font-medium">Dihapus: {dateFormatted}</span>
+                        <div className="min-w-0">
+                          <h4 className="font-bold text-xs text-slate-900 truncate" title={p.name}>
+                            {p.name}
+                          </h4>
+                          <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-slate-400 font-medium">
+                            <span>{p.subcategory || p.category}</span>
+                            <span>•</span>
+                            <span>Stok saat hapus: {p.stock} {p.unit}</span>
+                          </div>
                         </div>
-                        <h4 className="font-extrabold text-sm text-slate-900 truncate" title={p.name}>
-                          {p.name}
-                        </h4>
-                        <div className="text-xs text-slate-600 font-semibold mt-0.5">
-                          Rp {(p.price - p.discount).toLocaleString('id-ID')} • Stok saat dihapus: <strong className="text-slate-900">{p.stock} {p.unit}</strong>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <div className="text-xs font-bold text-slate-900">
+                          Rp {(p.price - p.discount).toLocaleString('id-ID')}
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">
+                          {dateFormatted}
                         </div>
                       </div>
                     </div>
@@ -3653,12 +3675,14 @@ export default function App() {
               })()}
             </div>
 
-            {/* Modal Footer */}
-            <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-between items-center text-xs text-slate-500 font-semibold">
-              <span>Total SKU Dihapus: <strong className="text-slate-900 font-bold">{deletedProductsHistory.length}</strong></span>
+            {/* Footer */}
+            <div className="px-5 py-3 border-t border-slate-100 bg-white flex justify-between items-center text-xs">
+              <span className="text-slate-500 font-medium">
+                Total: <strong className="text-slate-900 font-bold">{deletedProductsHistory.length}</strong> barang
+              </span>
               <button
                 onClick={() => setIsDeletedLogModalOpen(false)}
-                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold rounded-xl transition-all cursor-pointer"
+                className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors cursor-pointer active:scale-95 text-xs"
               >
                 Tutup
               </button>
