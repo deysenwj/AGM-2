@@ -1860,23 +1860,7 @@ export default function App() {
                     <span>Tambah Produk</span>
                   </button>
 
-                  <button
-                    onClick={() => setIsDeletedLogModalOpen(true)}
-                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer relative shadow-2xs active:scale-[0.98]"
-                    title="Lihat Riwayat SKU Barang yang Dihapus"
-                  >
-                    <svg className="w-4 h-4 text-slate-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M7 3v4a1 1 0 001 1h8a1 1 0 001-1V3" />
-                      <rect x="3" y="8" width="18" height="13" rx="2" ry="2" />
-                      <line x1="10" y1="12" x2="14" y2="12" />
-                    </svg>
-                    <span className="hidden sm:inline">Riwayat Dihapus</span>
-                    {deletedProductsHistory.length > 0 && (
-                      <span className="bg-rose-500 text-white font-extrabold text-[10px] px-1.5 py-0.2 rounded-full min-w-[18px] text-center">
-                        {deletedProductsHistory.length}
-                      </span>
-                    )}
-                  </button>
+
                 </div>
               )}
             </div>
