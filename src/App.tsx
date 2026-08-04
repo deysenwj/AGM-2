@@ -1866,10 +1866,9 @@ export default function App() {
                     title="Lihat Riwayat SKU Barang yang Dihapus"
                   >
                     <svg className="w-4 h-4 text-slate-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="3" y="4" width="18" height="16" rx="2" ry="2"></rect>
-                      <line x1="16" y1="2" x2="16" y2="6"></line>
-                      <line x1="8" y1="2" x2="8" y2="6"></line>
-                      <line x1="3" y1="10" x2="21" y2="10"></line>
+                      <path d="M7 3v4a1 1 0 001 1h8a1 1 0 001-1V3" />
+                      <rect x="3" y="8" width="18" height="13" rx="2" ry="2" />
+                      <line x1="10" y1="12" x2="14" y2="12" />
                     </svg>
                     <span className="hidden sm:inline">Riwayat Dihapus</span>
                     {deletedProductsHistory.length > 0 && (
