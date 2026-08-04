@@ -606,7 +606,6 @@ export default function App() {
     
     let attempts = 0;
     let success = false;
-    let lastErr = '';
 
     while (attempts < maxRetries && !success) {
       attempts++;
@@ -625,7 +624,6 @@ export default function App() {
 
         if (error) {
           console.warn(`Attempt ${attempts} Supabase transactions error:`, error.message);
-          lastErr = error.message;
           if (attempts < maxRetries) {
             await new Promise(r => setTimeout(r, 300));
           }
@@ -641,17 +639,34 @@ export default function App() {
           ? (err.message || 'Koneksi timeout.') 
           : (err?.message || 'Gagal terhubung ke database.');
         console.warn(`Attempt ${attempts} fetch transactions exception:`, msg);
-        lastErr = msg;
         if (attempts < maxRetries) {
           await new Promise(r => setTimeout(r, 300));
         }
       }
     }
-    if (!success) {
-      console.error(lastErr || 'Gagal memuat data transaksi dari database.');
-      // Consider displaying a toast or error message to the user if initial load fails
-    }
+  };
 
+  const fetchDeletedLogs = async () => {
+    if (!isSupabaseConfigured) return;
+    try {
+      const { data, error } = await supabase
+        .from('deleted_logs')
+        .select('*')
+        .order('deleted_at', { ascending: false })
+        .limit(300);
+
+      if (!error && data) {
+        const mapped: DeletedProductLog[] = data.map((item: any) => ({
+          id: String(item.id),
+          deletedAt: item.deleted_at || new Date().toISOString(),
+          product: typeof item.product === 'string' ? JSON.parse(item.product) : item.product
+        }));
+        setDeletedProductsHistory(mapped);
+        try { localStorage.setItem('agm2_deleted_products_history', JSON.stringify(mapped)); } catch (e) {}
+      }
+    } catch (e) {
+      console.warn('Fetch deleted_logs exception (fallback to local):', e);
+    }
   };
 
 
@@ -893,10 +908,35 @@ export default function App() {
         }
       });
 
+    // Deleted Logs Listener
+    const deletedLogChannel = supabase
+      .channel('realtime-deleted-logs-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'deleted_logs' },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const newItem: DeletedProductLog = {
+              id: String(payload.new.id),
+              deletedAt: payload.new.deleted_at || new Date().toISOString(),
+              product: typeof payload.new.product === 'string' ? JSON.parse(payload.new.product) : payload.new.product
+            };
+            setDeletedProductsHistory(prev => {
+              if (prev.some(item => item.id === newItem.id)) return prev;
+              const updated = [newItem, ...prev];
+              try { localStorage.setItem('agm2_deleted_products_history', JSON.stringify(updated)); } catch (e) {}
+              return updated;
+            });
+          }
+        }
+      )
+      .subscribe();
+
     // Return an unsubscribe function
     return () => {
       productChannel.unsubscribe();
       transactionChannel.unsubscribe();
+      deletedLogChannel.unsubscribe();
       console.log('Realtime channels unsubscribed.');
     };
   };
@@ -905,10 +945,10 @@ export default function App() {
   useEffect(() => {
     let cleanupRealtime: (() => void) | null = null;
 
-    // Fetch both tables concurrently (in parallel) to cut initial load time in half
+    // Fetch all tables concurrently (in parallel) to cut initial load time in half
     Promise.all([
       fetchProducts(1, true),
-      // Add small delay to allow Supabase to propagate changes to realtime listeners
+      fetchDeletedLogs(),
       new Promise(r => setTimeout(r, 100)).then(() => fetchTransactions())
     ]).then(() => {
       if (isSupabaseConfigured && import.meta.env.VITE_SUPABASE_REALTIME_ENABLED === 'true') {
@@ -921,7 +961,7 @@ export default function App() {
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         fetchProducts(2, false);
-        // Add small delay to allow Supabase to propagate changes to realtime listeners
+        fetchDeletedLogs();
         new Promise(r => setTimeout(r, 100)).then(() => fetchTransactions());
       }
     };
@@ -930,6 +970,7 @@ export default function App() {
     // Automatic background polling interval (every 30s) to keep data fresh automatically
     const autoSyncInterval = setInterval(() => {
       fetchProducts(1, false);
+      fetchDeletedLogs();
       fetchTransactions();
     }, 30000);
 
@@ -1464,6 +1505,13 @@ export default function App() {
     if (isSupabaseConfigured) {
       try {
         await supabase.from('products').delete().eq('id', id);
+
+        // Insert record into deleted_logs table (sync across all devices)
+        await supabase.from('deleted_logs').insert([{
+          id: productToDelete.id,
+          product: productToDelete,
+          deleted_at: logItem.deletedAt
+        }]);
       } catch (e) {
         console.warn('Supabase delete product error:', e);
       }
