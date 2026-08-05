@@ -3365,7 +3365,7 @@ export default function App() {
 
             {/* Bottom Copyright Sub-Bar */}
             <div className="pt-8 mt-12 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-              <span>© 2026 CV ADI GUNA MANDIRI (AGM 2). All rights reserved.</span>
+              <span>© 2026 CV ADI GUNA MANDIRI. All rights reserved.</span>
               <div className="flex gap-4 text-[11px] text-slate-400 font-semibold">
                 <span>Furniture &amp; Elektronik Padang</span>
               </div>
