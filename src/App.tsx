@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 import NotaView from './NotaView'; // Import NotaView
+import AIChatWidget from './components/AIChatWidget';
 
 
 export interface Product {
@@ -300,6 +301,7 @@ export default function App() {
     }
     return [];
   });
+
   const [isFetchingData, setIsFetchingData] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   
@@ -4345,6 +4347,9 @@ export default function App() {
           </div>
         </div>
       )}
+
+
+      <AIChatWidget />
 
       {/* ── TOAST NOTIFICATION ── */}
       {toastMsg && (

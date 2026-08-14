@@ -23,5 +23,14 @@ dist-ssr
 *.sln
 *.sw?
 
+# Environment & Secret files
 .vercel
-.env*
+.env
+.env.worker
+.env*.local
+
+# Python cache & temporary test binaries
+__pycache__/
+*.pyc
+laporan_operasional.docx
+rekap_paku.xlsx
