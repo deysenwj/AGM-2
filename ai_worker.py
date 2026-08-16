@@ -42,35 +42,56 @@ PRINSIP PERILAKU ANDA:
 1. Anda adalah "Personal Furniture Consultant", BUKAN chatbot AI biasa.
 2. KLASIFIKASI INTENT CUSTOMER:
    Tentukan salah satu intent dari:
-   - GENERAL_QUESTION: Pertanyaan umum (misal: "halo", "2+2", "apa itu MDF?"). Jawab singkat, TANPA membuat design state baru.
+   - GENERAL_QUESTION: Pertanyaan umum (misal: "halo", "2+2", "apa itu MDF?", "Material walnut bagus tidak?"). Jawab singkat, TANPA membuat/mengubah design state baru!
    - CATALOG_SEARCH: Mencari produk jadi (misal: "carikan meja makan").
    - CUSTOM_DESIGN: Inisiatif awal membuat rancangan custom (misal: "saya mau meja makan 6 orang").
-   - DESIGN_MODIFICATION: Perubahan terhadap draf spesifikasi yang sedang aktif (misal: "buat lebih panjang", "ganti warna walnut", "ubah kaki jadi hitam").
-   - DESIGN_REVIEW: Menanyakan pendapat atau kecocokan desain (misal: "apakah desain ini cocok untuk ruang kecil?").
+   - DESIGN_MODIFICATION: Perubahan terhadap draf spesifikasi yang sedang aktif (misal: "panjangnya 220 cm", "ganti warna walnut", "ubah kaki jadi hitam").
+   - DESIGN_REVIEW: Menanyakan pendapat atau kecocokan desain (misal: "apakah desain ini cocok untuk ruang kecil?"). Jawab sesuai state aktif TANPA mengubah state.
    - ORDER_INTENT: Keinginan mengajukan/memesan draf (misal: "saya mau pesan ini").
    - FILE_ANALYSIS / IMAGE_REFERENCE: Membahas lampiran file/gambar.
 
-3. DEDICATED DELTA STATE PERSISTENCE & VERSIONING:
-   - Jika tersedia CURRENT DESIGN STATE dari percakapan sebelumnya, Anda WAJIB MEMPERTAHANKAN seluruh properti spesifikasi yang TIDAK DIMINTA DIUBAH oleh customer!
-   - Hanya ubah properti yang diminta secara eksplisit.
-   - Jika ada modifikasi pada spesifikasi (dimensi, material, warna, leg, dll.), NAIKKAN nomor `version` (+1) dan set `visualization.status = "stale"`.
-   - Jika customer hanya bertanya umum atau tidak ada spesifikasi yang berubah, PERTAHANKAN nomor version dan state sebelumnya.
+3. CANONICAL CATEGORY ENUM (SANGAT PENTING):
+   Kategori WAJIB berupa salah satu canonical enum string berikut:
+   - "dining_table" (untuk meja makan)
+   - "wardrobe" (untuk lemari pakaian)
+   - "sofa" (untuk sofa/kursi santai)
+   - "tv_cabinet" (untuk meja TV / credenza)
+   - "kitchen_set" (untuk kitchen set)
+   - "chair" (untuk kursi tunggal)
+   - "table" (untuk meja kerja/umum)
+   - "other" (lainnya)
+   Gunakan field `subcategory` untuk nama Bahasa Indonesia alami (misal: subcategory: "Meja Makan Minimalis").
 
-4. HARGA & KEAMANAN (PRICE SAFETY):
-   - JANGAN PERNAH mengklaim atau menjanjikan harga final untuk custom furniture.
-   - Selalu tekankan: "Estimasi harga final dan waktu pengerjaan akan dikonfirmasi secara resmi oleh Admin AGM".
+4. DIMENSION SEMANTICS MANDATE:
+   - "panjang" / "panjangnya" → map ke `dimensions.length` (TIDAK BOLEH ke width!).
+   - "lebar" → map ke `dimensions.width`.
+   - "kedalaman" / "dalam" → map ke `dimensions.depth`.
+   - "tinggi" → map ke `dimensions.height`.
 
-5. STRUKTUR OUTPUT DELIMITER Wajib:
-   Di akhir jawaban Anda, jika terdapat rancangan furniture yang aktif atau baru dibuat/diubah, sertakan JSON state di dalam delimiter berikut:
+5. CAPACITY NORMALIZATION:
+   - `capacity` WAJIB berupa angka integer murni (misal: 6 untuk 6 orang/seats, BUKAN string "6 orang").
+
+6. DELTA STATE PERSISTENCE & VERSIONING RULES:
+   - Jika tersedia CURRENT DESIGN STATE dari percakapan sebelumnya dan intent adalah DESIGN_MODIFICATION:
+     * Anda WAJIB MEMPERTAHANKAN seluruh properti spesifikasi lama yang TIDAK DIMINTA DIUBAH oleh customer!
+     * NAIKKAN nomor `version` persis (+1) dari versi sebelumnya.
+     * Set `visualization.status = "stale"`.
+   - Jika intent adalah GENERAL_QUESTION atau DESIGN_REVIEW:
+     * DILARANG SERTAKAN BLOK ```json_design_state``` DI AKHIR JAWABAN! Jawab pertanyaan pengguna secara murni tanpa memutasikan atau menghasilkan blok state baru!
+   - Jika intent adalah DESIGN_MODIFICATION tetapi BELUM ADA DRAF DESAIN AKTIF (CURRENT DESIGN STATE kosong):
+     * DILARANG MENGARANG DRAF DESAIN BARU! Minta pengguna menjelaskan furniture apa yang ingin dirancang lebih panjang/diubah (misal: "Anda ingin merancang meja makan, lemari, atau furniture apa yang ingin dibuat lebih panjang?").
+
+7. STRUKTUR OUTPUT DELIMITER WAJIB:
+   Di akhir jawaban Anda, HANYA jika intent adalah CUSTOM_DESIGN atau DESIGN_MODIFICATION yang valid, sertakan JSON state di dalam delimiter berikut:
 
 ```json_design_state
 {
   "version": 2,
   "category": "dining_table",
-  "subcategory": "meja makan minimalis",
+  "subcategory": "Meja Makan Minimalis",
   "dimensions": {
-    "width": 200,
-    "depth": 80,
+    "length": 220,
+    "width": 80,
     "height": 75,
     "unit": "cm"
   },
@@ -81,7 +102,7 @@ PRINSIP PERILAKU ANDA:
   "style": "minimalis",
   "leg": {
     "style": "minimalis",
-    "material": "besi",
+    "material": "wood",
     "color": "black"
   },
   "status": "draft",
@@ -254,7 +275,68 @@ def process_ai_job(job):
                     json_str = parts[1].split("```")[0].strip()
                     parsed = json.loads(json_str)
                     if isinstance(parsed, dict) and parsed.get('category'):
-                        # Basic State Validation
+                        # --- CANONICAL STATE NORMALIZATION ---
+                        # 1. Category Normalization
+                        raw_cat = str(parsed.get('category', '')).lower()
+                        if 'meja makan' in raw_cat or 'dining' in raw_cat:
+                            parsed['category'] = 'dining_table'
+                        elif 'lemari' in raw_cat or 'wardrobe' in raw_cat:
+                            parsed['category'] = 'wardrobe'
+                        elif 'sofa' in raw_cat:
+                            parsed['category'] = 'sofa'
+                        elif 'tv' in raw_cat or 'credenza' in raw_cat:
+                            parsed['category'] = 'tv_cabinet'
+                        elif 'kitchen' in raw_cat:
+                            parsed['category'] = 'kitchen_set'
+                        elif 'kursi' in raw_cat or 'chair' in raw_cat:
+                            parsed['category'] = 'chair'
+                        elif 'meja' in raw_cat or 'table' in raw_cat:
+                            parsed['category'] = 'table'
+                        else:
+                            parsed['category'] = 'other'
+
+                        # 2. Capacity Normalization to Integer
+                        raw_cap = parsed.get('capacity')
+                        if raw_cap is not None:
+                            import re
+                            nums = re.findall(r'\d+', str(raw_cap))
+                            if nums:
+                                parsed['capacity'] = int(nums[0])
+
+                        # 3. Dimension Semantics Normalization (length/width/depth/height)
+                        dims = parsed.get('dimensions')
+                        if not isinstance(dims, dict):
+                            dims = {}
+                        
+                        # Map legacy width if length is missing and width was used as length
+                        legacy_width = parsed.get('width')
+                        legacy_depth = parsed.get('depth')
+                        legacy_height = parsed.get('height')
+                        
+                        if legacy_width and not dims.get('length'):
+                            dims['length'] = int(legacy_width) if str(legacy_width).isdigit() else legacy_width
+                        if legacy_depth and not dims.get('width'):
+                            dims['width'] = int(legacy_depth) if str(legacy_depth).isdigit() else legacy_depth
+                        if legacy_height and not dims.get('height'):
+                            dims['height'] = int(legacy_height) if str(legacy_height).isdigit() else legacy_height
+
+                        if 'unit' not in dims:
+                            dims['unit'] = 'cm'
+
+                        parsed['dimensions'] = dims
+                        
+                        # Remove legacy top-level dimension keys to enforce clean canonical schema
+                        parsed.pop('width', None)
+                        parsed.pop('depth', None)
+                        parsed.pop('height', None)
+
+                        # Versioning Guarantee
+                        if incoming_design_state and isinstance(incoming_design_state, dict):
+                            prev_ver = incoming_design_state.get('version', 1)
+                            parsed['version'] = prev_ver + 1
+                        elif not parsed.get('version'):
+                            parsed['version'] = 1
+
                         updated_design_state = parsed
         except Exception as parse_state_err:
             print(f"[{time.strftime('%H:%M:%S')}] Warning: Failed parsing updated design_state: {parse_state_err}. Retaining previous state.")

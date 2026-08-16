@@ -45,7 +45,7 @@ export const DesignSummaryCard: React.FC<DesignSummaryCardProps> = ({
 
       {/* Main Category & Style */}
       <h4 className="font-bold text-white text-sm capitalize tracking-tight mb-2.5">
-        {design.category.replace('_', ' ')} {design.style ? `— Style ${design.style}` : ''}
+        {design.subcategory || design.category.replace('_', ' ')} {design.style ? `— Style ${design.style}` : ''}
       </h4>
 
       {/* Structured Technical Specs */}
@@ -53,7 +53,7 @@ export const DesignSummaryCard: React.FC<DesignSummaryCardProps> = ({
         <div className="flex justify-between border-b border-slate-900 pb-1">
           <span className="text-slate-400">Ukuran (P × L × T)</span>
           <span className="font-medium text-white font-mono">
-            {design.dimensions?.width || '?'} × {design.dimensions?.depth || '?'} × {design.dimensions?.height || '?'} {design.dimensions?.unit || 'cm'}
+            {design.dimensions?.length || design.dimensions?.width || '?'} × {design.dimensions?.width && design.dimensions?.length ? design.dimensions.width : (design.dimensions?.depth || '?')} × {design.dimensions?.height || '?'} {design.dimensions?.unit || 'cm'}
           </span>
         </div>
 

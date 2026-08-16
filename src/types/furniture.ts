@@ -1,7 +1,8 @@
 export interface FurnitureDimensions {
-  width?: number;   // Panjang / Width (cm)
-  depth?: number;   // Lebar / Depth (cm)
-  height?: number;  // Tinggi / Height (cm)
+  length?: number;  // Panjang (cm)
+  width?: number;   // Lebar (cm)
+  depth?: number;   // Kedalaman (cm)
+  height?: number;  // Tinggi (cm)
   unit: 'cm' | 'mm';
 }
 
@@ -18,16 +19,18 @@ export interface FurnitureVisualizationState {
   generatedAt?: string;
 }
 
+export type CanonicalCategory = 'dining_table' | 'wardrobe' | 'sofa' | 'tv_cabinet' | 'kitchen_set' | 'chair' | 'table' | 'other';
+
 export interface FurnitureDesignState {
   version: number;
   
-  category: string;      // e.g. "dining_table", "wardrobe", "sofa", "tv_cabinet", "kitchen_set"
-  subcategory?: string;   // e.g. "meja makan minimalis", "lemari sliding"
+  category: CanonicalCategory | string; // Canonical enum e.g. "dining_table", "wardrobe"
+  subcategory?: string;   // e.g. "Meja Makan Minimalis", "Lemari Sliding"
   
   dimensions?: FurnitureDimensions;
-  capacity?: number;     // e.g. 6 (people / seats)
+  capacity?: number;     // Canonical integer e.g. 6
 
-  material?: string;     // e.g. "kayu jati", "walnut", "plywood HPL"
+  material?: string;     // e.g. "kayu jati", "walnut"
   color?: string;        // e.g. "natural", "walnut", "hitam matte"
   finish?: string;       // e.g. "matte", "glossy", "satin"
 
@@ -35,9 +38,9 @@ export interface FurnitureDesignState {
   shape?: string;        // e.g. "persegi panjang", "round", "L-shape"
 
   leg?: FurnitureLegSpec;
-  sections?: number;     // e.g. 3 pintu (wardrobe)
+  sections?: number;     // e.g. 3 (pintu/sekat)
 
-  requirements?: string[]; // e.g. ["tahan air", "laci tersembunyi"]
+  requirements?: string[];
   notes?: string;
 
   status: 'draft' | 'review' | 'submitted';
