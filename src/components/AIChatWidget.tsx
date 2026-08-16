@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import { FILE_CONFIG, formatFileSize, isValidFileExtension } from '../config/fileConfig';
 import type { FurnitureDesignState } from '../types/furniture';
 import { DesignSummaryCard } from './DesignSummaryCard';
+import { AGMAssistantMark } from './AGMAssistantMark';
 
 interface AttachmentInfo {
   id?: string;
@@ -26,29 +27,6 @@ const generateUuid = () => {
     return v.toString(16);
   });
 };
-
-// Clean, Minimalist Furniture Showroom Emblem Logo
-const AGMAssistantMark: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path 
-      d="M3 10.5V17C3 17.5523 3.44772 18 4 18H20 C20.5523 18 21 17.5523 21 17V10.5" 
-      stroke="currentColor" 
-      strokeWidth="1.8" 
-      strokeLinecap="round" 
-    />
-    <path 
-      d="M2 13.5H22 M5 18V20 M19 18V20" 
-      stroke="currentColor" 
-      strokeWidth="1.8" 
-      strokeLinecap="round" 
-    />
-    <path 
-      d="M7 10.5V7C7 5.89543 7.89543 5 9 5H15 C16.1046 5 17 5.89543 17 7V10.5" 
-      stroke="currentColor" 
-      strokeWidth="1.8" 
-    />
-  </svg>
-);
 
 const getFileBadge = (filename: string): string => {
   const lower = filename.toLowerCase();
@@ -408,16 +386,16 @@ const AIChatWidget: React.FC = () => {
 
   return (
     <>
-      {/* Utility Launcher Button (Showroom Commerce Style) */}
+      {/* 52px Circular Launcher with AGMAssistantMark (Dark Variant) */}
       {!isOpen && (
         <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50">
           <button
             onClick={() => setIsOpen(true)}
             aria-label="AGM Assistant"
             title="AGM Assistant"
-            className="bg-slate-900 text-white rounded-full w-12 h-12 sm:w-13 sm:h-13 shadow-lg hover:bg-slate-800 transition-all duration-200 flex items-center justify-center border border-slate-700 focus:outline-none cursor-pointer"
+            className="bg-slate-900 text-white rounded-full w-13 h-13 shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center border border-slate-700 focus:outline-none cursor-pointer"
           >
-            <AGMAssistantMark className="w-5 h-5 text-white" />
+            <AGMAssistantMark variant="dark" className="w-6 h-6" />
           </button>
         </div>
       )}
@@ -430,7 +408,7 @@ const AIChatWidget: React.FC = () => {
           {/* Header Bar - Ultra Minimal */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-white text-slate-900 select-none h-[52px] shrink-0">
             <div className="flex items-center gap-2">
-              <AGMAssistantMark className="w-4 h-4 text-slate-900" />
+              <AGMAssistantMark variant="light" className="w-5 h-5 text-slate-900" />
               <h3 className="font-semibold text-slate-900 text-sm tracking-tight">AGM Assistant</h3>
             </div>
 
@@ -461,20 +439,18 @@ const AIChatWidget: React.FC = () => {
           {/* Canvas Area */}
           <div ref={chatWindowRef} className="flex-1 p-4 overflow-y-auto space-y-4 bg-slate-50 text-slate-900 text-xs sm:text-sm min-h-0 flex flex-col justify-start font-sans">
             {history.length === 0 ? (
-              /* Editorial Commerce Layout Empty State */
+              /* Intentional Editorial Commerce Layout Empty State */
               <div className="py-6 flex flex-col items-start justify-center px-2 my-auto max-w-sm">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-slate-400 mb-1">
-                  AGM Showroom Assistant
-                </span>
+                <AGMAssistantMark variant="light" className="w-7 h-7 text-slate-900 mb-3" />
                 <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-snug mb-2">
-                  Temukan furniture yang sesuai atau mulai desain custom Anda.
+                  Cari furniture, tentukan ukuran,<br />atau rancang furniture custom Anda.
                 </h2>
                 <p className="text-xs text-slate-600 mb-5 leading-relaxed">
-                  Konsultasikan ukuran ruang, pilihan kayu solid, atau cari produk katalog AGM secara langsung.
+                  Saya dapat membantu Anda menemukan produk yang sesuai atau menyusun spesifikasi furniture sesuai kebutuhan.
                 </p>
 
-                {/* Primary Commerce Entry Points */}
-                <div className="w-full space-y-2 mb-6">
+                {/* Editorial Primary Actions */}
+                <div className="w-full space-y-2">
                   <button
                     onClick={() => sendMessage('Saya ingin mencari produk furniture dari katalog AGM')}
                     className="w-full py-2.5 px-3.5 bg-slate-900 text-white rounded font-medium text-xs text-left hover:bg-slate-800 transition-colors cursor-pointer flex items-center justify-between"
@@ -486,32 +462,9 @@ const AIChatWidget: React.FC = () => {
                     onClick={() => sendMessage('Saya ingin mulai desain custom furniture')}
                     className="w-full py-2.5 px-3.5 bg-white border border-slate-300 text-slate-900 rounded font-medium text-xs text-left hover:bg-slate-100 transition-colors cursor-pointer flex items-center justify-between"
                   >
-                    <span>Mulai desain custom</span>
+                    <span>Rancang furniture custom</span>
                     <span>→</span>
                   </button>
-                </div>
-
-                {/* Category Navigation Tiles */}
-                <div className="w-full pt-3 border-t border-slate-200">
-                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">
-                    Kategori Populer
-                  </span>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    {[
-                      { title: 'Meja tv', action: 'Cari meja TV' },
-                      { title: 'Lemari pakaian', action: 'Cari lemari pakaian' },
-                      { title: 'Meja makan', action: 'Konsultasi meja makan' },
-                      { title: 'Kitchen set', action: 'Konsultasi kitchen set' }
-                    ].map((item, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => sendMessage(item.action)}
-                        className="p-2 border border-slate-200 bg-white rounded text-left hover:border-slate-400 text-slate-800 transition-colors cursor-pointer text-xs font-medium"
-                      >
-                        {item.title}
-                      </button>
-                    ))}
-                  </div>
                 </div>
               </div>
             ) : (

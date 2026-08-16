@@ -20,7 +20,7 @@ export const DesignSummaryCard: React.FC<DesignSummaryCardProps> = ({
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
 
-  // Guardrail: Do not render if state lacks category or meaningful specifications
+  // Strict Guardrail: Render ONLY when design state has valid category
   if (!design || !design.category) {
     return null;
   }
@@ -83,19 +83,19 @@ export const DesignSummaryCard: React.FC<DesignSummaryCardProps> = ({
       </div>
 
       {/* Commerce Actions */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row items-center gap-2">
         {onUpdateDesign && !isSubmitted && (
           <button
             onClick={onUpdateDesign}
             disabled={isSubmitting}
-            className="flex-1 py-1.5 px-3 rounded border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs transition-colors cursor-pointer"
+            className="w-full sm:flex-1 py-1.5 px-3 rounded border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs transition-colors cursor-pointer"
           >
             Ubah Spesifikasi
           </button>
         )}
 
         {isSubmitted ? (
-          <div className="w-full py-1.5 px-3 rounded bg-emerald-950/80 border border-emerald-800 text-emerald-300 text-center font-semibold text-xs flex items-center justify-center gap-1.5">
+          <div className="w-full sm:flex-1 py-1.5 px-3 rounded bg-emerald-950/80 border border-emerald-800 text-emerald-300 text-center font-semibold text-xs flex items-center justify-center gap-1.5">
             Telah Diajukan ke Admin
           </div>
         ) : (
@@ -103,7 +103,7 @@ export const DesignSummaryCard: React.FC<DesignSummaryCardProps> = ({
             onClick={() => setShowConfirmModal(true)}
             disabled={isSubmitting}
             aria-label="Ajukan spesifikasi ke admin"
-            className="flex-1 py-1.5 px-3 rounded bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs shadow-xs transition-all cursor-pointer flex items-center justify-center"
+            className="w-full sm:flex-1 py-1.5 px-3 rounded bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs shadow-xs transition-all cursor-pointer flex items-center justify-center"
           >
             {isSubmitting ? 'Mengirim...' : 'Ajukan ke Admin'}
           </button>
