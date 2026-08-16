@@ -27,25 +27,26 @@ const generateUuid = () => {
   });
 };
 
-interface AGMAssistantMarkProps {
-  className?: string;
-  bubbleColor?: string;
-  dotColor?: string;
-}
-
-const AGMAssistantMark: React.FC<AGMAssistantMarkProps> = ({ 
-  className = "w-5 h-5",
-  bubbleColor = "#0f172a",
-  dotColor = "white"
-}) => (
+// Clean, Minimalist Furniture Showroom Emblem Logo
+const AGMAssistantMark: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path 
-      d="M12 3.5C6.477 3.5 2 7.082 2 11.5c0 2.53 1.463 4.78 3.737 6.286L4.8 21.2l3.858-1.286c1.037.382 2.164.586 3.342.586 5.523 0 10-3.582 10-8s-4.477-8-10-8z" 
-      fill={bubbleColor}
+      d="M3 10.5V17C3 17.5523 3.44772 18 4 18H20 C20.5523 18 21 17.5523 21 17V10.5" 
+      stroke="currentColor" 
+      strokeWidth="1.8" 
+      strokeLinecap="round" 
     />
-    <circle cx="8" cy="11.5" r="1.3" fill={dotColor} />
-    <circle cx="12" cy="11.5" r="1.3" fill={dotColor} />
-    <circle cx="16" cy="11.5" r="1.3" fill={dotColor} />
+    <path 
+      d="M2 13.5H22 M5 18V20 M19 18V20" 
+      stroke="currentColor" 
+      strokeWidth="1.8" 
+      strokeLinecap="round" 
+    />
+    <path 
+      d="M7 10.5V7C7 5.89543 7.89543 5 9 5H15 C16.1046 5 17 5.89543 17 7V10.5" 
+      stroke="currentColor" 
+      strokeWidth="1.8" 
+    />
   </svg>
 );
 
@@ -103,7 +104,7 @@ const AIChatWidget: React.FC = () => {
   const [isSubmittedCustomReq, setIsSubmittedCustomReq] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingStatusText, setLoadingStatusText] = useState('Memproses');
+  const [loadingStatusText, setLoadingStatusText] = useState('Sedang memproses...');
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   
   const chatWindowRef = useRef<HTMLDivElement>(null);
@@ -114,7 +115,7 @@ const AIChatWidget: React.FC = () => {
     console.log(`[AI ${source.toUpperCase()}] response received via ${source}. Status: ${status}`);
     setCurrentJobId(null);
     setIsLoading(false);
-    setLoadingStatusText('Memproses');
+    setLoadingStatusText('Sedang memproses...');
 
     if (status === 'completed' && responseText) {
       const { cleanText, designState } = parseDesignStateFromAiText(responseText);
@@ -134,7 +135,7 @@ const AIChatWidget: React.FC = () => {
           : msg
       ));
     } else if (status === 'failed' && errorText) {
-      const errorMessageText = `AI Error: ${errorText}`;
+      const errorMessageText = `Terjadi kesalahan: ${errorText}`;
       setHistory(prev => prev.map(msg => 
         msg.text === 'AGM Assistant sedang memproses...' 
           ? { sender: 'ai', text: errorMessageText, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
@@ -271,7 +272,7 @@ const AIChatWidget: React.FC = () => {
       let uploadedAttachmentInfo: AttachmentInfo | undefined = undefined;
 
       if (activeFile) {
-        setLoadingStatusText('Memproses file');
+        setLoadingStatusText('Memproses file...');
         const base64Data = await convertFileToBase64(activeFile);
         
         const uploadResponse = await fetch('/api/ai/upload', {
@@ -296,7 +297,7 @@ const AIChatWidget: React.FC = () => {
         uploadedAttachmentInfo = uploadResult.attachment;
       }
 
-      setLoadingStatusText('Menyiapkan jawaban');
+      setLoadingStatusText('Menyiapkan rekomendasi...');
 
       const response = await fetch('/api/ai/chat', {
         method: 'POST',
@@ -317,11 +318,11 @@ const AIChatWidget: React.FC = () => {
       try {
         data = responseText ? JSON.parse(responseText) : {};
       } catch (parseError) {
-        throw new Error(`Invalid JSON from server (HTTP ${response.status}): ${responseText || 'Empty response'}`);
+        throw new Error(`Server response error (HTTP ${response.status})`);
       }
 
       if (!response.ok || data.success === false) {
-        throw new Error(data.message || `Failed to create AI job (HTTP ${response.status}).`);
+        throw new Error(data.message || `Gagal mengirim permintaan.`);
       }
 
       setCurrentJobId(data.job_id);
@@ -339,9 +340,9 @@ const AIChatWidget: React.FC = () => {
       };
       setHistory(prev => [...prev, errorMessage]);
       setIsLoading(false);
-      setLoadingStatusText('Memproses');
+      setLoadingStatusText('Sedang memproses...');
       setCurrentJobId(null);
-      console.error('Error sending message to AI:', error);
+      console.error('Error sending message:', error);
     }
   };
 
@@ -375,7 +376,7 @@ const AIChatWidget: React.FC = () => {
         ...prev,
         {
           sender: 'ai',
-          text: '✓ Spesifikasi custom furniture Anda telah berhasil dikirim ke Admin AGM. Tim kami akan memeriksa dan memberikan penawaran harga resmi secepatnya.',
+          text: 'Spesifikasi custom furniture Anda telah berhasil dikirim ke Admin AGM. Tim kami akan memeriksa dan memberikan penawaran resmi secepatnya.',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
       ]);
@@ -402,60 +403,53 @@ const AIChatWidget: React.FC = () => {
     conversationIdRef.current = generateUuid();
     setCurrentJobId(null);
     setIsLoading(false);
-    setLoadingStatusText('Memproses');
+    setLoadingStatusText('Sedang memproses...');
   };
 
   return (
     <>
-      {/* Icon-Only Circular Launcher using exact user-provided logo icon */}
+      {/* Utility Launcher Button (Showroom Commerce Style) */}
       {!isOpen && (
-        <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 group flex items-center gap-2">
-          <span className="hidden sm:inline-block opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-slate-900 text-white text-xs font-medium px-2.5 py-1.5 rounded-lg shadow-lg border border-slate-800 pointer-events-none select-none">
-            AGM Assistant
-          </span>
+        <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50">
           <button
             onClick={() => setIsOpen(true)}
-            aria-label="Open AGM Assistant"
-            className="bg-slate-900 text-white rounded-full w-12 h-12 sm:w-13 sm:h-13 shadow-xl hover:bg-slate-800 hover:-translate-y-0.5 active:scale-95 transition-all duration-200 flex items-center justify-center border border-slate-700/80 focus:outline-none"
+            aria-label="AGM Assistant"
+            title="AGM Assistant"
+            className="bg-slate-900 text-white rounded-full w-12 h-12 sm:w-13 sm:h-13 shadow-lg hover:bg-slate-800 transition-all duration-200 flex items-center justify-center border border-slate-700 focus:outline-none cursor-pointer"
           >
-            <AGMAssistantMark className="w-6 h-6" bubbleColor="white" dotColor="#0f172a" />
+            <AGMAssistantMark className="w-5 h-5 text-white" />
           </button>
         </div>
       )}
 
-      {/* Floating Product Assistant Panel */}
+      {/* Floating Commerce Consultation Panel */}
       {isOpen && (
         <div 
-          className="fixed bottom-3 left-3 right-3 sm:left-auto sm:right-6 sm:bottom-6 z-50 w-[calc(100vw-24px)] max-w-[370px] sm:w-[420px] h-auto min-h-[340px] max-h-[min(490px,60vh)] sm:h-[min(620px,75vh)] sm:max-h-[620px] bg-white rounded-2xl shadow-2xl border border-slate-200/90 flex flex-col overflow-hidden animate-fade-in mx-auto sm:mx-0"
-          style={{ transition: 'opacity 180ms ease, transform 180ms ease' }}
+          className="fixed bottom-0 left-0 right-0 sm:bottom-6 sm:right-6 sm:left-auto z-50 w-full sm:w-[440px] h-[85vh] sm:h-[640px] max-h-[100dvh] bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden animate-fade-in mx-auto sm:mx-0 font-sans"
         >
-          {/* Header Bar - Light, Minimal, NO "Ready" */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200/80 bg-white text-slate-900 select-none h-[52px] shrink-0">
+          {/* Header Bar - Ultra Minimal */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-white text-slate-900 select-none h-[52px] shrink-0">
             <div className="flex items-center gap-2">
-              <AGMAssistantMark className="w-5 h-5" bubbleColor="#0f172a" dotColor="white" />
-              <div>
-                <h3 className="font-semibold text-slate-900 text-sm tracking-tight leading-none">AGM Assistant</h3>
-                <span className="text-[10px] text-amber-700 font-medium tracking-tight">Furniture Consultant</span>
-              </div>
+              <AGMAssistantMark className="w-4 h-4 text-slate-900" />
+              <h3 className="font-semibold text-slate-900 text-sm tracking-tight">AGM Assistant</h3>
             </div>
 
-            {/* Header Action Controls */}
             <div className="flex items-center gap-1">
               <button 
                 onClick={clearConversation} 
-                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors"
-                title="Clear conversation"
-                aria-label="Clear conversation"
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded transition-colors cursor-pointer"
+                title="Hapus percakapan"
+                aria-label="Hapus percakapan"
               >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
               </button>
               <button 
                 onClick={() => setIsOpen(false)} 
-                className="p-1.5 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors"
-                title="Close AGM Assistant"
-                aria-label="Close AGM Assistant"
+                className="p-1.5 text-slate-400 hover:text-slate-900 rounded transition-colors cursor-pointer"
+                title="Tutup AGM Assistant"
+                aria-label="Tutup AGM Assistant"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -464,70 +458,91 @@ const AIChatWidget: React.FC = () => {
             </div>
           </div>
 
-          {/* Main Chat Canvas Area */}
-          <div ref={chatWindowRef} className="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-50/50 text-slate-800 text-sm min-h-0 flex flex-col justify-start">
+          {/* Canvas Area */}
+          <div ref={chatWindowRef} className="flex-1 p-4 overflow-y-auto space-y-4 bg-slate-50 text-slate-900 text-xs sm:text-sm min-h-0 flex flex-col justify-start font-sans">
             {history.length === 0 ? (
-              /* Intentional Furniture Consultant Greeting State */
-              <div className="py-6 flex flex-col items-center justify-center text-center px-3 my-auto">
-                <h4 className="font-semibold text-slate-900 text-sm tracking-tight mb-1">
-                  Konsultasikan Furniture Anda
-                </h4>
-                <p className="text-xs text-slate-500 max-w-[280px] leading-relaxed">
-                  Saya dapat membantu Anda mencari produk toko AGM atau merancang spesifikasi custom furniture sesuai kebutuhan ruang Anda.
+              /* Editorial Commerce Layout Empty State */
+              <div className="py-6 flex flex-col items-start justify-center px-2 my-auto max-w-sm">
+                <span className="text-[10px] font-mono uppercase tracking-widest text-slate-400 mb-1">
+                  AGM Showroom Assistant
+                </span>
+                <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-snug mb-2">
+                  Temukan furniture yang sesuai atau mulai desain custom Anda.
+                </h2>
+                <p className="text-xs text-slate-600 mb-5 leading-relaxed">
+                  Konsultasikan ukuran ruang, pilihan kayu solid, atau cari produk katalog AGM secara langsung.
                 </p>
 
-                {/* Specific Furniture Quick Actions */}
-                <div className="mt-4 flex flex-wrap gap-2 justify-center items-center text-xs text-slate-700 font-medium">
-                  {[
-                    "🔎 Cari Furniture",
-                    "✏️ Buat Custom Meja Makan",
-                    "📐 Konsultasi Ukuran Ruang",
-                  ].map((promptText, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => sendMessage(promptText.replace(/^[^\w\s]+\s*/, ''))}
-                      className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg hover:border-slate-900 hover:bg-slate-900 hover:text-white transition-all shadow-2xs text-[11px] cursor-pointer"
-                    >
-                      {promptText}
-                    </button>
-                  ))}
+                {/* Primary Commerce Entry Points */}
+                <div className="w-full space-y-2 mb-6">
+                  <button
+                    onClick={() => sendMessage('Saya ingin mencari produk furniture dari katalog AGM')}
+                    className="w-full py-2.5 px-3.5 bg-slate-900 text-white rounded font-medium text-xs text-left hover:bg-slate-800 transition-colors cursor-pointer flex items-center justify-between"
+                  >
+                    <span>Cari dari katalog</span>
+                    <span>→</span>
+                  </button>
+                  <button
+                    onClick={() => sendMessage('Saya ingin mulai desain custom furniture')}
+                    className="w-full py-2.5 px-3.5 bg-white border border-slate-300 text-slate-900 rounded font-medium text-xs text-left hover:bg-slate-100 transition-colors cursor-pointer flex items-center justify-between"
+                  >
+                    <span>Mulai desain custom</span>
+                    <span>→</span>
+                  </button>
+                </div>
+
+                {/* Category Navigation Tiles */}
+                <div className="w-full pt-3 border-t border-slate-200">
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">
+                    Kategori Populer
+                  </span>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    {[
+                      { title: 'Meja tv', action: 'Cari meja TV' },
+                      { title: 'Lemari pakaian', action: 'Cari lemari pakaian' },
+                      { title: 'Meja makan', action: 'Konsultasi meja makan' },
+                      { title: 'Kitchen set', action: 'Konsultasi kitchen set' }
+                    ].map((item, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => sendMessage(item.action)}
+                        className="p-2 border border-slate-200 bg-white rounded text-left hover:border-slate-400 text-slate-800 transition-colors cursor-pointer text-xs font-medium"
+                      >
+                        {item.title}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             ) : (
               history.map((msg, index) => (
                 <div key={index} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                   {msg.sender === 'user' ? (
-                    <div className="max-w-[85%] bg-slate-900 text-white rounded-xl rounded-tr-xs px-3.5 py-2.5 text-xs sm:text-sm shadow-2xs font-normal border border-slate-800">
+                    <div className="max-w-[85%] bg-slate-900 text-white rounded px-3.5 py-2.5 text-xs sm:text-sm font-normal border border-slate-800">
                       {msg.attachment && (
-                        <div className="flex items-center gap-1.5 text-slate-300 border-b border-slate-700/80 pb-1.5 mb-1.5 text-xs">
-                          <svg className="w-3.5 h-3.5 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <div className="flex items-center gap-1.5 text-slate-300 border-b border-slate-800 pb-1.5 mb-1.5 text-xs">
+                          <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                           </svg>
                           <span className="font-medium truncate max-w-[160px]">{msg.attachment.filename}</span>
                           <span className="text-[10px] text-slate-400 font-mono">({formatFileSize(msg.attachment.size)})</span>
                         </div>
                       )}
-                      <p className="leading-relaxed whitespace-pre-wrap break-words font-normal text-white">{msg.text}</p>
-                      <span className="block text-[9px] text-right mt-1 font-mono text-slate-400 opacity-70">{msg.timestamp}</span>
+                      <p className="leading-relaxed whitespace-pre-wrap break-words">{msg.text}</p>
+                      <span className="block text-[9px] text-right mt-1 font-mono text-slate-400">{msg.timestamp}</span>
                     </div>
                   ) : (
-                    <div className="max-w-[92%] py-0.5 w-full">
+                    <div className="max-w-[95%] py-0.5 w-full">
                       {msg.text === 'AGM Assistant sedang memproses...' ? (
-                        <div className="flex items-center gap-1.5 text-slate-500 py-1">
-                          <span className="text-xs font-medium">{loadingStatusText}</span>
-                          <div className="flex items-center gap-1">
-                            <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                            <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                            <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
-                          </div>
+                        <div className="text-xs text-slate-500 font-medium py-1 animate-pulse">
+                          {loadingStatusText}
                         </div>
                       ) : (
                         <div>
-                          <div className="whitespace-pre-wrap leading-relaxed break-words text-slate-800 text-xs sm:text-sm font-normal">
+                          <div className="whitespace-pre-wrap leading-relaxed break-words text-slate-900 text-xs sm:text-sm font-normal">
                             {msg.text}
                           </div>
 
-                          {/* Render Structured Furniture Design Summary Card if parsed */}
                           {msg.designState && (
                             <DesignSummaryCard
                               design={msg.designState}
@@ -541,7 +556,7 @@ const AIChatWidget: React.FC = () => {
                           )}
                         </div>
                       )}
-                      <span className="block text-[9px] text-slate-400 font-mono mt-1 opacity-60">{msg.timestamp}</span>
+                      <span className="block text-[9px] text-slate-400 font-mono mt-1">{msg.timestamp}</span>
                     </div>
                   )}
                 </div>
@@ -550,18 +565,18 @@ const AIChatWidget: React.FC = () => {
 
             {!isLoading && currentJobId && (
               <div className="flex justify-start">
-                <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs">
-                  <p className="font-medium">AI server sedang offline atau job belum selesai.</p>
+                <div className="p-2.5 rounded bg-rose-50 border border-rose-200 text-rose-800 text-xs">
+                  <p className="font-medium">Layanan sedang sibuk atau offline.</p>
                   <span className="text-[9px] opacity-75 mt-0.5 block font-mono">Job ID: {currentJobId}</span>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Integrated Unified Composer Container */}
-          <div className="p-3 border-t border-slate-200/80 bg-white shrink-0">
+          {/* Unified Composer Container */}
+          <div className="p-3 border-t border-slate-200 bg-white shrink-0">
             {selectedFile && (
-              <div className="flex items-center justify-between bg-slate-100 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 mb-2">
+              <div className="flex items-center justify-between bg-slate-100 border border-slate-200 rounded px-3 py-1.5 text-xs text-slate-700 mb-2">
                 <div className="flex items-center gap-2 truncate">
                   <span className="font-semibold text-slate-800 px-1.5 py-0.5 bg-slate-200 rounded text-[10px]">
                     {getFileBadge(selectedFile.name)}
@@ -574,7 +589,7 @@ const AIChatWidget: React.FC = () => {
                     setSelectedFile(null);
                     if (fileInputRef.current) fileInputRef.current.value = '';
                   }} 
-                  className="p-1 text-slate-400 hover:text-slate-700 transition-colors"
+                  className="p-1 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
                   title="Remove attachment"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -584,7 +599,7 @@ const AIChatWidget: React.FC = () => {
               </div>
             )}
 
-            <div className="bg-slate-50 border border-slate-200 focus-within:border-slate-900 focus-within:bg-white rounded-xl px-3 py-1.5 flex items-center gap-2 transition-all">
+            <div className="bg-slate-50 border border-slate-300 focus-within:border-slate-900 focus-within:bg-white rounded px-3 py-2 flex items-center gap-2 transition-all">
               <input 
                 type="file" 
                 ref={fileInputRef} 
@@ -597,9 +612,9 @@ const AIChatWidget: React.FC = () => {
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isLoading}
-                title="Attach file (PDF, DOCX, TXT, CSV, XLSX)"
-                aria-label="Attach file"
-                className="text-slate-400 hover:text-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors p-0.5 shrink-0"
+                title="Tambahkan foto atau file"
+                aria-label="Tambahkan foto atau file"
+                className="text-slate-400 hover:text-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors p-0.5 shrink-0 cursor-pointer"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
@@ -611,19 +626,19 @@ const AIChatWidget: React.FC = () => {
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder={selectedFile ? "Tambahkan instruksi (opsional)..." : "Konsultasikan furniture Anda..."}
+                placeholder={selectedFile ? "Tambahkan instruksi (opsional)..." : "Jelaskan kebutuhan furniture Anda..."}
                 aria-label="Send message input"
-                className="flex-1 bg-transparent text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none"
+                className="flex-1 bg-transparent text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none font-sans"
                 disabled={isLoading}
               />
 
               <button
                 onClick={() => sendMessage()}
                 disabled={isLoading || (!message.trim() && !selectedFile)}
-                aria-label="Send message"
-                className="w-7 h-7 rounded-lg bg-slate-900 text-white flex items-center justify-center hover:bg-slate-800 disabled:opacity-20 disabled:bg-slate-400 disabled:cursor-not-allowed transition-all shrink-0"
+                aria-label="Kirim pesan"
+                className="w-7 h-7 rounded bg-slate-900 text-white flex items-center justify-center hover:bg-slate-800 disabled:opacity-20 disabled:bg-slate-400 disabled:cursor-not-allowed transition-all shrink-0 cursor-pointer"
               >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
                 </svg>
               </button>
