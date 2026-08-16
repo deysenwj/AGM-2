@@ -1,7 +1,8 @@
-// src/components/AIChatWidget.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { FILE_CONFIG, formatFileSize, isValidFileExtension } from '../config/fileConfig';
+import type { FurnitureDesignState } from '../types/furniture';
+import { DesignSummaryCard } from './DesignSummaryCard';
 
 interface AttachmentInfo {
   id?: string;
@@ -16,6 +17,7 @@ interface Message {
   text: string;
   timestamp: string;
   attachment?: AttachmentInfo;
+  designState?: FurnitureDesignState;
 }
 
 const generateUuid = () => {
@@ -56,11 +58,50 @@ const getFileBadge = (filename: string): string => {
   return 'TXT';
 };
 
+const parseDesignStateFromAiText = (rawText: string): { cleanText: string; designState?: FurnitureDesignState } => {
+  const jsonBlockRegex = /```json_design_state\s*([\s\S]*?)\s*```/;
+  const match = rawText.match(jsonBlockRegex);
+  
+  if (!match) {
+    return { cleanText: rawText };
+  }
+
+  try {
+    const parsedObj = JSON.parse(match[1]);
+    const cleanText = rawText.replace(jsonBlockRegex, '').trim();
+    
+    return {
+      cleanText: cleanText || 'Berikut adalah draf spesifikasi furniture sesuai kebutuhan Anda:',
+      designState: {
+        category: parsedObj.category || 'furniture',
+        style: parsedObj.style,
+        width: parsedObj.width,
+        depth: parsedObj.depth,
+        height: parsedObj.height,
+        material: parsedObj.material,
+        color: parsedObj.color,
+        finish: parsedObj.finish,
+        quantity: parsedObj.quantity || 1,
+        capacity: parsedObj.capacity,
+        notes: parsedObj.notes,
+        status: parsedObj.status || 'draft'
+      }
+    };
+  } catch (err) {
+    console.warn('Failed parsing json_design_state block from AI:', err);
+    return { cleanText: rawText };
+  }
+};
+
 const AIChatWidget: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [history, setHistory] = useState<Message[]>([]);
+  const [activeDesignState, setActiveDesignState] = useState<FurnitureDesignState | null>(null);
+  const [isSubmittingCustomReq, setIsSubmittingCustomReq] = useState(false);
+  const [isSubmittedCustomReq, setIsSubmittedCustomReq] = useState(false);
+
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStatusText, setLoadingStatusText] = useState('Memproses');
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
@@ -76,9 +117,20 @@ const AIChatWidget: React.FC = () => {
     setLoadingStatusText('Memproses');
 
     if (status === 'completed' && responseText) {
+      const { cleanText, designState } = parseDesignStateFromAiText(responseText);
+      
+      if (designState) {
+        setActiveDesignState(designState);
+      }
+
       setHistory(prev => prev.map(msg => 
         msg.text === 'AGM Assistant sedang memproses...' 
-          ? { sender: 'ai', text: responseText, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
+          ? { 
+              sender: 'ai', 
+              text: cleanText, 
+              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              designState: designState
+            }
           : msg
       ));
     } else if (status === 'failed' && errorText) {
@@ -158,20 +210,18 @@ const AIChatWidget: React.FC = () => {
     if (chatWindowRef.current) {
       chatWindowRef.current.scrollTop = chatWindowRef.current.scrollHeight;
     }
-  }, [history, isLoading]);
+  }, [history, isLoading, activeDesignState]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // 1. File Extension Validation
     if (!isValidFileExtension(file.name)) {
       alert('Format file tidak didukung. Gunakan PDF, DOCX, TXT, CSV, atau XLSX.');
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
-    // 2. File Size Validation
     if (file.size > FILE_CONFIG.MAX_FILE_SIZE_BYTES) {
       alert(`File terlalu besar. Maksimal ukuran file ${FILE_CONFIG.MAX_FILE_SIZE_MB}MB.`);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -197,7 +247,6 @@ const AIChatWidget: React.FC = () => {
     const userMessageText = queryText || (selectedFile ? `Tolong analisis file ${selectedFile.name}` : '');
     const activeFile = selectedFile;
     
-    // Optimistic User Turn Render
     const userMessage: Message = { 
       sender: 'user', 
       text: userMessageText, 
@@ -221,7 +270,6 @@ const AIChatWidget: React.FC = () => {
       const userId = authData?.user?.id || generateUuid();
       let uploadedAttachmentInfo: AttachmentInfo | undefined = undefined;
 
-      // 1. If file attached, perform upload to backend Cloudinary endpoint first
       if (activeFile) {
         setLoadingStatusText('Memproses file');
         const base64Data = await convertFileToBase64(activeFile);
@@ -250,7 +298,6 @@ const AIChatWidget: React.FC = () => {
 
       setLoadingStatusText('Menyiapkan jawaban');
 
-      // 2. Submit AI Job to /api/ai/chat
       const response = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: {
@@ -298,6 +345,48 @@ const AIChatWidget: React.FC = () => {
     }
   };
 
+  const submitCustomRequestToAdmin = async () => {
+    if (!activeDesignState || isSubmittingCustomReq) return;
+    setIsSubmittingCustomReq(true);
+
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData?.user?.id || generateUuid();
+
+      const res = await fetch('/api/ai/custom-request', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': userId
+        },
+        body: JSON.stringify({
+          conversationId: conversationIdRef.current,
+          designState: activeDesignState
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Gagal mengajukan spesifikasi ke Admin.');
+      }
+
+      setIsSubmittedCustomReq(true);
+      setHistory(prev => [
+        ...prev,
+        {
+          sender: 'ai',
+          text: '✓ Spesifikasi custom furniture Anda telah berhasil dikirim ke Admin AGM. Tim kami akan memeriksa dan memberikan penawaran harga resmi secepatnya.',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }
+      ]);
+
+    } catch (err: any) {
+      alert(`Gagal mengirim pengajuan: ${err.message}`);
+    } finally {
+      setIsSubmittingCustomReq(false);
+    }
+  };
+
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !isLoading) {
       sendMessage();
@@ -307,6 +396,8 @@ const AIChatWidget: React.FC = () => {
   const clearConversation = () => {
     setHistory([]);
     setSelectedFile(null);
+    setActiveDesignState(null);
+    setIsSubmittedCustomReq(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
     conversationIdRef.current = generateUuid();
     setCurrentJobId(null);
@@ -342,7 +433,10 @@ const AIChatWidget: React.FC = () => {
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200/80 bg-white text-slate-900 select-none h-[52px] shrink-0">
             <div className="flex items-center gap-2">
               <AGMAssistantMark className="w-5 h-5" bubbleColor="#0f172a" dotColor="white" />
-              <h3 className="font-semibold text-slate-900 text-sm tracking-tight">AGM Assistant</h3>
+              <div>
+                <h3 className="font-semibold text-slate-900 text-sm tracking-tight leading-none">AGM Assistant</h3>
+                <span className="text-[10px] text-amber-700 font-medium tracking-tight">Furniture Consultant</span>
+              </div>
             </div>
 
             {/* Header Action Controls */}
@@ -373,29 +467,29 @@ const AIChatWidget: React.FC = () => {
           {/* Main Chat Canvas Area */}
           <div ref={chatWindowRef} className="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-50/50 text-slate-800 text-sm min-h-0 flex flex-col justify-start">
             {history.length === 0 ? (
-              /* Intentional Editorial Empty State */
+              /* Intentional Furniture Consultant Greeting State */
               <div className="py-6 flex flex-col items-center justify-center text-center px-3 my-auto">
-                <h4 className="font-semibold text-slate-900 text-sm tracking-tight mb-1">Apa yang ingin Anda cari?</h4>
-                <p className="text-xs text-slate-500 max-w-[260px] leading-relaxed">
-                  Saya dapat membantu menemukan produk, mengecek harga, stok, atau menganalisis file Anda (PDF, DOCX, TXT, CSV, XLSX).
+                <h4 className="font-semibold text-slate-900 text-sm tracking-tight mb-1">
+                  Konsultasikan Furniture Anda
+                </h4>
+                <p className="text-xs text-slate-500 max-w-[280px] leading-relaxed">
+                  Saya dapat membantu Anda mencari produk toko AGM atau merancang spesifikasi custom furniture sesuai kebutuhan ruang Anda.
                 </p>
 
-                {/* Subtle Text Actions */}
-                <div className="mt-4 flex flex-wrap gap-2.5 justify-center items-center text-xs text-slate-600 font-medium">
+                {/* Specific Furniture Quick Actions */}
+                <div className="mt-4 flex flex-wrap gap-2 justify-center items-center text-xs text-slate-700 font-medium">
                   {[
-                    "Cari produk",
-                    "Cek harga",
-                    "Cek stok"
-                  ].map((promptText, idx, arr) => (
-                    <React.Fragment key={idx}>
-                      <button
-                        onClick={() => sendMessage(promptText)}
-                        className="hover:text-slate-900 transition-colors cursor-pointer"
-                      >
-                        {promptText}
-                      </button>
-                      {idx < arr.length - 1 && <span className="text-slate-300 select-none">·</span>}
-                    </React.Fragment>
+                    "🔎 Cari Furniture",
+                    "✏️ Buat Custom Meja Makan",
+                    "📐 Konsultasi Ukuran Ruang",
+                  ].map((promptText, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => sendMessage(promptText.replace(/^[^\w\s]+\s*/, ''))}
+                      className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg hover:border-slate-900 hover:bg-slate-900 hover:text-white transition-all shadow-2xs text-[11px] cursor-pointer"
+                    >
+                      {promptText}
+                    </button>
                   ))}
                 </div>
               </div>
@@ -403,7 +497,6 @@ const AIChatWidget: React.FC = () => {
               history.map((msg, index) => (
                 <div key={index} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                   {msg.sender === 'user' ? (
-                    /* User Message Bubble */
                     <div className="max-w-[85%] bg-slate-900 text-white rounded-xl rounded-tr-xs px-3.5 py-2.5 text-xs sm:text-sm shadow-2xs font-normal border border-slate-800">
                       {msg.attachment && (
                         <div className="flex items-center gap-1.5 text-slate-300 border-b border-slate-700/80 pb-1.5 mb-1.5 text-xs">
@@ -418,10 +511,8 @@ const AIChatWidget: React.FC = () => {
                       <span className="block text-[9px] text-right mt-1 font-mono text-slate-400 opacity-70">{msg.timestamp}</span>
                     </div>
                   ) : (
-                    /* AI Message: Pure Open Editorial Content */
-                    <div className="max-w-[92%] py-0.5">
+                    <div className="max-w-[92%] py-0.5 w-full">
                       {msg.text === 'AGM Assistant sedang memproses...' ? (
-                        /* Subtle Thinking Indicator */
                         <div className="flex items-center gap-1.5 text-slate-500 py-1">
                           <span className="text-xs font-medium">{loadingStatusText}</span>
                           <div className="flex items-center gap-1">
@@ -431,8 +522,23 @@ const AIChatWidget: React.FC = () => {
                           </div>
                         </div>
                       ) : (
-                        <div className="whitespace-pre-wrap leading-relaxed break-words text-slate-800 text-xs sm:text-sm font-normal">
-                          {msg.text}
+                        <div>
+                          <div className="whitespace-pre-wrap leading-relaxed break-words text-slate-800 text-xs sm:text-sm font-normal">
+                            {msg.text}
+                          </div>
+
+                          {/* Render Structured Furniture Design Summary Card if parsed */}
+                          {msg.designState && (
+                            <DesignSummaryCard
+                              design={msg.designState}
+                              onUpdateDesign={() => {
+                                setMessage("Saya ingin mengubah spesifikasi desain ini: ");
+                              }}
+                              onSubmitToAdmin={submitCustomRequestToAdmin}
+                              isSubmitting={isSubmittingCustomReq}
+                              isSubmitted={isSubmittedCustomReq}
+                            />
+                          )}
                         </div>
                       )}
                       <span className="block text-[9px] text-slate-400 font-mono mt-1 opacity-60">{msg.timestamp}</span>
@@ -454,7 +560,6 @@ const AIChatWidget: React.FC = () => {
 
           {/* Integrated Unified Composer Container */}
           <div className="p-3 border-t border-slate-200/80 bg-white shrink-0">
-            {/* Attachment Preview Bar */}
             {selectedFile && (
               <div className="flex items-center justify-between bg-slate-100 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 mb-2">
                 <div className="flex items-center gap-2 truncate">
@@ -479,9 +584,7 @@ const AIChatWidget: React.FC = () => {
               </div>
             )}
 
-            {/* Input Row */}
             <div className="bg-slate-50 border border-slate-200 focus-within:border-slate-900 focus-within:bg-white rounded-xl px-3 py-1.5 flex items-center gap-2 transition-all">
-              {/* Hidden File Input */}
               <input 
                 type="file" 
                 ref={fileInputRef} 
@@ -490,7 +593,6 @@ const AIChatWidget: React.FC = () => {
                 className="hidden" 
               />
               
-              {/* Attachment Paperclip Button */}
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
@@ -509,7 +611,7 @@ const AIChatWidget: React.FC = () => {
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder={selectedFile ? "Tambahkan instruksi (opsional)..." : "Tanyakan sesuatu..."}
+                placeholder={selectedFile ? "Tambahkan instruksi (opsional)..." : "Konsultasikan furniture Anda..."}
                 aria-label="Send message input"
                 className="flex-1 bg-transparent text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none"
                 disabled={isLoading}

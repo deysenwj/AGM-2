@@ -12,10 +12,8 @@ import openpyxl
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
-# Load environment variables from .env.worker
 load_dotenv(dotenv_path='./.env.worker')
 
-# --- KONFIGURASI SUPABASE ---
 SUPABASE_URL: str = os.environ.get("SUPABASE_URL")
 SUPABASE_WORKER_KEY: str = os.environ.get("SUPABASE_WORKER_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 
@@ -26,11 +24,9 @@ if not SUPABASE_URL or not SUPABASE_WORKER_KEY:
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_WORKER_KEY)
 
 def find_hermes_executable() -> str:
-    """Mencari lokasi executable Hermes Agent yang valid di PC."""
     appdata_hermes = os.path.expanduser(r"~\AppData\Local\hermes\hermes-agent\venv\Scripts\hermes.exe")
     if os.path.exists(appdata_hermes):
         return appdata_hermes
-    
     found = shutil.which("hermes")
     if found:
         return found
@@ -38,7 +34,46 @@ def find_hermes_executable() -> str:
 
 HERMES_EXE = find_hermes_executable()
 
-# --- FILE EXTRACTOR DISPATCHERS ---
+# System Prompt Injection for AGM Furniture Consultant Persona
+SYSTEM_CONSULTANT_INSTRUCTION = """
+Anda adalah AGM Assistant, konsultan furniture dan ahli desain custom resmi dari toko AGM.
+
+PRINSIP PERILAKU ANDA:
+1. Anda adalah "Personal Furniture Consultant", BUKAN chatbot AI biasa.
+2. Tugas Anda adalah membantu customer menemukan produk furniture yang ada di katalog AGM ATAU merancang spesifikasi custom furniture sesuai kebutuhan ruang customer.
+3. JANGAN tanyakan semua spesifikasi sekaligus! Gunakan "conversational progressive disclosure" (tanyakan 1 hal yang paling relevan berikutnya, misalnya: untuk berapa orang, ukuran ruang, style, material, warna).
+4. EKSPLORASI DETAIL RANCANGAN CUSTOM:
+   - Kategori furniture (meja makan, sofa, lemari, meja TV, kitchen set, dll.)
+   - Ukuran (Panjang x Lebar x Tinggi dalam cm)
+   - Kapasitas / Peruntukan (misal: 6 orang)
+   - Gaya / Style (minimalis, modern, klasik, skandinavia, industrial)
+   - Material (kayu jati, mahoni, plywood, besi, kain, dll.)
+   - Warna (natural, walnut, hitam, putih, dll.)
+   - Finishing (matte, glossy, satin)
+5. HARGA & KEAMANAN (PRICE SAFETY):
+   - JANGAN PERNAH mengklaim atau menjanjikan harga final untuk custom furniture.
+   - Selalu tekankan bahwa "Estimasi harga final dan waktu pengerjaan akan dikonfirmasi secara resmi oleh Admin AGM".
+6. STRUKTUR OUTPUT DESIGN STATE (SANGAT PENTING):
+   - Ketika Anda telah berhasil mengumpulkan atau memperbarui spesifikasi custom furniture dari perbincangan, Anda BISA menyertakan JSON Design State di akhir jawaban Anda dalam format khusus berikut:
+
+```json_design_state
+{
+  "category": "meja makan",
+  "style": "minimalis",
+  "width": 180,
+  "depth": 80,
+  "height": 75,
+  "material": "kayu jati",
+  "color": "natural",
+  "finish": "matte",
+  "quantity": 1,
+  "capacity": "6 orang",
+  "status": "draft"
+}
+```
+
+Jawablah dengan bahasa Indonesia yang ramah, sopan, profesional, dan alami.
+"""
 
 def extract_pdf_text(file_bytes: bytes) -> str:
     reader = pypdf.PdfReader(io.BytesIO(file_bytes))
@@ -68,10 +103,8 @@ def extract_csv_text(file_bytes: bytes) -> str:
     rows = list(reader)
     if not rows:
         return "[Empty CSV file]"
-    lines = []
-    lines.append("Columns: " + ", ".join(rows[0]))
-    lines.append("Data Rows:")
-    for r in rows[1:150]:  # Cap at 150 rows for safety
+    lines = ["Columns: " + ", ".join(rows[0]), "Data Rows:"]
+    for r in rows[1:150]:
         lines.append(" | ".join(r))
     return "\n".join(lines)
 
@@ -97,31 +130,23 @@ def extract_file_content(file_bytes: bytes, filename: str, mime_type: str) -> st
         return extract_csv_text(file_bytes)
     elif filename_lower.endswith('.xlsx') or 'spreadsheetml' in mime_type.lower():
         return extract_xlsx_text(file_bytes)
-    elif filename_lower.endswith('.txt') or 'plain' in mime_type.lower():
-        return extract_txt_text(file_bytes)
     else:
         return extract_txt_text(file_bytes)
 
 def normalize_attachment_context(filename: str, mime_type: str, raw_text: str) -> str:
     MAX_CHARS = 30000
-    truncated = False
     clean_text = raw_text.strip()
-    
-    if len(clean_text) > MAX_CHARS:
+    truncated = len(clean_text) > MAX_CHARS
+    if truncated:
         clean_text = clean_text[:MAX_CHARS]
-        truncated = True
 
     context = f"[ATTACHMENT]\nFilename: {filename}\nType: {mime_type}\n\n[CONTENT]\n{clean_text}\n"
     if truncated:
-        context += "\n[File content truncated because it exceeds the context limit.]\n"
+        context += "\n[File content truncated because it exceeds context limit.]\n"
     context += "[END ATTACHMENT]"
     return context
 
 def call_hermes_cli(prompt: str) -> str:
-    """
-    Memanggil Hermes Agent CLI secara native melalui subprocess.
-    Menggunakan `hermes chat -q "<prompt>" -Q` yang terhubung ke 9Router.
-    """
     try:
         cmd = [HERMES_EXE, "chat", "-q", prompt, "-Q"]
         result = subprocess.run(
@@ -136,11 +161,9 @@ def call_hermes_cli(prompt: str) -> str:
             raise Exception(error_msg)
 
         output = result.stdout.strip()
-        
         lines = output.splitlines()
         clean_lines = [line for line in lines if not line.startswith("session_id:")]
         final_text = "\n".join(clean_lines).strip()
-
         return final_text if final_text else "No response from AI."
 
     except subprocess.TimeoutExpired:
@@ -156,7 +179,6 @@ def process_ai_job(job):
     user_prompt = raw_message
     attachment_info = None
 
-    # Parse JSON if job contains attachment reference
     try:
         if raw_message.startswith('{') and 'attachment' in raw_message:
             parsed = json.loads(raw_message)
@@ -164,96 +186,65 @@ def process_ai_job(job):
                 user_prompt = parsed['text']
                 attachment_info = parsed['attachment']
     except Exception as parse_err:
-        print(f"[{time.strftime('%H:%M:%S')}] Message JSON parse skipped: {parse_err}")
+        pass
 
     print(f"[{time.strftime('%H:%M:%S')}] Processing job {job_id} for session {conversation_id}: '{user_prompt[:50]}...'")
 
     try:
-        # 1. Update status to 'processing'
         supabase.from_("ai_jobs").update({
             "status": "processing",
             "processing_start_at": "now()"
         }).eq("id", job_id).execute()
 
-        final_prompt = user_prompt
-
-        # 2. Process attachment if present
+        attachment_prefix = ""
         if attachment_info and attachment_info.get('storage_url'):
             url = attachment_info['storage_url']
             filename = attachment_info.get('filename', 'attachment')
             mime_type = attachment_info.get('mime_type', 'application/octet-stream')
             
-            print(f"[{time.strftime('%H:%M:%S')}] Downloading attachment '{filename}' from {url[:40]}...")
-            
             req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
             with urllib.request.urlopen(req) as resp:
                 file_bytes = resp.read()
 
-            print(f"[{time.strftime('%H:%M:%S')}] Extracting text from '{filename}' ({len(file_bytes)} bytes)...")
             extracted_text = extract_file_content(file_bytes, filename, mime_type)
-            attachment_context = normalize_attachment_context(filename, mime_type, extracted_text)
+            attachment_prefix = normalize_attachment_context(filename, mime_type, extracted_text) + "\n\n"
 
-            final_prompt = f"{attachment_context}\n\nPertanyaan User:\n{user_prompt}"
-            print(f"[{time.strftime('%H:%M:%S')}] Attachment normalized successfully ({len(attachment_context)} chars context).")
+        # Combine System Instruction Persona + Attachment + User Query
+        full_prompt = f"{SYSTEM_CONSULTANT_INSTRUCTION}\n\n{attachment_prefix}Pertanyaan/Instruksi Customer:\n{user_prompt}"
 
-            # Update ai_attachments record if table exists
-            if attachment_info.get('id'):
-                try:
-                    supabase.from_("ai_attachments").update({
-                        "status": "ready"
-                    }).eq("id", attachment_info['id']).execute()
-                except Exception:
-                    pass
+        ai_response_text = call_hermes_cli(full_prompt)
 
-        # 3. Panggil Hermes CLI
-        ai_response_text = call_hermes_cli(final_prompt)
-
-        # 4. Update status to 'completed' dengan respons AI
         supabase.from_("ai_jobs").update({
             "status": "completed",
             "response": ai_response_text,
             "completed_at": "now()"
         }).eq("id", job_id).execute()
-        print(f"[{time.strftime('%H:%M:%S')}] ✓ Job {job_id} completed successfully. Response: '{ai_response_text[:60]}...'")
+        print(f"[{time.strftime('%H:%M:%S')}] ✓ Job {job_id} completed successfully.")
 
     except Exception as e:
         error_message = str(e)
         print(f"[{time.strftime('%H:%M:%S')}] ✗ Job {job_id} failed: {error_message}")
-        
-        if attachment_info and attachment_info.get('id'):
-            try:
-                supabase.from_("ai_attachments").update({
-                    "status": "failed",
-                    "error": error_message
-                }).eq("id", attachment_info['id']).execute()
-            except Exception:
-                pass
-
         supabase.from_("ai_jobs").update({
             "status": "failed",
-            "error": f"File tidak dapat diproses: {error_message}" if attachment_info else error_message,
+            "error": error_message,
             "completed_at": "now()"
         }).eq("id", job_id).execute()
 
 def listen_for_new_jobs():
     print("==================================================")
-    print(" Hermes AI Local Worker (Native CLI + File Extraction)")
+    print(" AGM Assistant Furniture Consultant Worker Active")
     print(f" Target Supabase : {SUPABASE_URL}")
-    print(f" Hermes Binary   : {HERMES_EXE}")
-    print(" Status          : Active & Listening...")
     print("==================================================")
 
     while True:
         try:
             res = supabase.from_("ai_jobs").select("*").eq("status", "pending").order("created_at", desc=False).limit(1).execute()
             jobs = res.data
-
             if jobs:
                 for job in jobs:
                     process_ai_job(job)
         except Exception as e:
             print(f"[{time.strftime('%H:%M:%S')}] Error fetching pending jobs: {e}")
-        
         time.sleep(3)
 
 if __name__ == "__main__":
