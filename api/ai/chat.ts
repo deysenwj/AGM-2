@@ -26,7 +26,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(405).json({ success: false, message: 'Method Not Allowed' });
     }
 
-    const { message, conversationId, attachment } = req.body || {};
+    const { message, conversationId, attachment, currentDesignState } = req.body || {};
     const userId = (req.headers['x-user-id'] as string) || null;
 
     if (!message || typeof message !== 'string') {
@@ -44,18 +44,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ? conversationId
             : generateUuid();
 
-        // Construct message payload (stores attachment reference if present)
-        let messagePayload = message;
-        if (attachment && typeof attachment === 'object' && attachment.storage_url) {
+        // Construct message payload (stores attachment and currentDesignState reference if present)
+        let messagePayload: string = message;
+        if ((attachment && typeof attachment === 'object' && attachment.storage_url) || currentDesignState) {
             messagePayload = JSON.stringify({
                 text: message,
-                attachment: {
+                currentDesignState: currentDesignState || null,
+                attachment: (attachment && typeof attachment === 'object' && attachment.storage_url) ? {
                     id: attachment.id || generateUuid(),
                     filename: attachment.filename || 'file',
                     mime_type: attachment.mime_type || 'application/octet-stream',
                     size: attachment.size || 0,
                     storage_url: attachment.storage_url
-                }
+                } : undefined
             });
         }
 

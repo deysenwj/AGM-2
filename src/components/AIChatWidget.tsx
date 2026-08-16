@@ -52,18 +52,25 @@ const parseDesignStateFromAiText = (rawText: string): { cleanText: string; desig
     return {
       cleanText: cleanText || 'Berikut adalah draf spesifikasi furniture sesuai kebutuhan Anda:',
       designState: {
+        version: parsedObj.version || 1,
         category: parsedObj.category || 'furniture',
+        subcategory: parsedObj.subcategory,
         style: parsedObj.style,
-        width: parsedObj.width,
-        depth: parsedObj.depth,
-        height: parsedObj.height,
+        dimensions: {
+          width: parsedObj.dimensions?.width ?? parsedObj.width,
+          depth: parsedObj.dimensions?.depth ?? parsedObj.depth,
+          height: parsedObj.dimensions?.height ?? parsedObj.height,
+          unit: parsedObj.dimensions?.unit || 'cm'
+        },
         material: parsedObj.material,
         color: parsedObj.color,
         finish: parsedObj.finish,
-        quantity: parsedObj.quantity || 1,
         capacity: parsedObj.capacity,
+        leg: parsedObj.leg,
+        sections: parsedObj.sections,
         notes: parsedObj.notes,
-        status: parsedObj.status || 'draft'
+        status: parsedObj.status || 'draft',
+        visualization: parsedObj.visualization || { status: 'none' }
       }
     };
   } catch (err) {
@@ -71,6 +78,7 @@ const parseDesignStateFromAiText = (rawText: string): { cleanText: string; desig
     return { cleanText: rawText };
   }
 };
+
 
 const AIChatWidget: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -287,7 +295,8 @@ const AIChatWidget: React.FC = () => {
           message: userMessageText, 
           conversationId: conversationIdRef.current, 
           userId: userId,
-          attachment: uploadedAttachmentInfo
+          attachment: uploadedAttachmentInfo,
+          currentDesignState: activeDesignState
         }),
       });
 

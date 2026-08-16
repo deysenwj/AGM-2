@@ -36,7 +36,7 @@ export const DesignSummaryCard: React.FC<DesignSummaryCardProps> = ({
       {/* Product Spec Header */}
       <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-3">
         <span className="font-semibold text-slate-300 text-[11px] uppercase tracking-wider">
-          Spesifikasi Custom Furniture
+          Spesifikasi Custom Furniture (V{design.version || 1})
         </span>
         <span className="text-[10px] font-mono text-slate-400 uppercase bg-slate-800 px-2 py-0.5 rounded">
           {isSubmitted ? 'Pending Review' : 'Draft Spec'}
@@ -45,7 +45,7 @@ export const DesignSummaryCard: React.FC<DesignSummaryCardProps> = ({
 
       {/* Main Category & Style */}
       <h4 className="font-bold text-white text-sm capitalize tracking-tight mb-2.5">
-        {design.category} {design.style ? `— Style ${design.style}` : ''}
+        {design.category.replace('_', ' ')} {design.style ? `— Style ${design.style}` : ''}
       </h4>
 
       {/* Structured Technical Specs */}
@@ -53,7 +53,7 @@ export const DesignSummaryCard: React.FC<DesignSummaryCardProps> = ({
         <div className="flex justify-between border-b border-slate-900 pb-1">
           <span className="text-slate-400">Ukuran (P × L × T)</span>
           <span className="font-medium text-white font-mono">
-            {design.width || '?'} × {design.depth || '?'} × {design.height || '?'} cm
+            {design.dimensions?.width || '?'} × {design.dimensions?.depth || '?'} × {design.dimensions?.height || '?'} {design.dimensions?.unit || 'cm'}
           </span>
         </div>
 
@@ -69,10 +69,26 @@ export const DesignSummaryCard: React.FC<DesignSummaryCardProps> = ({
           </span>
         </div>
 
+        {design.leg && (design.leg.color || design.leg.style) && (
+          <div className="flex justify-between border-b border-slate-900 pb-1">
+            <span className="text-slate-400">Model Kaki</span>
+            <span className="font-medium text-white capitalize">
+              {design.leg.color || ''} {design.leg.style || ''}
+            </span>
+          </div>
+        )}
+
+        {design.sections && (
+          <div className="flex justify-between border-b border-slate-900 pb-1">
+            <span className="text-slate-400">Jumlah Sekat/Pintu</span>
+            <span className="font-medium text-white">{design.sections} Bagian</span>
+          </div>
+        )}
+
         <div className="flex justify-between">
-          <span className="text-slate-400">Kapasitas / Kuantitas</span>
+          <span className="text-slate-400">Kapasitas / Peruntukan</span>
           <span className="font-medium text-white">
-            {design.capacity ? design.capacity : `${design.quantity || 1} Unit`}
+            {design.capacity ? `${design.capacity} Orang/Seat` : 'Kategori Standar'}
           </span>
         </div>
       </div>

@@ -40,35 +40,54 @@ Anda adalah AGM Assistant, konsultan furniture dan ahli desain custom resmi dari
 
 PRINSIP PERILAKU ANDA:
 1. Anda adalah "Personal Furniture Consultant", BUKAN chatbot AI biasa.
-2. Tugas Anda adalah membantu customer menemukan produk furniture yang ada di katalog AGM ATAU merancang spesifikasi custom furniture sesuai kebutuhan ruang customer.
-3. JANGAN tanyakan semua spesifikasi sekaligus! Gunakan "conversational progressive disclosure" (tanyakan 1 hal yang paling relevan berikutnya, misalnya: untuk berapa orang, ukuran ruang, style, material, warna).
-4. EKSPLORASI DETAIL RANCANGAN CUSTOM:
-   - Kategori furniture (meja makan, sofa, lemari, meja TV, kitchen set, dll.)
-   - Ukuran (Panjang x Lebar x Tinggi dalam cm)
-   - Kapasitas / Peruntukan (misal: 6 orang)
-   - Gaya / Style (minimalis, modern, klasik, skandinavia, industrial)
-   - Material (kayu jati, mahoni, plywood, besi, kain, dll.)
-   - Warna (natural, walnut, hitam, putih, dll.)
-   - Finishing (matte, glossy, satin)
-5. HARGA & KEAMANAN (PRICE SAFETY):
+2. KLASIFIKASI INTENT CUSTOMER:
+   Tentukan salah satu intent dari:
+   - GENERAL_QUESTION: Pertanyaan umum (misal: "halo", "2+2", "apa itu MDF?"). Jawab singkat, TANPA membuat design state baru.
+   - CATALOG_SEARCH: Mencari produk jadi (misal: "carikan meja makan").
+   - CUSTOM_DESIGN: Inisiatif awal membuat rancangan custom (misal: "saya mau meja makan 6 orang").
+   - DESIGN_MODIFICATION: Perubahan terhadap draf spesifikasi yang sedang aktif (misal: "buat lebih panjang", "ganti warna walnut", "ubah kaki jadi hitam").
+   - DESIGN_REVIEW: Menanyakan pendapat atau kecocokan desain (misal: "apakah desain ini cocok untuk ruang kecil?").
+   - ORDER_INTENT: Keinginan mengajukan/memesan draf (misal: "saya mau pesan ini").
+   - FILE_ANALYSIS / IMAGE_REFERENCE: Membahas lampiran file/gambar.
+
+3. DEDICATED DELTA STATE PERSISTENCE & VERSIONING:
+   - Jika tersedia CURRENT DESIGN STATE dari percakapan sebelumnya, Anda WAJIB MEMPERTAHANKAN seluruh properti spesifikasi yang TIDAK DIMINTA DIUBAH oleh customer!
+   - Hanya ubah properti yang diminta secara eksplisit.
+   - Jika ada modifikasi pada spesifikasi (dimensi, material, warna, leg, dll.), NAIKKAN nomor `version` (+1) dan set `visualization.status = "stale"`.
+   - Jika customer hanya bertanya umum atau tidak ada spesifikasi yang berubah, PERTAHANKAN nomor version dan state sebelumnya.
+
+4. HARGA & KEAMANAN (PRICE SAFETY):
    - JANGAN PERNAH mengklaim atau menjanjikan harga final untuk custom furniture.
-   - Selalu tekankan bahwa "Estimasi harga final dan waktu pengerjaan akan dikonfirmasi secara resmi oleh Admin AGM".
-6. STRUKTUR OUTPUT DESIGN STATE (SANGAT PENTING):
-   - Ketika Anda telah berhasil mengumpulkan atau memperbarui spesifikasi custom furniture dari perbincangan, Anda BISA menyertakan JSON Design State di akhir jawaban Anda dalam format khusus berikut:
+   - Selalu tekankan: "Estimasi harga final dan waktu pengerjaan akan dikonfirmasi secara resmi oleh Admin AGM".
+
+5. STRUKTUR OUTPUT DELIMITER Wajib:
+   Di akhir jawaban Anda, jika terdapat rancangan furniture yang aktif atau baru dibuat/diubah, sertakan JSON state di dalam delimiter berikut:
 
 ```json_design_state
 {
-  "category": "meja makan",
-  "style": "minimalis",
-  "width": 180,
-  "depth": 80,
-  "height": 75,
-  "material": "kayu jati",
+  "version": 2,
+  "category": "dining_table",
+  "subcategory": "meja makan minimalis",
+  "dimensions": {
+    "width": 200,
+    "depth": 80,
+    "height": 75,
+    "unit": "cm"
+  },
+  "capacity": 6,
+  "material": "walnut",
   "color": "natural",
   "finish": "matte",
-  "quantity": 1,
-  "capacity": "6 orang",
-  "status": "draft"
+  "style": "minimalis",
+  "leg": {
+    "style": "minimalis",
+    "material": "besi",
+    "color": "black"
+  },
+  "status": "draft",
+  "visualization": {
+    "status": "stale"
+  }
 }
 ```
 
@@ -175,16 +194,21 @@ def process_ai_job(job):
     job_id = job['id']
     conversation_id = job['conversation_id']
     raw_message = job['message']
+    incoming_design_state = job.get('design_state')
     
     user_prompt = raw_message
     attachment_info = None
 
     try:
-        if raw_message.startswith('{') and 'attachment' in raw_message:
+        if raw_message.startswith('{'):
             parsed = json.loads(raw_message)
-            if isinstance(parsed, dict) and 'text' in parsed and 'attachment' in parsed:
-                user_prompt = parsed['text']
-                attachment_info = parsed['attachment']
+            if isinstance(parsed, dict):
+                if 'text' in parsed:
+                    user_prompt = parsed['text']
+                if 'attachment' in parsed:
+                    attachment_info = parsed['attachment']
+                if 'currentDesignState' in parsed and parsed['currentDesignState']:
+                    incoming_design_state = parsed['currentDesignState']
     except Exception as parse_err:
         pass
 
@@ -209,16 +233,53 @@ def process_ai_job(job):
             extracted_text = extract_file_content(file_bytes, filename, mime_type)
             attachment_prefix = normalize_attachment_context(filename, mime_type, extracted_text) + "\n\n"
 
-        # Combine System Instruction Persona + Attachment + User Query
-        full_prompt = f"{SYSTEM_CONSULTANT_INSTRUCTION}\n\n{attachment_prefix}Pertanyaan/Instruksi Customer:\n{user_prompt}"
+        # Construct Previous State Prompt Context
+        state_context = ""
+        if incoming_design_state and isinstance(incoming_design_state, dict) and incoming_design_state.get('category'):
+            state_context = f"[CURRENT DESIGN STATE IN SESSION]\n```json\n{json.dumps(incoming_design_state, indent=2)}\n```\n(Gunakan state ini sebagai rujukan utama. Jika user melakukan perubahan kecil, pertahankan seluruh field lain dan naikkan version +1).\n\n"
+        else:
+            state_context = "[CURRENT DESIGN STATE IN SESSION]\n(Belum ada draf desain aktif. Jangan mengarang desain kecuali user meminta membuat custom furniture).\n\n"
+
+        # Combine System Persona + State Context + Attachment + User Prompt
+        full_prompt = f"{SYSTEM_CONSULTANT_INSTRUCTION}\n\n{state_context}{attachment_prefix}Pertanyaan/Instruksi Customer:\n{user_prompt}"
 
         ai_response_text = call_hermes_cli(full_prompt)
 
-        supabase.from_("ai_jobs").update({
+        # Parse & Validate Output Design State
+        updated_design_state = incoming_design_state
+        try:
+            if "```json_design_state" in ai_response_text:
+                parts = ai_response_text.split("```json_design_state")
+                if len(parts) > 1:
+                    json_str = parts[1].split("```")[0].strip()
+                    parsed = json.loads(json_str)
+                    if isinstance(parsed, dict) and parsed.get('category'):
+                        # Basic State Validation
+                        updated_design_state = parsed
+        except Exception as parse_state_err:
+            print(f"[{time.strftime('%H:%M:%S')}] Warning: Failed parsing updated design_state: {parse_state_err}. Retaining previous state.")
+
+        update_payload = {
             "status": "completed",
             "response": ai_response_text,
             "completed_at": "now()"
-        }).eq("id", job_id).execute()
+        }
+        if updated_design_state is not None:
+            try:
+                update_payload["design_state"] = updated_design_state
+            except Exception:
+                pass
+
+        try:
+            supabase.from_("ai_jobs").update(update_payload).eq("id", job_id).execute()
+        except Exception as update_err:
+            if "design_state" in str(update_err):
+                # Fallback if DB table has not cached design_state column yet
+                update_payload.pop("design_state", None)
+                supabase.from_("ai_jobs").update(update_payload).eq("id", job_id).execute()
+            else:
+                raise update_err
+
         print(f"[{time.strftime('%H:%M:%S')}] ✓ Job {job_id} completed successfully.")
 
     except Exception as e:
