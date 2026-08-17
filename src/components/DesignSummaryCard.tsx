@@ -65,6 +65,48 @@ export const DesignSummaryCard: React.FC<DesignSummaryCardProps> = ({
     visNotice = 'Visualisasi gagal dibuat';
   }
 
+  const [isGeneratingVis, setIsGeneratingVis] = useState(false);
+
+  const handleTriggerVisualize = async () => {
+    if (isGeneratingVis || !design || !design.category) return;
+    setIsGeneratingVis(true);
+
+    try {
+      const res = await fetch('/api/ai/visualize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ designState: design })
+      });
+      const data = await res.json();
+      if (data.success && data.imageUrl) {
+        design.visualization = {
+          status: 'ready',
+          imageUrl: data.imageUrl,
+          designVersion: data.designVersion || design.version || 1,
+          generatedAt: data.generatedAt
+        };
+      } else if (data.status === 'not_configured') {
+        design.visualization = {
+          status: 'not_configured',
+          designVersion: design.version || 1
+        };
+      } else {
+        design.visualization = {
+          status: 'failed',
+          designVersion: design.version || 1
+        };
+      }
+    } catch (err) {
+      console.error('[Visualize Error]', err);
+      design.visualization = {
+        status: 'failed',
+        designVersion: design.version || 1
+      };
+    } finally {
+      setIsGeneratingVis(false);
+    }
+  };
+
   return (
     <div className="my-3 bg-slate-900 text-slate-100 rounded-lg p-3.5 border border-slate-800 text-xs font-sans select-none max-w-full">
       {/* Product Spec Header */}
@@ -82,11 +124,41 @@ export const DesignSummaryCard: React.FC<DesignSummaryCardProps> = ({
         {displayCategory} {design.style ? `— Style ${design.style}` : ''}
       </h4>
 
-      {/* Visualization Invalidation Notice */}
-      {visNotice && (
-        <div className="mb-2.5 text-[11px] px-2.5 py-1.5 rounded bg-slate-800/90 text-amber-300 border border-slate-700/80 flex items-center gap-1.5">
-          <span className="font-bold">ℹ</span>
-          <span>{visNotice}</span>
+      {/* Visualization Image Render or Status Notice */}
+      {design.visualization?.imageUrl && (
+        <div className="mb-3 rounded overflow-hidden border border-slate-800 bg-slate-950">
+          <img
+            src={design.visualization.imageUrl}
+            alt="Visualisasi Furniture Custom"
+            className="w-full h-48 object-cover rounded"
+            onError={(e) => {
+              // Hide broken image safely
+              e.currentTarget.style.display = 'none';
+            }}
+          />
+          <div className="p-2 text-[10px] text-slate-400 font-mono flex justify-between bg-slate-900">
+            <span>Visualisasi Desain (V{design.visualization.designVersion || design.version || 1})</span>
+            {visStatus === 'stale' && <span className="text-amber-400">Versi Lama (Stale)</span>}
+          </div>
+        </div>
+      )}
+
+      {/* Visualization Invalidation / Status Notice */}
+      {visNotice && (!design.visualization?.imageUrl || visStatus === 'stale') && (
+        <div className="mb-2.5 text-[11px] px-2.5 py-1.5 rounded bg-slate-800/90 text-amber-300 border border-slate-700/80 flex items-center justify-between gap-1.5">
+          <div className="flex items-center gap-1.5">
+            <span className="font-bold">ℹ</span>
+            <span>{visNotice}</span>
+          </div>
+          {visStatus !== 'not_configured' && (
+            <button
+              onClick={handleTriggerVisualize}
+              disabled={isGeneratingVis}
+              className="px-2 py-0.5 rounded bg-amber-600 hover:bg-amber-500 text-white font-medium text-[10px] cursor-pointer"
+            >
+              {isGeneratingVis ? 'Menyiapkan...' : 'Perbarui'}
+            </button>
+          )}
         </div>
       )}
 
@@ -153,10 +225,22 @@ export const DesignSummaryCard: React.FC<DesignSummaryCardProps> = ({
         {onUpdateDesign && !isSubmitted && (
           <button
             onClick={onUpdateDesign}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isGeneratingVis}
             className="w-full sm:flex-1 py-1.5 px-3 rounded border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs transition-colors cursor-pointer"
           >
             Ubah Spesifikasi
+          </button>
+        )}
+
+        {/* Visualize Design Button Trigger */}
+        {!isSubmitted && (!design.visualization?.imageUrl || visStatus === 'stale') && (
+          <button
+            onClick={handleTriggerVisualize}
+            disabled={isGeneratingVis || isSubmitting}
+            aria-label="Visualisasikan desain"
+            className="w-full sm:flex-1 py-1.5 px-3 rounded border border-slate-700 bg-slate-800 hover:bg-slate-700 text-amber-300 font-medium text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+          >
+            {isGeneratingVis ? 'Menyiapkan visualisasi...' : 'Visualisasikan Desain'}
           </button>
         )}
 
@@ -167,7 +251,7 @@ export const DesignSummaryCard: React.FC<DesignSummaryCardProps> = ({
         ) : (
           <button
             onClick={() => setShowConfirmModal(true)}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isGeneratingVis}
             aria-label="Ajukan spesifikasi ke admin"
             className="w-full sm:flex-1 py-1.5 px-3 rounded bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs shadow-xs transition-all cursor-pointer flex items-center justify-center"
           >
