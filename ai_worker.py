@@ -330,12 +330,30 @@ def process_ai_job(job):
                         parsed.pop('depth', None)
                         parsed.pop('height', None)
 
-                        # Versioning Guarantee
+                        # Versioning & Visualization State Lifecycle Guarantee
                         if incoming_design_state and isinstance(incoming_design_state, dict):
                             prev_ver = incoming_design_state.get('version', 1)
                             parsed['version'] = prev_ver + 1
+                            
+                            # Inherit or set stale visualization status if state changed
+                            prev_vis = incoming_design_state.get('visualization', {})
+                            new_vis = parsed.get('visualization', {})
+                            
+                            if prev_vis.get('status') == 'ready':
+                                new_vis['status'] = 'stale'
+                                new_vis['imageUrl'] = prev_vis.get('imageUrl') # Retain as previous reference
+                                new_vis['designVersion'] = prev_vis.get('designVersion', prev_ver)
+                            elif not new_vis.get('status'):
+                                new_vis['status'] = 'not_configured'
+                                new_vis['designVersion'] = parsed['version']
+                            parsed['visualization'] = new_vis
                         elif not parsed.get('version'):
                             parsed['version'] = 1
+                            if not parsed.get('visualization'):
+                                parsed['visualization'] = {
+                                    'status': 'not_configured',
+                                    'designVersion': 1
+                                }
 
                         updated_design_state = parsed
         except Exception as parse_state_err:

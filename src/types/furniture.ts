@@ -17,6 +17,7 @@ export interface FurnitureVisualizationState {
   imageUrl?: string;
   prompt?: string;
   generatedAt?: string;
+  designVersion?: number; // Track which design version this visualization corresponds to
 }
 
 export type CanonicalCategory = 'dining_table' | 'wardrobe' | 'sofa' | 'tv_cabinet' | 'kitchen_set' | 'chair' | 'table' | 'other';
