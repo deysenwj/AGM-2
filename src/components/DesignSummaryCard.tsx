@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { FurnitureDesignState } from '../types/furniture';
+import type { FurnitureDesignState, FurnitureDimensions } from '../types/furniture';
 
 interface DesignSummaryCardProps {
   design: FurnitureDesignState;
@@ -8,6 +8,17 @@ interface DesignSummaryCardProps {
   isSubmitting?: boolean;
   isSubmitted?: boolean;
 }
+
+const CATEGORY_DISPLAY_MAP: Record<string, string> = {
+  dining_table: 'Meja Makan',
+  wardrobe: 'Lemari Pakaian',
+  sofa: 'Sofa',
+  tv_cabinet: 'Meja TV',
+  kitchen_set: 'Kitchen Set',
+  chair: 'Kursi',
+  table: 'Meja Kerja',
+  other: 'Furniture Custom'
+};
 
 export const DesignSummaryCard: React.FC<DesignSummaryCardProps> = ({
   design,
@@ -31,53 +42,91 @@ export const DesignSummaryCard: React.FC<DesignSummaryCardProps> = ({
     setShowConfirmModal(false);
   };
 
+  const displayCategory = CATEGORY_DISPLAY_MAP[design.category] || design.subcategory || design.category.replace('_', ' ');
+
+  // Format dimensions cleanly: P × L × T cm
+  const dims: FurnitureDimensions | undefined = design.dimensions;
+  const lengthStr = dims?.length ? `${dims.length}` : '—';
+  const widthStr = dims?.width ? `${dims.width}` : '—';
+  const heightStr = dims?.height ? `${dims.height}` : '—';
+  const hasAnyDim = dims?.length || dims?.width || dims?.height;
+  const dimensionFormatted = hasAnyDim 
+    ? `${lengthStr} × ${widthStr} × ${heightStr} ${dims?.unit || 'cm'}`
+    : 'Belum ditentukan';
+
+  // Visualization Status Text Mapping
+  const visStatus = design.visualization?.status;
+  let visNotice: string | null = null;
+  if (visStatus === 'stale') {
+    visNotice = 'Desain berubah — visualisasi perlu diperbarui';
+  } else if (visStatus === 'not_configured') {
+    visNotice = 'Visualisasi belum tersedia';
+  } else if (visStatus === 'failed') {
+    visNotice = 'Visualisasi gagal dibuat';
+  }
+
   return (
     <div className="my-3 bg-slate-900 text-slate-100 rounded-lg p-3.5 border border-slate-800 text-xs font-sans select-none max-w-full">
       {/* Product Spec Header */}
       <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-3">
         <span className="font-semibold text-slate-300 text-[11px] uppercase tracking-wider">
-          Spesifikasi Custom Furniture (V{design.version || 1})
+          Spesifikasi Custom Furniture
         </span>
         <span className="text-[10px] font-mono text-slate-400 uppercase bg-slate-800 px-2 py-0.5 rounded">
           {isSubmitted ? 'Pending Review' : 'Draft Spec'}
         </span>
       </div>
 
-      {/* Main Category & Style */}
+      {/* Main Category & Subcategory */}
       <h4 className="font-bold text-white text-sm capitalize tracking-tight mb-2.5">
-        {design.subcategory || design.category.replace('_', ' ')} {design.style ? `— Style ${design.style}` : ''}
+        {displayCategory} {design.style ? `— Style ${design.style}` : ''}
       </h4>
+
+      {/* Visualization Invalidation Notice */}
+      {visNotice && (
+        <div className="mb-2.5 text-[11px] px-2.5 py-1.5 rounded bg-slate-800/90 text-amber-300 border border-slate-700/80 flex items-center gap-1.5">
+          <span className="font-bold">ℹ</span>
+          <span>{visNotice}</span>
+        </div>
+      )}
 
       {/* Structured Technical Specs */}
       <div className="space-y-1.5 text-xs text-slate-300 mb-3.5 bg-slate-950 p-2.5 rounded border border-slate-800/80 font-sans">
+        {/* Ukuran P x L x T */}
         <div className="flex justify-between border-b border-slate-900 pb-1">
           <span className="text-slate-400">Ukuran (P × L × T)</span>
-          <span className="font-medium text-white font-mono">
-            {design.dimensions?.length || design.dimensions?.width || '?'} × {design.dimensions?.width && design.dimensions?.length ? design.dimensions.width : (design.dimensions?.depth || '?')} × {design.dimensions?.height || '?'} {design.dimensions?.unit || 'cm'}
-          </span>
+          <span className="font-medium text-white font-mono">{dimensionFormatted}</span>
         </div>
 
-        <div className="flex justify-between border-b border-slate-900 pb-1">
-          <span className="text-slate-400">Material Utama</span>
-          <span className="font-medium text-white capitalize">{design.material || 'Sesuai rekomendasi'}</span>
-        </div>
-
-        <div className="flex justify-between border-b border-slate-900 pb-1">
-          <span className="text-slate-400">Warna & Finishing</span>
-          <span className="font-medium text-white capitalize">
-            {design.color || 'Natural'} {design.finish ? `(${design.finish})` : ''}
-          </span>
-        </div>
-
-        {design.leg && (design.leg.color || design.leg.style) && (
+        {/* Material Utama */}
+        {design.material && (
           <div className="flex justify-between border-b border-slate-900 pb-1">
-            <span className="text-slate-400">Model Kaki</span>
+            <span className="text-slate-400">Material Utama</span>
+            <span className="font-medium text-white capitalize">{design.material}</span>
+          </div>
+        )}
+
+        {/* Warna & Finishing */}
+        {(design.color || design.finish) && (
+          <div className="flex justify-between border-b border-slate-900 pb-1">
+            <span className="text-slate-400">Warna & Finishing</span>
             <span className="font-medium text-white capitalize">
-              {design.leg.color || ''} {design.leg.style || ''}
+              {design.color || 'Natural'} {design.finish ? `(${design.finish})` : ''}
             </span>
           </div>
         )}
 
+        {/* Model Kaki */}
+        {design.leg && (design.leg.color || design.leg.style || design.leg.material) && (
+          <div className="flex justify-between border-b border-slate-900 pb-1">
+            <span className="text-slate-400">Model Kaki</span>
+            <span className="font-medium text-white capitalize">
+              {design.leg.color || ''} {design.leg.style || ''} {design.leg.material ? `(${design.leg.material})` : ''}
+            </span>
+          </div>
+        )}
+
+        {/* Jumlah Sekat / Pintu (Wardrobe / Storage) */}
         {design.sections && (
           <div className="flex justify-between border-b border-slate-900 pb-1">
             <span className="text-slate-400">Jumlah Sekat/Pintu</span>
@@ -85,12 +134,13 @@ export const DesignSummaryCard: React.FC<DesignSummaryCardProps> = ({
           </div>
         )}
 
-        <div className="flex justify-between">
-          <span className="text-slate-400">Kapasitas / Peruntukan</span>
-          <span className="font-medium text-white">
-            {design.capacity ? `${design.capacity} Orang/Seat` : 'Kategori Standar'}
-          </span>
-        </div>
+        {/* Kapasitas / Peruntukan */}
+        {design.capacity && (
+          <div className="flex justify-between">
+            <span className="text-slate-400">Kapasitas</span>
+            <span className="font-medium text-white">{design.capacity} Orang / Seats</span>
+          </div>
+        )}
       </div>
 
       {/* Price Safety Info */}
