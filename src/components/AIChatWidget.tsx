@@ -558,14 +558,15 @@ const AIChatWidget: React.FC = () => {
         </div>
       )}
 
-      {/* Floating Commerce Consultation Panel (Full-screen native-like UX on Mobile, Floating Card on Desktop) */}
+      {/* Opaque Full-Screen Native Shell on Mobile, Floating Card on Desktop */}
       {isOpen && (
         <div 
           style={viewportHeight ? ({ '--mobile-vh': `${viewportHeight}px` } as React.CSSProperties) : undefined}
-          className="fixed inset-0 sm:inset-auto sm:bottom-6 sm:right-6 z-50 w-full sm:w-[440px] h-[var(--mobile-vh,100dvh)] sm:h-[640px] max-h-[100dvh] bg-white rounded-none sm:rounded-2xl shadow-2xl border-0 sm:border sm:border-slate-200 flex flex-col overflow-hidden animate-fade-in mx-auto sm:mx-0 font-sans pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)]"
+          className="fixed inset-0 sm:inset-auto sm:bottom-6 sm:right-6 z-[9999] w-full sm:w-[440px] h-[var(--mobile-vh,100dvh)] sm:h-[640px] max-h-[100dvh] bg-white rounded-none sm:rounded-2xl shadow-2xl border-0 sm:border sm:border-slate-200 flex flex-col overflow-hidden animate-fade-in font-sans pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)]"
         >
-          {/* Header Bar - Ultra Minimal */}
+          {/* Header Bar - Compact Native Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-white text-slate-900 select-none h-[52px] shrink-0">
+
 
             <div className="flex items-center gap-2">
               <AGMAssistantMark variant="light" className="w-5 h-5 text-slate-900" />
