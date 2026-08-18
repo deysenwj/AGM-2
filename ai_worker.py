@@ -36,53 +36,49 @@ HERMES_EXE = find_hermes_executable()
 
 # System Prompt Injection for AGM Furniture Consultant Persona
 SYSTEM_CONSULTANT_INSTRUCTION = """
-Anda adalah AGM Assistant, konsultan furniture dan ahli desain custom resmi dari toko AGM.
+Anda adalah AGM Assistant, Personal Furniture Consultant & Ahli Desain Custom resmi dari toko AGM.
 
-PRINSIP PERILAKU ANDA:
-1. Anda adalah "Personal Furniture Consultant", BUKAN chatbot AI biasa.
-2. KLASIFIKASI INTENT CUSTOMER:
-   Tentukan salah satu intent dari:
-   - GENERAL_QUESTION: Pertanyaan umum (misal: "halo", "2+2", "apa itu MDF?", "Material walnut bagus tidak?"). Jawab singkat, TANPA membuat/mengubah design state baru!
-   - CATALOG_SEARCH: Mencari produk jadi (misal: "carikan meja makan").
-   - CUSTOM_DESIGN: Inisiatif awal membuat rancangan custom (misal: "saya mau meja makan 6 orang").
-   - DESIGN_MODIFICATION: Perubahan terhadap draf spesifikasi yang sedang aktif (misal: "panjangnya 220 cm", "ganti warna walnut", "ubah kaki jadi hitam").
-   - DESIGN_REVIEW: Menanyakan pendapat atau kecocokan desain (misal: "apakah desain ini cocok untuk ruang kecil?"). Jawab sesuai state aktif TANPA mengubah state.
-   - ORDER_INTENT: Keinginan mengajukan/memesan draf (misal: "saya mau pesan ini").
-   - FILE_ANALYSIS / IMAGE_REFERENCE: Membahas lampiran file/gambar.
+GAYA RESPON & NADA BICARA (SHOWROOM CONSULTANT STYLE):
+1. Anda adalah konsultan profesional toko furniture AGM, BUKAN chatbot AI generik.
+2. DILARANG menggunakan gaya AI generik: DILARANG pakai emoji dekoratif (✨, 🤖), DILARANG bilang "Sebagai AI...", "Tentu! Saya siap membantu Anda...".
+3. Gunakan bahasa Indonesia yang ramah, sopan, singkat, profesional, dan alami seperti konsultan showroom premium.
 
-3. CANONICAL CATEGORY ENUM (SANGAT PENTING):
-   Kategori WAJIB berupa salah satu canonical enum string berikut:
-   - "dining_table" (untuk meja makan)
-   - "wardrobe" (untuk lemari pakaian)
-   - "sofa" (untuk sofa/kursi santai)
-   - "tv_cabinet" (untuk meja TV / credenza)
-   - "kitchen_set" (untuk kitchen set)
-   - "chair" (untuk kursi tunggal)
-   - "table" (untuk meja kerja/umum)
-   - "other" (lainnya)
-   Gunakan field `subcategory` untuk nama Bahasa Indonesia alami (misal: subcategory: "Meja Makan Minimalis").
+KLASIFIKASI INTENT CUSTOMER & ATURAN MUTASI STATE:
+- GENERAL_QUESTION: Pertanyaan umum / diskusi materi (misal: "halo", "2+2", "apakah kayu walnut tahan lama?"). Jawab singkat & profesional. DILARANG menyertakan blok ```json_design_state```! State & versi TIDAK BISA berubah!
+- CATALOG_SEARCH: Mencari produk jadi katalog (misal: "carikan meja makan").
+- CUSTOM_DESIGN: Inisiatif awal membuat rancangan custom baru (misal: "saya mau meja makan 6 orang"). Tanyakan maksimal 1-2 pertanyaan klarifikasi penting secara bertahap jika informasi belum lengkap.
+- DESIGN_MODIFICATION: Perubahan eksplisit terhadap spesifikasi aktif (misal: "panjangnya 240 cm", "ganti warna walnut", "ubah kaki jadi hitam").
+  * WAJIB MEMPERTAHANKAN seluruh spesifikasi lama yang tidak diubah!
+  * NAIKKAN `version` (+1) dan set `visualization.status = "stale"`.
+- DESIGN_REVIEW: Tanggapan / opini terhadap desain aktif (misal: "kayaknya terlalu besar", "warnanya kurang cocok"). Tanyakan bagian spesifik mana yang ingin disesuaikan SEBELUM mengubah state. DILARANG memutasikan state tanpa permintaan spesifik!
+- APPROVAL: Customer menyukai/menyetujui draf (misal: "saya suka yang ini", "sudah cocok", "setuju dengan desain ini").
+  * PERTAHANKAN seluruh spesifikasi dan ubah `status = "approved"`. DILARANG menaikkan nomor `version`!
+- ORDER_INTENT: Customer menyatakan ingin memesan/mengajukan draf (misal: "saya mau pesan", "ajukan ke admin").
+  * Respons secara profesional: "Desain Anda sudah siap diajukan ke Admin AGM. Silakan tekan tombol 'Ajukan ke Admin' pada kartu spesifikasi di atas."
+  * DILARANG mengubah spesifikasi furniture!
 
-4. DIMENSION SEMANTICS MANDATE:
-   - "panjang" / "panjangnya" → map ke `dimensions.length` (TIDAK BOLEH ke width!).
-   - "lebar" → map ke `dimensions.width`.
-   - "kedalaman" / "dalam" → map ke `dimensions.depth`.
-   - "tinggi" → map ke `dimensions.height`.
+CANONICAL CATEGORY ENUM:
+- "dining_table" (meja makan)
+- "wardrobe" (lemari pakaian)
+- "sofa" (sofa / kursi santai)
+- "tv_cabinet" (meja TV / credenza)
+- "kitchen_set" (kitchen set)
+- "chair" (kursi)
+- "table" (meja kerja/umum)
+- "other" (lainnya)
+Gunakan `subcategory` untuk penamaan Bahasa Indonesia alami (misal: subcategory: "Meja Makan Minimalis").
 
-5. CAPACITY NORMALIZATION:
-   - `capacity` WAJIB berupa angka integer murni (misal: 6 untuk 6 orang/seats, BUKAN string "6 orang").
+DIMENSION SEMANTICS MANDATE:
+- "panjang" / "panjangnya" → map ke `dimensions.length` (TIDAK BOLEH ke width!).
+- "lebar" → map ke `dimensions.width`.
+- "kedalaman" / "dalam" → map ke `dimensions.depth`.
+- "tinggi" → map ke `dimensions.height`.
 
-6. DELTA STATE PERSISTENCE & VERSIONING RULES:
-   - Jika tersedia CURRENT DESIGN STATE dari percakapan sebelumnya dan intent adalah DESIGN_MODIFICATION:
-     * Anda WAJIB MEMPERTAHANKAN seluruh properti spesifikasi lama yang TIDAK DIMINTA DIUBAH oleh customer!
-     * NAIKKAN nomor `version` persis (+1) dari versi sebelumnya.
-     * Set `visualization.status = "stale"`.
-   - Jika intent adalah GENERAL_QUESTION atau DESIGN_REVIEW:
-     * DILARANG SERTAKAN BLOK ```json_design_state``` DI AKHIR JAWABAN! Jawab pertanyaan pengguna secara murni tanpa memutasikan atau menghasilkan blok state baru!
-   - Jika intent adalah DESIGN_MODIFICATION tetapi BELUM ADA DRAF DESAIN AKTIF (CURRENT DESIGN STATE kosong):
-     * DILARANG MENGARANG DRAF DESAIN BARU! Minta pengguna menjelaskan furniture apa yang ingin dirancang lebih panjang/diubah (misal: "Anda ingin merancang meja makan, lemari, atau furniture apa yang ingin dibuat lebih panjang?").
+CAPACITY NORMALIZATION:
+- `capacity` WAJIB berupa angka integer murni (misal: 6 untuk 6 orang/seats, BUKAN string "6 orang").
 
-7. STRUKTUR OUTPUT DELIMITER WAJIB:
-   Di akhir jawaban Anda, HANYA jika intent adalah CUSTOM_DESIGN atau DESIGN_MODIFICATION yang valid, sertakan JSON state di dalam delimiter berikut:
+STRUKTUR OUTPUT DELIMITER WAJIB:
+Di akhir jawaban Anda, HANYA jika intent adalah CUSTOM_DESIGN, DESIGN_MODIFICATION, atau APPROVAL yang valid, sertakan JSON state di dalam delimiter berikut:
 
 ```json_design_state
 {
@@ -90,8 +86,8 @@ PRINSIP PERILAKU ANDA:
   "category": "dining_table",
   "subcategory": "Meja Makan Minimalis",
   "dimensions": {
-    "length": 220,
-    "width": 80,
+    "length": 240,
+    "width": 90,
     "height": 75,
     "unit": "cm"
   },
@@ -111,8 +107,6 @@ PRINSIP PERILAKU ANDA:
   }
 }
 ```
-
-Jawablah dengan bahasa Indonesia yang ramah, sopan, profesional, dan alami.
 """
 
 def extract_pdf_text(file_bytes: bytes) -> str:
@@ -211,6 +205,75 @@ def call_hermes_cli(prompt: str) -> str:
     except Exception as e:
         raise Exception(f"Failed to execute Hermes CLI: {e}")
 
+def analyze_furniture_visualization_9router(image_url: str, user_prompt: str, current_design_state: dict) -> str:
+    """
+    Calls 9Router Vision API (gemini/gemini-3.7-flash) to inspect furniture visualization objectively.
+    Returns structured vision observation string or empty string on failure/timeout.
+    """
+    try:
+        nine_router_base = os.environ.get('NINE_ROUTER_BASE_URL', 'http://localhost:20128/v1').rstrip('/')
+        nine_router_key = os.environ.get('NINE_ROUTER_API_KEY', '')
+        
+        system_instruction = (
+            "You are the visual inspection component of AGM Assistant. "
+            "Analyze the provided AGM furniture visualization objectively. "
+            "Do NOT infer exact physical dimensions from the image. "
+            "Do NOT invent technical specifications. "
+            "Focus only on visible characteristics: furniture structure, leg structure, proportions, color, material appearance, finish, and style. "
+            f"Compare against state: {json.dumps(current_design_state or {})}. "
+            f"Customer feedback: '{user_prompt}'. "
+            "Return concise JSON with keys: 'observations', 'feedback_target', 'affected_visual_area', 'confidence'."
+        )
+
+        payload = {
+            "model": "gemini/gemini-3.7-flash",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": system_instruction},
+                        {"type": "image_url", "image_url": {"url": image_url}}
+                    ]
+                }
+            ]
+        }
+
+        data_bytes = json.dumps(payload).encode('utf-8')
+        req = urllib.request.Request(
+            f"{nine_router_base}/chat/completions",
+            data=data_bytes,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {nine_router_key}" if nine_router_key else ""
+            }
+        )
+
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            resp_bytes = resp.read()
+            raw_text = resp_bytes.decode('utf-8')
+            
+            # Handle streaming chunks if returned as SSE
+            if "data: " in raw_text:
+                chunks = raw_text.split("data: ")
+                extracted_content = ""
+                for c in chunks:
+                    c_clean = c.strip()
+                    if c_clean and c_clean != "[DONE]":
+                        try:
+                            parsed_c = json.loads(c_clean)
+                            delta = parsed_c.get('choices', [{}])[0].get('delta', {}).get('content', '')
+                            extracted_content += delta
+                        except Exception:
+                            pass
+                return extracted_content.strip()
+            else:
+                parsed_res = json.loads(raw_text)
+                return parsed_res.get('choices', [{}])[0].get('message', {}).get('content', '').strip()
+
+    except Exception as vision_err:
+        print(f"[{time.strftime('%H:%M:%S')}] Warning: 9Router Vision analysis skipped/failed: {vision_err}")
+        return ""
+
 def process_ai_job(job):
     job_id = job['id']
     conversation_id = job['conversation_id']
@@ -246,13 +309,41 @@ def process_ai_job(job):
             url = attachment_info['storage_url']
             filename = attachment_info.get('filename', 'attachment')
             mime_type = attachment_info.get('mime_type', 'application/octet-stream')
+            source_type = attachment_info.get('source', 'furniture_reference')
             
-            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req) as resp:
-                file_bytes = resp.read()
+            is_image_attachment = any(mime_type.lower().startswith(p) for p in ['image/jpeg', 'image/png', 'image/webp']) or any(filename.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.webp'])
 
-            extracted_text = extract_file_content(file_bytes, filename, mime_type)
-            attachment_prefix = normalize_attachment_context(filename, mime_type, extracted_text) + "\n\n"
+            if is_image_attachment:
+                print(f"[{time.strftime('%H:%M:%S')}] Customer image attachment ({source_type}) detected. Calling 9Router Vision...")
+                header_tag = "[ROOM VISUAL ANALYSIS]" if source_type == 'room_photo' else "[FURNITURE REFERENCE ANALYSIS]" if source_type == 'furniture_reference' else "[DESIGN INSPIRATION ANALYSIS]"
+                img_vision_res = analyze_furniture_visualization_9router(url, f"Analyze this customer uploaded image ({source_type}). {user_prompt}", incoming_design_state)
+                if img_vision_res:
+                    attachment_prefix = f"{header_tag}\nFilename: {filename}\nSource: {source_type}\nVisual Analysis: {img_vision_res}\n[END ATTACHMENT]\n\n"
+                else:
+                    attachment_prefix = f"{header_tag}\nFilename: {filename}\nSource: {source_type}\n[Image URL: {url}]\n[END ATTACHMENT]\n\n"
+            else:
+                req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(req) as resp:
+                    file_bytes = resp.read()
+
+                extracted_text = extract_file_content(file_bytes, filename, mime_type)
+                attachment_prefix = normalize_attachment_context(filename, mime_type, extracted_text) + "\n\n"
+
+        # Vision Pipeline Execution Guard (Trigger Vision ONLY if active visualization image exists AND prompt implies visual feedback)
+        vision_context = ""
+        active_img_url = (incoming_design_state or {}).get('visualization', {}).get('imageUrl')
+        
+        # Check if prompt contains visual feedback indicators (leg, color, proportion, shape, appearance, etc.)
+        prompt_lower = user_prompt.lower()
+        is_explicit_dim = any(k in prompt_lower for k in ['panjang', 'lebar', 'tinggi', 'kedalaman', 'cm', 'mm', 'ukuran'])
+        visual_keywords = ['kaki', 'warna', 'proporsi', 'bentuk', 'terlalu besar', 'terlalu kecil', 'terlalu terang', 'terlalu gelap', 'desainnya', 'kelihatan', 'tampak', 'elegan']
+        is_visual_feedback = any(vk in prompt_lower for vk in visual_keywords) and not is_explicit_dim
+
+        if active_img_url and is_visual_feedback:
+            print(f"[{time.strftime('%H:%M:%S')}] Active visualization image detected. Triggering 9Router Vision analysis...")
+            vision_result = analyze_furniture_visualization_9router(active_img_url, user_prompt, incoming_design_state)
+            if vision_result:
+                vision_context = f"[9ROUTER VISION MODEL INSPECTION RESULT]\n{vision_result}\n(Gunakan hasil analisis visual ini sebagai panduan konteks visual produk untuk menjawab umpan balik customer).\n\n"
 
         # Construct Previous State Prompt Context
         state_context = ""
@@ -261,8 +352,8 @@ def process_ai_job(job):
         else:
             state_context = "[CURRENT DESIGN STATE IN SESSION]\n(Belum ada draf desain aktif. Jangan mengarang desain kecuali user meminta membuat custom furniture).\n\n"
 
-        # Combine System Persona + State Context + Attachment + User Prompt
-        full_prompt = f"{SYSTEM_CONSULTANT_INSTRUCTION}\n\n{state_context}{attachment_prefix}Pertanyaan/Instruksi Customer:\n{user_prompt}"
+        # Combine System Persona + State Context + Vision Context + Attachment + User Prompt
+        full_prompt = f"{SYSTEM_CONSULTANT_INSTRUCTION}\n\n{state_context}{vision_context}{attachment_prefix}Pertanyaan/Instruksi Customer:\n{user_prompt}"
 
         ai_response_text = call_hermes_cli(full_prompt)
 
@@ -343,9 +434,19 @@ def process_ai_job(job):
                                 new_vis['status'] = 'stale'
                                 new_vis['imageUrl'] = prev_vis.get('imageUrl') # Retain as previous reference
                                 new_vis['designVersion'] = prev_vis.get('designVersion', prev_ver)
+                                # Preserve history
+                                hist = prev_vis.get('visualizationHistory', [])
+                                if prev_vis.get('imageUrl') and not any(h.get('imageUrl') == prev_vis.get('imageUrl') for h in hist):
+                                    hist.append({
+                                        'designVersion': prev_vis.get('designVersion', prev_ver),
+                                        'imageUrl': prev_vis.get('imageUrl'),
+                                        'generatedAt': prev_vis.get('generatedAt')
+                                    })
+                                new_vis['visualizationHistory'] = hist
                             elif not new_vis.get('status'):
                                 new_vis['status'] = 'not_configured'
                                 new_vis['designVersion'] = parsed['version']
+                                new_vis['visualizationHistory'] = prev_vis.get('visualizationHistory', [])
                             parsed['visualization'] = new_vis
                         elif not parsed.get('version'):
                             parsed['version'] = 1

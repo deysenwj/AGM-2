@@ -316,7 +316,7 @@ export default function App() {
   });
   const isAdmin = Boolean(currentAdminUser);
 
-  const [currentView, setCurrentView] = useState<'catalog' | 'stock' | 'dashboard' | 'nota'>('catalog');
+  const [currentView, setCurrentView] = useState<'catalog' | 'stock' | 'dashboard' | 'nota' | 'custom-requests'>('catalog');
 
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
     const saved = localStorage.getItem('agm2_transactions');
@@ -377,6 +377,102 @@ export default function App() {
   const [activeOnlineAdmins, setActiveOnlineAdmins] = useState<{ name: string; email: string; onlineAt: string }[]>([]);
   const [isOnlineAdminsModalOpen, setIsOnlineAdminsModalOpen] = useState(false);
   const presenceChannelRef = React.useRef<any>(null);
+
+  // Custom Design Requests Admin Mutation State
+  const [customRequests, setCustomRequests] = useState<any[]>([]);
+  const [isCustomRequestsLoading, setIsCustomRequestsLoading] = useState(false);
+  const [customRequestsError, setCustomRequestsError] = useState<string | null>(null);
+  const [selectedCustomRequestDetail, setSelectedCustomRequestDetail] = useState<any | null>(null);
+
+  const [isUpdatingCustomRequest, setIsUpdatingCustomRequest] = useState(false);
+  const [customRequestMutationError, setCustomRequestMutationError] = useState<string | null>(null);
+  const [customRequestQuotedPriceInput, setCustomRequestQuotedPriceInput] = useState<string>('');
+  const [customRequestAdminNoteInput, setCustomRequestAdminNoteInput] = useState<string>('');
+
+  const fetchCustomRequests = async () => {
+    if (!isSupabaseConfigured) return;
+    setIsCustomRequestsLoading(true);
+    setCustomRequestsError(null);
+    try {
+      const { data, error } = await supabase
+        .from('custom_design_requests')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.warn('Fetch custom_design_requests warning:', error.message);
+        setCustomRequestsError(error.message);
+      } else if (data) {
+        setCustomRequests(data);
+      }
+    } catch (err: any) {
+      console.warn('Fetch custom_design_requests exception:', err.message);
+      setCustomRequestsError(err.message || 'Gagal memuat pengajuan custom');
+    } finally {
+      setIsCustomRequestsLoading(false);
+    }
+  };
+
+
+  const handleAdminMutationCustomRequest = async (requestId: string, targetStatus: string, priceInput?: number, responseInput?: string) => {
+    if (isUpdatingCustomRequest) return;
+    setIsUpdatingCustomRequest(true);
+    setCustomRequestMutationError(null);
+
+    try {
+      // 1. Get Access Token from Supabase session
+      const sessionRes = await supabase.auth.getSession();
+      const accessToken = sessionRes.data.session?.access_token;
+      if (!accessToken) {
+        throw new Error('Session admin tidak valid. Silakan login kembali.');
+      }
+
+      // 2. Prepare payload
+      const payload: Record<string, any> = {
+        requestId,
+        status: targetStatus
+      };
+      if (priceInput !== undefined) payload.quoted_price = priceInput;
+      if (responseInput !== undefined) payload.admin_response = responseInput;
+
+      // 3. Dispatch PATCH request to /api/admin/custom-request
+      const res = await fetch('/api/admin/custom-request', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const resData = await res.json();
+      if (!res.ok) {
+        if (res.status === 401) throw new Error('Session admin tidak valid. Silakan login kembali.');
+        if (res.status === 403) throw new Error('Anda tidak memiliki izin untuk mengubah pengajuan ini.');
+        if (res.status === 409) throw new Error('Status pengajuan telah berubah di server. Muat ulang data sebelum mencoba lagi.');
+        throw new Error(resData.message || 'Gagal memperbarui status pengajuan.');
+      }
+
+      // 4. Update local detail state and refresh request list
+      setSelectedCustomRequestDetail((prev: any) => prev ? {
+        ...prev,
+        status: targetStatus,
+        quoted_price: priceInput !== undefined ? priceInput : prev.quoted_price,
+        admin_response: responseInput !== undefined ? responseInput : prev.admin_response,
+        updated_at: new Date().toISOString()
+      } : prev);
+
+      triggerToast('Pengajuan berhasil diperbarui.');
+      await fetchCustomRequests();
+
+    } catch (err: any) {
+      console.warn('Admin mutation error:', err.message);
+      setCustomRequestMutationError(err.message || 'Terjadi kesalahan saat memperbarui status.');
+    } finally {
+      setIsUpdatingCustomRequest(false);
+    }
+  };
+
 
   // Helper to map DB row to Transaction interface
   const mapDbToTransaction = React.useCallback((item: any): Transaction => {
@@ -1079,6 +1175,7 @@ export default function App() {
       fetchProducts(1, true),
       fetchDeletedLogs(),
       fetchStockHistory(),
+      fetchCustomRequests(),
       new Promise(r => setTimeout(r, 100)).then(() => fetchTransactions())
     ]).then(() => {
       if (isSupabaseConfigured && import.meta.env.VITE_SUPABASE_REALTIME_ENABLED === 'true') {
@@ -2109,6 +2206,15 @@ export default function App() {
                       <span>Kasir &amp; Cetak Nota</span>
                     </button>
                     <button
+                      onClick={() => { setCurrentView('custom-requests'); setIsSidebarOpen(false); }}
+                      className={`w-full text-left flex items-center gap-3 p-3 rounded-xl text-xs font-bold transition-all ${currentView === 'custom-requests' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'}`}
+                    >
+                      <svg className="w-4 h-4 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                      </svg>
+                      <span>Custom Requests</span>
+                    </button>
+                    <button
                       onClick={() => { setIsStockLogModalOpen(true); setIsSidebarOpen(false); }}
                       className="w-full text-left flex items-center justify-between p-3 rounded-xl text-xs font-bold transition-all text-slate-600 hover:bg-slate-100 hover:text-slate-900 cursor-pointer"
                     >
@@ -2224,6 +2330,7 @@ export default function App() {
                 {currentView === 'stock' && 'Manajemen Kontrol Stok'}
                 {currentView === 'dashboard' && 'Analisis Penjualan & Performa'}
                 {currentView === 'nota' && 'Kasir & Pembuatan Nota'}
+                {currentView === 'custom-requests' && 'Pengajuan Custom Furniture Customer'}
               </h1>
             </div>
 
@@ -3102,6 +3209,551 @@ export default function App() {
         {currentView === 'nota' && isAdmin && (
           <NotaView products={products} triggerToast={triggerToast} isAdmin={isAdmin} adjustStock={adjustStock} deductBulkStock={deductBulkStock} addTransaction={addTransaction} />
         )}
+
+        {/* ── CUSTOM DESIGN REQUESTS VIEW (EDITORIAL TABLE) ── */}
+        {currentView === 'custom-requests' && isAdmin && (
+          <section className="px-4 md:px-8 py-6 md:py-8 max-w-container-max mx-auto w-full flex-grow">
+            <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-xs">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-slate-100">
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900 tracking-tight">Daftar Pengajuan Custom Furniture</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Permintaan spesifikasi furniture kustom dari customer melalui AGM Assistant</p>
+                </div>
+                <button
+                  onClick={fetchCustomRequests}
+                  disabled={isCustomRequestsLoading}
+                  className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-extrabold rounded-xl transition-all flex items-center gap-2 border border-slate-200 cursor-pointer disabled:opacity-50"
+                >
+                  <svg className={`w-3.5 h-3.5 text-slate-600 ${isCustomRequestsLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  <span>{isCustomRequestsLoading ? 'Memuat...' : 'Muat Ulang'}</span>
+                </button>
+              </div>
+
+              {/* Error State */}
+              {customRequestsError ? (
+                <div className="p-6 bg-rose-50 border border-rose-200 rounded-xl text-center">
+                  <p className="text-xs font-bold text-rose-700 mb-3">Tidak dapat memuat pengajuan custom: {customRequestsError}</p>
+                  <button
+                    onClick={fetchCustomRequests}
+                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold rounded-xl transition-all shadow-xs"
+                  >
+                    Coba Lagi
+                  </button>
+                </div>
+              ) : isCustomRequestsLoading && customRequests.length === 0 ? (
+                /* Loading State */
+                <div className="py-16 text-center text-slate-500">
+                  <div className="w-8 h-8 border-3 border-slate-300 border-t-slate-900 rounded-full animate-spin mx-auto mb-3"></div>
+                  <p className="text-xs font-bold text-slate-600">Memuat data pengajuan custom...</p>
+                </div>
+              ) : customRequests.length === 0 ? (
+                /* Empty State */
+                <div className="py-16 text-center text-slate-500 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+                  <p className="text-sm font-extrabold text-slate-700 mb-1">Custom Requests</p>
+                  <p className="text-xs text-slate-500">Belum ada pengajuan desain custom dari customer.</p>
+                </div>
+              ) : (
+                /* Editorial Table */
+                <div className="overflow-x-auto hide-scrollbar">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50/80 text-slate-500 uppercase font-extrabold tracking-wider text-[10px]">
+                        <th className="py-3 px-3">No. Referensi</th>
+                        <th className="py-3 px-3">Customer</th>
+                        <th className="py-3 px-3">Kategori</th>
+                        <th className="py-3 px-3 text-center">Versi</th>
+                        <th className="py-3 px-3">Visualisasi</th>
+                        <th className="py-3 px-3 text-center">Status</th>
+                        <th className="py-3 px-3 text-right">Tanggal Pengajuan</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+                      {customRequests.map((req) => {
+                        const snapshot = req.design_snapshot || {};
+                        const categoryName = snapshot.subcategory || snapshot.category || 'Custom Furniture';
+                        const versionNum = snapshot.version ? `V${snapshot.version}` : 'V1';
+                        const hasVis = Boolean(req.visualization_url);
+                        const customerDisplay = req.customer_name || (req.user_id ? `Customer ID: ${String(req.user_id).substring(0, 8)}` : 'Customer AGM');
+                        const statusUpper = (req.status || 'SUBMITTED').toUpperCase();
+
+                        let statusBadgeClass = 'bg-slate-100 text-slate-800 border-slate-200';
+                        if (statusUpper === 'SUBMITTED') statusBadgeClass = 'bg-sky-50 text-sky-800 border-sky-200';
+                        else if (statusUpper === 'REVIEWING') statusBadgeClass = 'bg-amber-50 text-amber-800 border-amber-200';
+                        else if (statusUpper === 'QUOTED') statusBadgeClass = 'bg-purple-50 text-purple-800 border-purple-200';
+                        else if (statusUpper === 'APPROVED') statusBadgeClass = 'bg-emerald-50 text-emerald-800 border-emerald-200';
+                        else if (statusUpper === 'REJECTED') statusBadgeClass = 'bg-rose-50 text-rose-800 border-rose-200';
+                        else if (statusUpper === 'COMPLETED') statusBadgeClass = 'bg-slate-900 text-white border-slate-900';
+
+                        const formattedCreated = req.created_at ? new Date(req.created_at).toLocaleString('id-ID', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        }) : '—';
+
+                        return (
+                          <tr 
+                            key={req.id} 
+                            onClick={() => setSelectedCustomRequestDetail(req)}
+                            className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
+                          >
+                            <td className="py-3.5 px-3 font-mono font-bold text-slate-900 text-xs">
+                              {req.reference_number || `AGM-CUSTOM-${req.id.substring(0, 6).toUpperCase()}`}
+                            </td>
+                            <td className="py-3.5 px-3">
+                              <span className="font-bold text-slate-900 block">{customerDisplay}</span>
+                              {req.customer_phone && <span className="text-[11px] text-slate-500 font-mono">{req.customer_phone}</span>}
+                            </td>
+                            <td className="py-3.5 px-3 capitalize font-semibold text-slate-800">
+                              {categoryName}
+                            </td>
+                            <td className="py-3.5 px-3 text-center">
+                              <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded font-bold text-[10px]">
+                                {versionNum}
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-3">
+                              {hasVis ? (
+                                <span className="inline-flex items-center gap-1.5 text-emerald-700 font-bold text-[11px]">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                  AVAILABLE
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 text-slate-400 font-semibold text-[11px]">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+                                  NOT AVAILABLE
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3.5 px-3 text-center">
+                              <span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider border ${statusBadgeClass}`}>
+                                {statusUpper}
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-3 text-right text-slate-500 text-[11px] font-mono whitespace-nowrap">
+                              {formattedCreated}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* ── CUSTOM FURNITURE REQUEST DETAIL MODAL (READ-ONLY OPERATIONS VIEW) ── */}
+        {selectedCustomRequestDetail && (() => {
+          const req = selectedCustomRequestDetail;
+          const snapshot = req.design_snapshot || {};
+          const refNum = req.reference_number || `AGM-CUSTOM-${req.id.substring(0, 6).toUpperCase()}`;
+          const statusUpper = (req.status || 'SUBMITTED').toUpperCase();
+          const versionNum = snapshot.version ? `V${snapshot.version}` : 'V1';
+          const hasVis = Boolean(req.visualization_url);
+          const customerDisplay = req.customer_name || (req.user_id ? `Customer ID: ${String(req.user_id).substring(0, 8)}` : 'Customer AGM');
+
+          // Dimension Semantics
+          const len = snapshot.dimensions?.length ?? snapshot.length ?? null;
+          const wid = snapshot.dimensions?.width ?? snapshot.width ?? null;
+          const dep = snapshot.dimensions?.depth ?? snapshot.depth ?? null;
+          const hei = snapshot.dimensions?.height ?? snapshot.height ?? null;
+          const unit = snapshot.dimensions?.unit || 'cm';
+
+          let dimStr = 'Belum ditentukan';
+          if (len !== null || wid !== null || hei !== null || dep !== null) {
+            const parts = [];
+            parts.push(len !== null ? `${len}` : '—');
+            parts.push(wid !== null ? `${wid}` : '—');
+            if (dep !== null) parts.push(`${dep}`);
+            parts.push(hei !== null ? `${hei}` : '—');
+            dimStr = `${parts.join(' × ')} ${unit}`;
+          }
+
+          let statusBadgeClass = 'bg-slate-100 text-slate-800 border-slate-200';
+          if (statusUpper === 'SUBMITTED') statusBadgeClass = 'bg-sky-50 text-sky-800 border-sky-200';
+          else if (statusUpper === 'REVIEWING') statusBadgeClass = 'bg-amber-50 text-amber-800 border-amber-200';
+          else if (statusUpper === 'QUOTED') statusBadgeClass = 'bg-purple-50 text-purple-800 border-purple-200';
+          else if (statusUpper === 'APPROVED') statusBadgeClass = 'bg-emerald-50 text-emerald-800 border-emerald-200';
+          else if (statusUpper === 'REJECTED') statusBadgeClass = 'bg-rose-50 text-rose-800 border-rose-200';
+          else if (statusUpper === 'COMPLETED') statusBadgeClass = 'bg-slate-900 text-white border-slate-900';
+
+          const formattedCreated = req.created_at ? new Date(req.created_at).toLocaleString('id-ID', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          }) : '—';
+
+          const attachments = Array.isArray(req.reference_attachments) ? req.reference_attachments : [];
+
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-fade-in" onClick={() => setSelectedCustomRequestDetail(null)}>
+              <div className="w-full max-w-2xl bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto animate-pop-in hide-scrollbar" onClick={(e) => e.stopPropagation()}>
+                {/* Close button */}
+                <button 
+                  onClick={() => setSelectedCustomRequestDetail(null)}
+                  className="absolute top-5 right-5 text-slate-400 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 w-8 h-8 rounded-full flex items-center justify-center transition-colors z-10 cursor-pointer"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+
+                {/* ── HEADER ── */}
+                <div className="border-b border-slate-100 pb-5 mb-6 pr-8">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Custom Furniture Operations View</span>
+                    <span className="text-slate-300">•</span>
+                    <span className="px-2 py-0.5 bg-slate-100 text-slate-800 rounded font-bold text-[10px]">{versionNum}</span>
+                  </div>
+                  <h2 className="font-mono font-black text-xl sm:text-2xl text-slate-900 tracking-tight">{refNum}</h2>
+                  
+                  <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-3 border-t border-slate-100 text-xs">
+                    <div>
+                      <span className="text-slate-400 font-semibold block text-[10px] uppercase tracking-wider">Pemohon / Customer</span>
+                      <strong className="text-slate-900 font-bold block">{customerDisplay}</strong>
+                      {req.customer_phone && <span className="text-slate-500 font-mono text-[11px] block">{req.customer_phone}</span>}
+                    </div>
+                    <div>
+                      <span className="text-slate-400 font-semibold block text-[10px] uppercase tracking-wider">Status Pengajuan</span>
+                      <span className={`inline-block px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-wider border mt-0.5 ${statusBadgeClass}`}>
+                        {statusUpper}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-slate-400 font-semibold block text-[10px] uppercase tracking-wider">Tanggal Dibuat</span>
+                      <span className="text-slate-700 font-mono text-[11px] block">{formattedCreated}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── DESIGN SPECIFICATION ── */}
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="text-[11px] font-extrabold uppercase tracking-widest text-slate-400 mb-3 border-b border-slate-100 pb-1">Spesifikasi Desain Custom ({versionNum})</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-slate-50/80 p-4 rounded-xl border border-slate-200/70 text-xs">
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold">Kategori</span>
+                        <strong className="text-slate-900 capitalize font-bold">{snapshot.category || '—'}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold">Subkategori</span>
+                        <strong className="text-slate-900 capitalize font-bold">{snapshot.subcategory || '—'}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold">Dimensi (P × L × T)</span>
+                        <strong className="text-slate-900 font-bold">{dimStr}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold">Kapasitas</span>
+                        <strong className="text-slate-900 font-bold">{snapshot.capacity ? `${snapshot.capacity} orang` : '—'}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold">Material Utama</span>
+                        <strong className="text-slate-900 capitalize font-bold">{snapshot.material || '—'}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold">Warna</span>
+                        <strong className="text-slate-900 capitalize font-bold">{snapshot.color || '—'}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold">Finishing</span>
+                        <strong className="text-slate-900 capitalize font-bold">{snapshot.finish || '—'}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold">Gaya (Style)</span>
+                        <strong className="text-slate-900 capitalize font-bold">{snapshot.style || '—'}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold">Spesifikasi Kaki</span>
+                        <strong className="text-slate-900 capitalize font-bold">
+                          {snapshot.leg ? `${snapshot.leg.material || ''} ${snapshot.leg.color || ''} ${snapshot.leg.style || ''}`.trim() || '—' : '—'}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ── VISUALIZATION SNAPSHOT ── */}
+                  <div>
+                    <h4 className="text-[11px] font-extrabold uppercase tracking-widest text-slate-400 mb-3 border-b border-slate-100 pb-1">Design Visualization ({versionNum})</h4>
+                    {hasVis ? (
+                      <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-900 relative group">
+                        <img 
+                          src={req.visualization_url} 
+                          alt={`Visualisasi ${refNum}`}
+                          className="w-full h-64 sm:h-80 object-cover"
+                        />
+                        <div className="absolute bottom-3 left-3 bg-slate-900/90 text-white backdrop-blur-md px-3 py-1 rounded-md text-[10px] font-mono font-bold border border-slate-700/50">
+                          VISUALIZATION SNAPSHOT LOCKED
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-8 text-center bg-slate-50 border border-dashed border-slate-200 rounded-xl text-slate-500 text-xs">
+                        <p className="font-bold text-slate-600">Visualisasi belum tersedia</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">Pengajuan ini dibuat tanpa menyertakan render gambar AI FLUX.</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ── REFERENCE ATTACHMENTS ── */}
+                  <div>
+                    <h4 className="text-[11px] font-extrabold uppercase tracking-widest text-slate-400 mb-3 border-b border-slate-100 pb-1">Reference Material &amp; Attachments</h4>
+                    {attachments.length === 0 ? (
+                      <p className="text-xs text-slate-400 italic">Tidak ada dokumen atau foto lampiran referensi.</p>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {attachments.map((att: any, idx: number) => {
+                          const isImg = att.mimeType?.startsWith('image/') || att.url?.match(/\.(jpg|jpeg|png|webp)/i);
+                          return (
+                            <a
+                              key={idx}
+                              href={att.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-all block group"
+                            >
+                              {isImg ? (
+                                <img src={att.url} alt={att.fileName || 'Attachment'} className="w-full h-24 object-cover rounded-lg mb-2 border border-slate-200" />
+                              ) : (
+                                <div className="w-full h-24 bg-slate-200/80 rounded-lg mb-2 flex flex-col items-center justify-center text-slate-600">
+                                  <svg className="w-8 h-8 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                  </svg>
+                                </div>
+                              )}
+                              <span className="text-[10px] font-bold uppercase text-slate-500 block truncate">{att.category || 'Reference'}</span>
+                              <span className="text-xs font-bold text-slate-900 block truncate group-hover:text-amber-600 transition-colors">{att.fileName || 'Attachment File'}</span>
+                            </a>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ── QUOTATION & ADMIN RESPONSE DISPLAY (IF AVAILABLE) ── */}
+                  {(req.quoted_price !== null && req.quoted_price !== undefined || req.admin_response) && (
+                    <div className="p-4 bg-amber-50/60 border border-amber-200/80 rounded-xl space-y-2 text-xs">
+                      <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-800">Penawaran &amp; Catatan Admin AGM</h4>
+                      {req.quoted_price !== null && req.quoted_price !== undefined && (
+                        <div>
+                          <span className="text-amber-700/80 text-[10px] uppercase font-bold block">Harga Penawaran Resmi</span>
+                          <strong className="text-amber-950 font-mono text-base font-black">
+                            Rp {Number(req.quoted_price).toLocaleString('id-ID')}
+                          </strong>
+                        </div>
+                      )}
+                      {req.admin_response && (
+                        <div>
+                          <span className="text-amber-700/80 text-[10px] uppercase font-bold block">Catatan Admin</span>
+                          <p className="text-amber-900 font-mono text-xs whitespace-pre-wrap">{req.admin_response}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ── CUSTOMER DECISION READ-ONLY DISPLAY ── */}
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                      <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500">Keputusan Customer (Read-Only)</h4>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                        req.customer_response === 'accepted' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
+                        req.customer_response === 'rejected' ? 'bg-rose-100 text-rose-800 border border-rose-300' :
+                        'bg-slate-100 text-slate-600 border border-slate-200'
+                      }`}>
+                        {req.customer_response ? req.customer_response.toUpperCase() : 'PENDING'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      <div>
+                        <span className="text-slate-400 text-[10px] uppercase font-bold block">Responded At</span>
+                        <span className="text-slate-900 font-mono text-xs font-semibold">
+                          {req.responded_at ? new Date(req.responded_at).toLocaleString('id-ID', {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          }) : '—'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 text-[10px] uppercase font-bold block">Catatan Customer</span>
+                        <p className="text-slate-800 font-mono text-xs whitespace-pre-wrap">
+                          {req.customer_response_note || 'Tidak ada catatan.'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+
+                  {/* ── WORKFLOW ACTION PANEL ── */}
+                  <div className="bg-slate-900 text-white p-5 rounded-2xl border border-slate-800 shadow-lg space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                      <div>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-amber-400">Workflow Operasional</span>
+                        <h4 className="font-bold text-sm text-white">Status: {statusUpper}</h4>
+                      </div>
+                      <span className={`px-2.5 py-1 rounded text-[10px] font-black uppercase tracking-wider ${statusBadgeClass}`}>
+                        {statusUpper}
+                      </span>
+                    </div>
+
+                    {/* Mutation Error Alert */}
+                    {customRequestMutationError && (
+                      <div className="p-3 bg-rose-950/80 border border-rose-800 text-rose-200 text-xs rounded-xl flex items-start justify-between gap-2 animate-shake">
+                        <div>
+                          <strong className="font-bold block text-rose-300">Gagal Memperbarui Status</strong>
+                          <span>{customRequestMutationError}</span>
+                        </div>
+                        <button 
+                          onClick={() => setCustomRequestMutationError(null)}
+                          className="text-rose-400 hover:text-white text-xs font-bold px-1"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Action Controls per Status */}
+                    {statusUpper === 'SUBMITTED' && (
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-1">
+                        <p className="text-xs text-slate-400">
+                          Pengajuan baru diterima. Klik di bawah untuk mulai proses peninjauan operasional.
+                        </p>
+                        <button
+                          disabled={isUpdatingCustomRequest}
+                          onClick={() => {
+                            if (window.confirm(`Mulai peninjauan untuk pengajuan ${refNum}?`)) {
+                              handleAdminMutationCustomRequest(req.id, 'reviewing');
+                            }
+                          }}
+                          className="w-full sm:w-auto px-5 py-2.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 font-bold text-xs rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md cursor-pointer whitespace-nowrap"
+                        >
+                          {isUpdatingCustomRequest ? 'Memproses...' : 'Mulai Review'}
+                        </button>
+                      </div>
+                    )}
+
+                    {statusUpper === 'REVIEWING' && (
+                      <div className="space-y-3 pt-1">
+                        <p className="text-xs text-slate-300">
+                          Buat penawaran harga resmi (Quotation) untuk customer ini:
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                              Harga Penawaran (Rp) <span className="text-rose-400">*</span>
+                            </label>
+                            <input 
+                              type="number"
+                              min="0"
+                              placeholder="Contoh: 15000000"
+                              value={customRequestQuotedPriceInput}
+                              onChange={(e) => setCustomRequestQuotedPriceInput(e.target.value)}
+                              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-amber-400"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                              Catatan / Spesifikasi Tambahan
+                            </label>
+                            <input 
+                              type="text"
+                              placeholder="Estimasi pengerjaan, garansi, dll."
+                              value={customRequestAdminNoteInput}
+                              onChange={(e) => setCustomRequestAdminNoteInput(e.target.value)}
+                              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-amber-400"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end pt-2">
+                          <button
+                            disabled={isUpdatingCustomRequest || !customRequestQuotedPriceInput || Number(customRequestQuotedPriceInput) <= 0}
+                            onClick={() => {
+                              const price = Number(customRequestQuotedPriceInput);
+                              if (isNaN(price) || price <= 0) return;
+                              if (window.confirm(`Kirim penawaran Rp ${price.toLocaleString('id-ID')} untuk ${refNum}?`)) {
+                                handleAdminMutationCustomRequest(req.id, 'quoted', price, customRequestAdminNoteInput || undefined);
+                              }
+                            }}
+                            className="w-full sm:w-auto px-6 py-2.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 font-bold text-xs rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md cursor-pointer"
+                          >
+                            {isUpdatingCustomRequest ? 'Mengirim Penawaran...' : 'Kirim Penawaran Resmi'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {statusUpper === 'QUOTED' && (
+                      <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                        <p className="text-xs text-amber-300 font-medium">
+                          Penawaran telah dikirim ke Customer ({refNum}). Menunggu keputusan resmi Customer dari antarmuka obrolan.
+                        </p>
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                          <button
+                            disabled={isUpdatingCustomRequest}
+                            onClick={() => {
+                              const reason = window.prompt('Alasan penolakan operasional/pembatalan admin (opsional):');
+                              if (reason !== null) {
+                                handleAdminMutationCustomRequest(req.id, 'rejected', req.quoted_price || undefined, reason || req.admin_response || undefined);
+                              }
+                            }}
+                            className="flex-1 sm:flex-none px-4 py-2.5 border border-rose-500/50 hover:bg-rose-950 text-rose-300 font-bold text-xs rounded-xl transition-all disabled:opacity-50 cursor-pointer"
+                          >
+                            {isUpdatingCustomRequest ? 'Memproses...' : 'Batalkan Pengajuan'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+
+                    {statusUpper === 'APPROVED' && (
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-1">
+                        <p className="text-xs text-slate-400">
+                          Pengajuan telah disetujui. Setelah pengerjaan produksi selesai, tandai pengajuan sebagai selesai.
+                        </p>
+                        <button
+                          disabled={isUpdatingCustomRequest}
+                          onClick={() => {
+                            if (window.confirm(`Tandai pengajuan ${refNum} sebagai SELESAI?`)) {
+                              handleAdminMutationCustomRequest(req.id, 'completed', req.quoted_price || undefined, req.admin_response || undefined);
+                            }
+                          }}
+                          className="w-full sm:w-auto px-6 py-2.5 bg-sky-500 hover:bg-sky-600 active:scale-95 text-slate-950 font-bold text-xs rounded-xl transition-all disabled:opacity-50 cursor-pointer shadow-md"
+                        >
+                          {isUpdatingCustomRequest ? 'Memproses...' : 'Tandai Selesai'}
+                        </button>
+                      </div>
+                    )}
+
+                    {(statusUpper === 'REJECTED' || statusUpper === 'COMPLETED') && (
+                      <div className="text-center py-2 text-xs text-slate-400">
+                        <span className="font-mono text-[11px] uppercase tracking-wider text-slate-500 block">
+                          Status Terminal Locked • {statusUpper}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* ── FOOTER READ-ONLY NOTICE ── */}
+                <div className="mt-8 pt-4 border-t border-slate-100 text-center">
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">
+                    AGM Assistant Operations View
+                  </span>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ── TRANSACTION DETAIL MODAL ── */}
         {selectedTxDetail && (

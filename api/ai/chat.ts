@@ -55,7 +55,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     filename: attachment.filename || 'file',
                     mime_type: attachment.mime_type || 'application/octet-stream',
                     size: attachment.size || 0,
-                    storage_url: attachment.storage_url
+                    storage_url: attachment.storage_url,
+                    source: attachment.source || 'furniture_reference'
                 } : undefined
             });
         }

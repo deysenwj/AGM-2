@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
-import { FILE_CONFIG, formatFileSize, isValidFileExtension } from '../config/fileConfig';
+import { formatFileSize } from '../config/fileConfig';
 import type { FurnitureDesignState } from '../types/furniture';
 import { DesignSummaryCard } from './DesignSummaryCard';
 import { AGMAssistantMark } from './AGMAssistantMark';
@@ -34,7 +34,10 @@ const getFileBadge = (filename: string): string => {
   if (lower.endsWith('.docx')) return 'DOC';
   if (lower.endsWith('.csv')) return 'CSV';
   if (lower.endsWith('.xlsx')) return 'XLS';
-  return 'TXT';
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'JPG';
+  if (lower.endsWith('.png')) return 'PNG';
+  if (lower.endsWith('.webp')) return 'WEBP';
+  return 'FILE';
 };
 
 const parseDesignStateFromAiText = (rawText: string): { cleanText: string; designState?: FurnitureDesignState } => {
@@ -199,23 +202,160 @@ const AIChatWidget: React.FC = () => {
     }
   }, [history, isLoading, activeDesignState]);
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // VisualViewport Tracking for Mobile Keyboard Adaptation
+  const [viewportHeight, setViewportHeight] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return;
+
+    const handleResize = () => {
+      if (window.visualViewport) {
+        setViewportHeight(window.visualViewport.height);
+      }
+    };
+
+    window.visualViewport.addEventListener('resize', handleResize);
+    window.visualViewport.addEventListener('scroll', handleResize);
+
+    // Set initial value
+    handleResize();
+
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleResize);
+        window.visualViewport.removeEventListener('scroll', handleResize);
+      }
+    };
+  }, [isOpen]);
+
+
+  const [customRequestRecord, setCustomRequestRecord] = useState<any | null>(null);
+  const lastNotifiedStatusRef = React.useRef<Record<string, string>>({});
+
+  // Fetch initial request status & listen to Realtime updates for customer
+  useEffect(() => {
+    if (!isOpen || !conversationIdRef.current) return;
+    const currentConvId = conversationIdRef.current;
+
+    const processNotification = (newRecord: any) => {
+      const reqId = newRecord.id;
+      const newStatus = (newRecord.status || '').toLowerCase();
+      const prevStatus = lastNotifiedStatusRef.current[reqId];
+
+      if (prevStatus && prevStatus !== newStatus) {
+        const refNum = newRecord.reference_number || `AGM-CUSTOM-${reqId.substring(0, 6).toUpperCase()}`;
+        const priceStr = newRecord.quoted_price ? ` Rp ${Number(newRecord.quoted_price).toLocaleString('id-ID')}` : '';
+        const adminMsg = newRecord.admin_response ? ` Catatan Admin: "${newRecord.admin_response}"` : '';
+        let notifText = '';
+
+        if (newStatus === 'reviewing') {
+          notifText = `Pengajuan Anda (${refNum}) sedang direview oleh Admin AGM.`;
+        } else if (newStatus === 'quoted') {
+          notifText = `Penawaran harga untuk desain Anda (${refNum}) sudah tersedia:${priceStr}.${adminMsg}`;
+        } else if (newStatus === 'approved') {
+          notifText = `Penawaran desain Anda (${refNum}) telah disetujui oleh Admin AGM.`;
+        } else if (newStatus === 'rejected') {
+          notifText = `Pengajuan desain Anda (${refNum}) belum dapat dilanjutkan.${adminMsg}`;
+        } else if (newStatus === 'completed') {
+          notifText = `Pengajuan desain Anda (${refNum}) telah selesai diproses.`;
+        }
+
+        if (notifText) {
+          setHistory(prev => [
+            ...prev,
+            {
+              sender: 'ai',
+              text: notifText,
+              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            }
+          ]);
+        }
+      }
+
+      lastNotifiedStatusRef.current[reqId] = newStatus;
+    };
+
+    const fetchStatus = async () => {
+      try {
+        const { data } = await supabase
+          .from('custom_design_requests')
+          .select('*')
+          .eq('conversation_id', currentConvId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (data) {
+          setCustomRequestRecord(data);
+          lastNotifiedStatusRef.current[data.id] = (data.status || '').toLowerCase();
+          if (data.status && data.status !== 'draft') {
+            setIsSubmittedCustomReq(true);
+            setSubmittedRefNum(data.reference_number);
+          }
+        }
+      } catch (err) {
+        console.warn('Customer request status fetch exception:', err);
+      }
+    };
+
+    fetchStatus();
+
+    const channel = supabase
+      .channel(`customer-custom-req-${currentConvId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'custom_design_requests',
+          filter: `conversation_id=eq.${currentConvId}`
+        },
+        (payload) => {
+          if (payload.new) {
+            const newRec = payload.new;
+            processNotification(newRec);
+            setCustomRequestRecord(newRec);
+            setIsSubmittedCustomReq(true);
+            setSubmittedRefNum((newRec as any).reference_number);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isOpen]);
+
+
+
+  const [attachmentSource, setAttachmentSource] = useState<'room_photo' | 'furniture_reference' | 'design_inspiration' | 'document'>('furniture_reference');
+  const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, source: 'room_photo' | 'furniture_reference' | 'design_inspiration' | 'document' = 'furniture_reference') => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!isValidFileExtension(file.name)) {
-      alert('Format file tidak didukung. Gunakan PDF, DOCX, TXT, CSV, atau XLSX.');
+    const lower = file.name.toLowerCase();
+    const isImg = ['.jpg', '.jpeg', '.png', '.webp'].some(ext => lower.endsWith(ext));
+    const isDoc = ['.pdf', '.txt', '.docx', '.csv', '.xlsx'].some(ext => lower.endsWith(ext));
+
+    if (!isImg && !isDoc) {
+      alert('Format file tidak didukung. Gunakan JPG, PNG, WEBP, PDF, DOCX, TXT, CSV, atau XLSX.');
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
-    if (file.size > FILE_CONFIG.MAX_FILE_SIZE_BYTES) {
-      alert(`File terlalu besar. Maksimal ukuran file ${FILE_CONFIG.MAX_FILE_SIZE_MB}MB.`);
+    const maxBytes = isImg ? 10 * 1024 * 1024 : 20 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      alert(`File terlalu besar. Maksimal ukuran ${isImg ? 'gambar' : 'dokumen'} ${isImg ? 10 : 20}MB.`);
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
     setSelectedFile(file);
+    setAttachmentSource(source);
+    setShowAttachmentMenu(false);
   };
 
   const convertFileToBase64 = (file: File): Promise<string> => {
@@ -271,6 +411,7 @@ const AIChatWidget: React.FC = () => {
             fileBase64: base64Data,
             filename: activeFile.name,
             mimeType: activeFile.type,
+            source: attachmentSource,
             conversationId: conversationIdRef.current
           }),
         });
@@ -333,7 +474,9 @@ const AIChatWidget: React.FC = () => {
     }
   };
 
-  const submitCustomRequestToAdmin = async () => {
+  const [submittedRefNum, setSubmittedRefNum] = useState<string | null>(null);
+
+  const submitCustomRequestToAdmin = async (formData?: { customerName?: string; customerPhone?: string; customerNotes?: string }) => {
     if (!activeDesignState || isSubmittingCustomReq) return;
     setIsSubmittingCustomReq(true);
 
@@ -349,7 +492,10 @@ const AIChatWidget: React.FC = () => {
         },
         body: JSON.stringify({
           conversationId: conversationIdRef.current,
-          designState: activeDesignState
+          designState: activeDesignState,
+          customerName: formData?.customerName,
+          customerPhone: formData?.customerPhone,
+          customerNotes: formData?.customerNotes
         })
       });
 
@@ -358,12 +504,15 @@ const AIChatWidget: React.FC = () => {
         throw new Error(data.message || 'Gagal mengajukan spesifikasi ke Admin.');
       }
 
+      const refNum = data.reference_number || 'AGM-CUSTOM-REQUEST';
+      setSubmittedRefNum(refNum);
       setIsSubmittedCustomReq(true);
+
       setHistory(prev => [
         ...prev,
         {
           sender: 'ai',
-          text: 'Spesifikasi custom furniture Anda telah berhasil dikirim ke Admin AGM. Tim kami akan memeriksa dan memberikan penawaran resmi secepatnya.',
+          text: `Spesifikasi custom furniture Anda telah berhasil diajukan ke Admin AGM dengan Nomor Referensi ${refNum}. Tim konsultan kami akan segera memeriksa rincian teknis dan menghubungi Anda untuk penawaran resmi.`,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
       ]);
@@ -409,13 +558,15 @@ const AIChatWidget: React.FC = () => {
         </div>
       )}
 
-      {/* Floating Commerce Consultation Panel */}
+      {/* Floating Commerce Consultation Panel (Full-screen native-like UX on Mobile, Floating Card on Desktop) */}
       {isOpen && (
         <div 
-          className="fixed bottom-0 left-0 right-0 sm:bottom-6 sm:right-6 sm:left-auto z-50 w-full sm:w-[440px] h-[85vh] sm:h-[640px] max-h-[100dvh] bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden animate-fade-in mx-auto sm:mx-0 font-sans"
+          style={viewportHeight ? ({ '--mobile-vh': `${viewportHeight}px` } as React.CSSProperties) : undefined}
+          className="fixed inset-0 sm:inset-auto sm:bottom-6 sm:right-6 z-50 w-full sm:w-[440px] h-[var(--mobile-vh,100dvh)] sm:h-[640px] max-h-[100dvh] bg-white rounded-none sm:rounded-2xl shadow-2xl border-0 sm:border sm:border-slate-200 flex flex-col overflow-hidden animate-fade-in mx-auto sm:mx-0 font-sans pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)]"
         >
           {/* Header Bar - Ultra Minimal */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-white text-slate-900 select-none h-[52px] shrink-0">
+
             <div className="flex items-center gap-2">
               <AGMAssistantMark variant="light" className="w-5 h-5 text-slate-900" />
               <h3 className="font-semibold text-slate-900 text-sm tracking-tight">AGM Assistant</h3>
@@ -514,8 +665,43 @@ const AIChatWidget: React.FC = () => {
                               onSubmitToAdmin={submitCustomRequestToAdmin}
                               isSubmitting={isSubmittingCustomReq}
                               isSubmitted={isSubmittedCustomReq}
+                              submittedReferenceNumber={submittedRefNum}
+                              customRequestRecord={customRequestRecord}
+                              onCustomerQuotationResponse={async (reqId, action, note) => {
+                                const { data: { session } } = await supabase.auth.getSession();
+                                if (!session?.access_token) {
+                                  throw new Error('Session Anda telah berakhir. Silakan login kembali.');
+                                }
+
+                                const response = await fetch('/api/customer/custom-request', {
+                                  method: 'PATCH',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${session.access_token}`
+                                  },
+                                  body: JSON.stringify({
+                                    requestId: reqId,
+                                    action,
+                                    note
+                                  })
+                                });
+
+                                const result = await response.json();
+                                if (!response.ok || !result.success) {
+                                  throw new Error(result.error || 'Gagal memproses keputusan.');
+                                }
+
+                                setCustomRequestRecord((prev: any) => ({
+                                  ...prev,
+                                  status: result.request.status,
+                                  customer_response: result.request.customer_response,
+                                  responded_at: result.request.responded_at
+                                }));
+                              }}
                             />
                           )}
+
+
                         </div>
                       )}
                       <span className="block text-[9px] text-slate-400 font-mono mt-1">{msg.timestamp}</span>
@@ -560,26 +746,87 @@ const AIChatWidget: React.FC = () => {
                 </button>
               </div>
             )}
+            {/* Attachment Category Selection Menu */}
+            {showAttachmentMenu && (
+              <div className="mb-2 bg-slate-900 border border-slate-800 text-slate-200 rounded-lg p-1.5 shadow-lg text-xs space-y-1 z-10 animate-fadeIn select-none">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (fileInputRef.current) {
+                      fileInputRef.current.accept = '.jpg,.jpeg,.png,.webp';
+                      fileInputRef.current.click();
+                    }
+                    setAttachmentSource('room_photo');
+                  }}
+                  className="w-full text-left px-2.5 py-1.5 rounded hover:bg-slate-800 flex items-center justify-between text-slate-200 cursor-pointer"
+                >
+                  <span className="font-medium">Foto Ruangan</span>
+                  <span className="text-[10px] font-mono text-slate-400">JPG, PNG, WEBP</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (fileInputRef.current) {
+                      fileInputRef.current.accept = '.jpg,.jpeg,.png,.webp';
+                      fileInputRef.current.click();
+                    }
+                    setAttachmentSource('furniture_reference');
+                  }}
+                  className="w-full text-left px-2.5 py-1.5 rounded hover:bg-slate-800 flex items-center justify-between text-slate-200 cursor-pointer"
+                >
+                  <span className="font-medium">Referensi Furniture</span>
+                  <span className="text-[10px] font-mono text-slate-400">JPG, PNG, WEBP</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (fileInputRef.current) {
+                      fileInputRef.current.accept = '.jpg,.jpeg,.png,.webp';
+                      fileInputRef.current.click();
+                    }
+                    setAttachmentSource('design_inspiration');
+                  }}
+                  className="w-full text-left px-2.5 py-1.5 rounded hover:bg-slate-800 flex items-center justify-between text-slate-200 cursor-pointer"
+                >
+                  <span className="font-medium">Inspirasi Desain</span>
+                  <span className="text-[10px] font-mono text-slate-400">JPG, PNG, WEBP</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (fileInputRef.current) {
+                      fileInputRef.current.accept = '.pdf,.txt,.docx,.csv,.xlsx';
+                      fileInputRef.current.click();
+                    }
+                    setAttachmentSource('document');
+                  }}
+                  className="w-full text-left px-2.5 py-1.5 rounded hover:bg-slate-800 flex items-center justify-between text-slate-200 cursor-pointer"
+                >
+                  <span className="font-medium">Dokumen</span>
+                  <span className="text-[10px] font-mono text-slate-400">PDF, DOCX, TXT</span>
+                </button>
+              </div>
+            )}
 
             <div className="bg-slate-50 border border-slate-300 focus-within:border-slate-900 focus-within:bg-white rounded px-3 py-2 flex items-center gap-2 transition-all">
               <input 
                 type="file" 
                 ref={fileInputRef} 
-                onChange={handleFileSelect} 
-                accept=".pdf,.txt,.docx,.csv,.xlsx" 
+                onChange={(e) => handleFileSelect(e, attachmentSource)} 
+                accept=".jpg,.jpeg,.png,.webp,.pdf,.txt,.docx,.csv,.xlsx" 
                 className="hidden" 
               />
               
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => setShowAttachmentMenu(prev => !prev)}
                 disabled={isLoading}
                 title="Tambahkan foto atau file"
                 aria-label="Tambahkan foto atau file"
                 className="text-slate-400 hover:text-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors p-0.5 shrink-0 cursor-pointer"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 5.636a9 9 0 010 12.728m0 0l-5.657 5.657a5 5 0 01-7.071 0 5 5 0 010-7.071l5.657-5.657a3 3 0 014.243 0 3 3 0 010 4.243l-4.242 4.242a1 1 0 01-1.414 0 1 1 0 010-1.414l4.242-4.242" />
                 </svg>
               </button>
 

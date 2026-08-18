@@ -4,15 +4,20 @@ import { createClient } from '@supabase/supabase-js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 // Centralized backend file validation constants
-const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+const MAX_DOC_SIZE_BYTES = 20 * 1024 * 1024;   // 20MB
+
 const ALLOWED_MIME_TYPES = [
   'application/pdf',
   'text/plain',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'text/csv',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'image/jpeg',
+  'image/png',
+  'image/webp'
 ];
-const ALLOWED_EXTENSIONS = ['.pdf', '.txt', '.docx', '.csv', '.xlsx'];
+const ALLOWED_EXTENSIONS = ['.pdf', '.txt', '.docx', '.csv', '.xlsx', '.jpg', '.jpeg', '.png', '.webp'];
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -84,11 +89,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 3. File Size Validation (Estimate from base64 string length)
     const base64Data = fileBase64.includes(',') ? fileBase64.split(',')[1] : fileBase64;
     const fileSizeBytes = Math.round((base64Data.length * 3) / 4);
+    const isImage = ['image/jpeg', 'image/png', 'image/webp'].includes(cleanMimeType) || ['.jpg', '.jpeg', '.png', '.webp'].includes(ext);
+    const maxAllowedBytes = isImage ? MAX_IMAGE_SIZE_BYTES : MAX_DOC_SIZE_BYTES;
 
-    if (fileSizeBytes > MAX_FILE_SIZE_BYTES) {
+    if (fileSizeBytes > maxAllowedBytes) {
+      const limitMb = isImage ? 10 : 20;
       return res.status(400).json({ 
         success: false, 
-        message: 'File terlalu besar. Maksimal ukuran file 10MB.' 
+        message: `File terlalu besar. Maksimal ukuran ${isImage ? 'gambar' : 'dokumen'} ${limitMb}MB.` 
       });
     }
 
@@ -97,11 +105,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const uploadResult = await cloudinary.uploader.upload(fileBase64, {
       folder: 'assistant_attachments',
       public_id: randomPublicId,
-      resource_type: 'raw',
+      resource_type: isImage ? 'image' : 'raw',
       overwrite: true
     });
 
     const attachmentId = generateUuid();
+    const sourceCategory = req.body?.source || (isImage ? 'furniture_reference' : 'document');
 
     // 5. Database Record Insertion in Supabase ai_attachments if table exists
     if (supabase) {
@@ -132,7 +141,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         mime_type: cleanMimeType || 'application/octet-stream',
         size: fileSizeBytes,
         storage_url: uploadResult.secure_url,
-        storage_path: uploadResult.public_id
+        storage_path: uploadResult.public_id,
+        source: sourceCategory
       }
     });
 

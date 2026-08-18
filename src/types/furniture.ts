@@ -12,12 +12,19 @@ export interface FurnitureLegSpec {
   color?: string;   // e.g. "black", "natural", "gold"
 }
 
+export interface FurnitureVisualizationHistoryItem {
+  designVersion: number;
+  imageUrl: string;
+  generatedAt?: string;
+}
+
 export interface FurnitureVisualizationState {
   status: 'none' | 'generating' | 'ready' | 'failed' | 'stale' | 'not_configured';
   imageUrl?: string;
   prompt?: string;
   generatedAt?: string;
   designVersion?: number; // Track which design version this visualization corresponds to
+  visualizationHistory?: FurnitureVisualizationHistoryItem[];
 }
 
 export type CanonicalCategory = 'dining_table' | 'wardrobe' | 'sofa' | 'tv_cabinet' | 'kitchen_set' | 'chair' | 'table' | 'other';
