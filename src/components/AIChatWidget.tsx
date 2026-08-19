@@ -202,11 +202,18 @@ const AIChatWidget: React.FC = () => {
     }
   }, [history, isLoading, activeDesignState]);
 
-  // VisualViewport Tracking for Mobile Keyboard Adaptation
+  // Mobile Viewport & Body Scroll Lock Handling
   const [viewportHeight, setViewportHeight] = useState<number | null>(null);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.visualViewport) return;
+    if (!isOpen) return;
+
+    // Body scroll lock on mobile when chat is open
+    const isMobile = window.innerWidth < 640;
+    if (isMobile) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.touchAction = 'none';
+    }
 
     const handleResize = () => {
       if (window.visualViewport) {
@@ -214,19 +221,24 @@ const AIChatWidget: React.FC = () => {
       }
     };
 
-    window.visualViewport.addEventListener('resize', handleResize);
-    window.visualViewport.addEventListener('scroll', handleResize);
-
-    // Set initial value
-    handleResize();
+    if (typeof window !== 'undefined' && window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleResize);
+      window.visualViewport.addEventListener('scroll', handleResize);
+      handleResize();
+    }
 
     return () => {
-      if (window.visualViewport) {
+      if (isMobile) {
+        document.body.style.overflow = '';
+        document.body.style.touchAction = '';
+      }
+      if (typeof window !== 'undefined' && window.visualViewport) {
         window.visualViewport.removeEventListener('resize', handleResize);
         window.visualViewport.removeEventListener('scroll', handleResize);
       }
     };
   }, [isOpen]);
+
 
 
   const [customRequestRecord, setCustomRequestRecord] = useState<any | null>(null);
@@ -558,14 +570,15 @@ const AIChatWidget: React.FC = () => {
         </div>
       )}
 
-      {/* Opaque Full-Screen Native Shell on Mobile, Floating Card on Desktop */}
+      {/* Full-Screen Native Shell on Mobile, Floating Card on Desktop */}
       {isOpen && (
         <div 
-          style={viewportHeight ? ({ '--mobile-vh': `${viewportHeight}px` } as React.CSSProperties) : undefined}
-          className="fixed inset-0 sm:inset-auto sm:bottom-6 sm:right-6 z-[9999] w-full sm:w-[440px] h-[var(--mobile-vh,100dvh)] sm:h-[640px] max-h-[100dvh] bg-white rounded-none sm:rounded-2xl shadow-2xl border-0 sm:border sm:border-slate-200 flex flex-col overflow-hidden animate-fade-in font-sans pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)]"
+          style={viewportHeight ? ({ height: `${viewportHeight}px` } as React.CSSProperties) : undefined}
+          className="fixed inset-0 sm:inset-auto sm:bottom-6 sm:right-6 z-[99999] w-full sm:w-[440px] h-[100dvh] sm:h-[640px] max-h-[100dvh] bg-white rounded-none sm:rounded-2xl shadow-2xl border-0 sm:border sm:border-slate-200 flex flex-col overflow-hidden animate-fade-in font-sans pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)]"
         >
           {/* Header Bar - Compact Native Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-white text-slate-900 select-none h-[52px] shrink-0">
+
 
 
             <div className="flex items-center gap-2">
@@ -836,11 +849,19 @@ const AIChatWidget: React.FC = () => {
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
+                onFocus={() => {
+                  setTimeout(() => {
+                    if (chatWindowRef.current) {
+                      chatWindowRef.current.scrollTop = chatWindowRef.current.scrollHeight;
+                    }
+                  }, 200);
+                }}
                 placeholder={selectedFile ? "Tambahkan instruksi (opsional)..." : "Jelaskan kebutuhan furniture Anda..."}
                 aria-label="Send message input"
                 className="flex-1 bg-transparent text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none font-sans"
                 disabled={isLoading}
               />
+
 
               <button
                 onClick={() => sendMessage()}

@@ -2060,10 +2060,18 @@ export default function App() {
                   >
                     Nota
                   </button>
+                  <button
+                    onClick={() => setCurrentView('custom-requests')}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${currentView === 'custom-requests' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"></span>
+                    <span>Custom Requests</span>
+                  </button>
                 </>
               )}
             </div>
           </div>
+
 
           {/* Right Top Items (Responsive Search and Login) */}
           <div className="flex items-center gap-2 sm:gap-3">
