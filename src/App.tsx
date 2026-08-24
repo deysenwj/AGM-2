@@ -3014,7 +3014,7 @@ export default function App() {
                     [...outOfStock, ...lowStock].map(p => {
                       const isZero = p.stock === 0;
                       return (
-                        <div key={'mob-alert-row-' + p.id} className="p-3.5 flex flex-col gap-3">
+                        <div key={'mob-alert-row-' + p.id} className="p-3.5 flex flex-col gap-2">
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-center gap-3 min-w-0">
                               {p.image_url ? (
@@ -3036,40 +3036,18 @@ export default function App() {
                             </span>
                           </div>
 
-                          <div className="flex items-center justify-between pt-2 border-t border-slate-100 gap-2">
+                          <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
                             <div className="flex items-center gap-2">
-                              <span className="text-[10px] text-slate-400 font-mono">Sisa:</span>
+                              <span className="text-[10px] text-slate-400 font-mono uppercase">Sisa Stok:</span>
                               <strong className="font-mono font-bold text-xs text-slate-900">{p.stock} {p.unit}</strong>
                             </div>
 
-                            <div className="flex items-center gap-2">
-                              <div className="inline-flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white shadow-2xs">
-                                <button 
-                                  onClick={() => adjustStock(p.id, -1)} 
-                                  className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs"
-                                  title="Kurang 1 Unit"
-                                >
-                                  -1
-                                </button>
-                                <StockControlInput 
-                                  stock={p.stock} 
-                                  onCommit={(newVal) => setDirectStock(p.id, newVal)} 
-                                />
-                                <button 
-                                  onClick={() => adjustStock(p.id, 1)} 
-                                  className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs"
-                                  title="Tambah 1 Unit"
-                                >
-                                  +1
-                                </button>
-                              </div>
-                              <button
-                                onClick={() => openEdit(p)}
-                                className="px-2.5 py-1 border border-slate-200 text-slate-700 hover:text-slate-900 rounded text-xs font-semibold cursor-pointer"
-                              >
-                                Edit
-                              </button>
-                            </div>
+                            <button
+                              onClick={() => setCurrentView('stock')}
+                              className="text-[11px] font-semibold text-slate-600 hover:text-slate-900 cursor-pointer flex items-center gap-1"
+                            >
+                              <span>Kelola di Kontrol Stok &rarr;</span>
+                            </button>
                           </div>
                         </div>
                       );
@@ -3079,21 +3057,20 @@ export default function App() {
 
                 {/* Desktop Table View (>= md) */}
                 <div className="hidden md:block overflow-x-auto">
-                  <table className="w-full text-left border-collapse min-w-[650px] text-xs">
+                  <table className="w-full text-left border-collapse min-w-[600px] text-xs">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200 text-slate-400 font-extrabold text-[10px] uppercase tracking-wider">
                         <th className="py-3 px-4">Produk</th>
                         <th className="py-3 px-4">Kategori</th>
                         <th className="py-3 px-4">Sisa Stok</th>
                         <th className="py-3 px-4">Status</th>
-                        <th className="py-3 px-4 text-center">Kelola Stok</th>
-                        <th className="py-3 px-4 text-right">Aksi</th>
+                        <th className="py-3 px-4 text-right">Tindakan</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {[...outOfStock, ...lowStock].length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="py-8 px-4 text-center text-slate-500 font-medium">
+                          <td colSpan={5} className="py-8 px-4 text-center text-slate-500 font-medium">
                             Persediaan produk dalam kondisi sehat (&gt;3 unit). Tidak ada peringatan aktif.
                           </td>
                         </tr>
@@ -3132,35 +3109,12 @@ export default function App() {
                                   </span>
                                 )}
                               </td>
-
-                              <td className="py-3 px-4 text-center">
-                                <div className="inline-flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white shadow-2xs">
-                                  <button 
-                                    onClick={() => adjustStock(p.id, -1)} 
-                                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold transition-all text-xs"
-                                    title="Kurang 1 Unit"
-                                  >
-                                    -1
-                                  </button>
-                                  <StockControlInput 
-                                    stock={p.stock} 
-                                    onCommit={(newVal) => setDirectStock(p.id, newVal)} 
-                                  />
-                                  <button 
-                                    onClick={() => adjustStock(p.id, 1)} 
-                                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold transition-all text-xs"
-                                    title="Tambah 1 Unit"
-                                  >
-                                    +1
-                                  </button>
-                                </div>
-                              </td>
                               <td className="py-3 px-4 text-right">
                                 <button
-                                  onClick={() => openEdit(p)}
-                                  className="px-2.5 py-1 border border-slate-200 text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded text-xs font-semibold transition-all cursor-pointer"
+                                  onClick={() => setCurrentView('stock')}
+                                  className="px-2.5 py-1 border border-slate-200 text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded text-xs font-semibold transition-all cursor-pointer inline-flex items-center gap-1"
                                 >
-                                  Edit
+                                  <span>Kelola Stok &rarr;</span>
                                 </button>
                               </td>
                             </tr>
@@ -3170,6 +3124,7 @@ export default function App() {
                     </tbody>
                   </table>
                 </div>
+
 
               </div>
             </section>
