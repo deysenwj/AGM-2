@@ -2530,7 +2530,7 @@ export default function App() {
               <div className="hidden md:flex items-center gap-2 overflow-x-auto pb-1 pt-1 hide-scrollbar">
                 <button
                   onClick={() => setFilterSubcategory('all')}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-extrabold whitespace-nowrap transition-all active:scale-95 ${
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all active:scale-95 ${
                     filterSubcategory === 'all'
                       ? 'bg-slate-900 text-white shadow-xs'
                       : 'bg-slate-100/80 text-slate-600 hover:text-slate-900 hover:bg-slate-200/80'
@@ -2542,7 +2542,7 @@ export default function App() {
                   <button
                     key={sub}
                     onClick={() => setFilterSubcategory(sub)}
-                    className={`px-3.5 py-1.5 rounded-full text-xs font-extrabold whitespace-nowrap transition-all active:scale-95 ${
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all active:scale-95 ${
                       filterSubcategory === sub
                         ? 'bg-slate-900 text-white shadow-xs'
                         : 'bg-slate-100/80 text-slate-600 hover:text-slate-900 hover:bg-slate-200/80'
@@ -2552,6 +2552,8 @@ export default function App() {
                   </button>
                 ))}
               </div>
+
+
             </div>
 
             {/* Warning banner if running on cached data due to network error */}
@@ -3390,18 +3392,15 @@ export default function App() {
                               </td>
                               <td className="p-3.5 text-center">
                                 {isPending ? (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span>
-                                    Belum Lunas
+                                  <span className="font-mono text-[10px] font-extrabold text-amber-600 tracking-wider uppercase">
+                                    BELUM LUNAS
                                   </span>
                                 ) : (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                                    <svg className="w-3 h-3 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                    </svg>
-                                    Lunas
+                                  <span className="font-mono text-[10px] font-extrabold text-slate-400 tracking-wider uppercase">
+                                    LUNAS
                                   </span>
                                 )}
+
                               </td>
                               <td className="p-3.5 text-right font-black text-slate-900 text-sm">
                                 Rp {tx.totalPrice.toLocaleString('id-ID')}
@@ -4014,9 +4013,10 @@ export default function App() {
               <div className="mb-4">
                 {selectedTxDetail.remainingAmount !== undefined && selectedTxDetail.remainingAmount > 0 ? (
                   <div className="flex items-center justify-between bg-slate-50 border border-slate-200 p-3 rounded-xl text-slate-800 text-xs font-semibold">
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
-                      Status: <strong className="text-slate-900">Belum Lunas (Sisa: Rp {selectedTxDetail.remainingAmount.toLocaleString('id-ID')})</strong>
+                    <span className="flex items-center gap-2">
+                      <span className="font-mono text-[10px] font-extrabold text-amber-600 tracking-wider">BELUM LUNAS</span>
+                      <span className="text-slate-400">•</span>
+                      <span className="text-slate-600 font-mono">Sisa: Rp {selectedTxDetail.remainingAmount.toLocaleString('id-ID')}</span>
                     </span>
                     {isAdmin && (
                       <button
@@ -4029,11 +4029,11 @@ export default function App() {
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-slate-800 text-xs font-semibold">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                    <span>Status Transaksi: <strong className="text-slate-900 font-bold">Lunas</strong></span>
+                    <span className="font-mono text-[10px] font-extrabold text-slate-900 tracking-wider">STATUS: LUNAS</span>
                   </div>
                 )}
               </div>
+
               
               <div className="space-y-4 text-xs mb-6 text-left border-y border-slate-200 py-4">
                 {/* Buyer info */}
