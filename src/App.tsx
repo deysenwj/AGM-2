@@ -316,7 +316,8 @@ export default function App() {
   });
   const isAdmin = Boolean(currentAdminUser);
 
-  const [currentView, setCurrentView] = useState<'catalog' | 'stock' | 'dashboard' | 'nota' | 'custom-requests'>('catalog');
+  const [currentView, setCurrentView] = useState<'catalog' | 'stock' | 'dashboard' | 'nota' | 'custom-requests' | 'stock-alerts'>('catalog');
+
 
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
     const saved = localStorage.getItem('agm2_transactions');
@@ -2004,10 +2005,11 @@ export default function App() {
 
   const getStockLabel = (stock: number) => {
     const s = isNaN(stock) ? 0 : Math.max(0, Number(stock) || 0);
-    if (s === 0) return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 ring-1 ring-rose-600/20"><svg className="w-3 h-3 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg> HABIS</span>;
-    if (s <= 3) return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 ring-1 ring-amber-600/20"><svg className="w-3 h-3 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg> TERBATAS</span>;
-    return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20"><svg className="w-3 h-3 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg> TERSEDIA</span>;
+    if (s === 0) return <span className="font-mono text-[10px] font-black tracking-wider text-rose-600 uppercase">HABIS</span>;
+    if (s <= 3) return <span className="font-mono text-[10px] font-black tracking-wider text-amber-600 uppercase">TERBATAS</span>;
+    return <span className="font-mono text-[10px] font-extrabold tracking-wider text-slate-400 uppercase">TERSEDIA</span>;
   };
+
 
   return (
     <div className="bg-surface text-on-surface selection:bg-primary-fixed selection:text-primary min-h-screen flex flex-col font-body-md">
@@ -2027,49 +2029,113 @@ export default function App() {
               </svg>
             </button>
             <div 
-              className="flex items-center gap-2.5 cursor-pointer select-none group"
+              className="flex items-center gap-2 cursor-pointer select-none group"
               onClick={() => setCurrentView('catalog')}
             >
-              <img src="/logo.png" alt="AGM 2 Logo" className="h-7 sm:h-8 w-auto object-contain transition-transform group-hover:scale-105" />
-              <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded-md hidden sm:inline">PADANG</span>
+              <img src="/logo.png" alt="AGM 2 Logo" className="h-7 w-auto object-contain" />
+              <span className="text-[10px] font-mono font-extrabold text-slate-400 uppercase tracking-widest hidden sm:inline border-l border-slate-200 pl-2">PADANG</span>
             </div>
-            <div className="hidden lg:flex items-center gap-1.5 bg-slate-100/70 p-1 rounded-xl border border-slate-200/50">
+
+            {/* Clean Enterprise Navigation (Linear / Vercel style) */}
+            <div className="hidden lg:flex items-center gap-1 ml-4 border-l border-slate-200 pl-4">
               <button
                 onClick={() => setCurrentView('catalog')}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${currentView === 'catalog' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                className={`relative py-1.5 px-3 text-xs transition-colors cursor-pointer ${
+                  currentView === 'catalog' 
+                    ? 'font-bold text-slate-900' 
+                    : 'font-medium text-slate-500 hover:text-slate-900'
+                }`}
               >
                 Katalog
+                {currentView === 'catalog' && (
+                  <span className="absolute bottom-0 inset-x-3 h-[2px] bg-slate-900 rounded-full" />
+                )}
               </button>
+
               {isAdmin && (
                 <>
                   <button
                     onClick={() => setCurrentView('stock')}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${currentView === 'stock' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`relative py-1.5 px-3 text-xs transition-colors cursor-pointer ${
+                      currentView === 'stock' 
+                        ? 'font-bold text-slate-900' 
+                        : 'font-medium text-slate-500 hover:text-slate-900'
+                    }`}
                   >
                     Inventaris
+                    {currentView === 'stock' && (
+                      <span className="absolute bottom-0 inset-x-3 h-[2px] bg-slate-900 rounded-full" />
+                    )}
                   </button>
+
                   <button
                     onClick={() => setCurrentView('dashboard')}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${currentView === 'dashboard' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`relative py-1.5 px-3 text-xs transition-colors cursor-pointer ${
+                      currentView === 'dashboard' 
+                        ? 'font-bold text-slate-900' 
+                        : 'font-medium text-slate-500 hover:text-slate-900'
+                    }`}
                   >
                     Analisis
+                    {currentView === 'dashboard' && (
+                      <span className="absolute bottom-0 inset-x-3 h-[2px] bg-slate-900 rounded-full" />
+                    )}
                   </button>
+
                   <button
                     onClick={() => setCurrentView('nota')}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${currentView === 'nota' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`relative py-1.5 px-3 text-xs transition-colors cursor-pointer ${
+                      currentView === 'nota' 
+                        ? 'font-bold text-slate-900' 
+                        : 'font-medium text-slate-500 hover:text-slate-900'
+                    }`}
                   >
                     Nota
+                    {currentView === 'nota' && (
+                      <span className="absolute bottom-0 inset-x-3 h-[2px] bg-slate-900 rounded-full" />
+                    )}
                   </button>
+
+                  <div className="h-4 w-[1px] bg-slate-200 mx-2" />
+
+                  {/* Secondary Status Items */}
+                  <button
+                    onClick={() => setCurrentView('stock-alerts')}
+                    className={`relative py-1.5 px-2.5 text-xs transition-colors cursor-pointer flex items-center gap-1.5 ${
+                      currentView === 'stock-alerts' 
+                        ? 'font-bold text-slate-900' 
+                        : 'font-medium text-slate-500 hover:text-slate-900'
+                    }`}
+                  >
+                    <span>Peringatan Stok</span>
+                    {(() => {
+                      const alertCount = products.filter(p => (Number(p.stock) || 0) <= 3).length;
+                      return alertCount > 0 ? (
+                        <span className="font-mono text-[10px] font-extrabold text-rose-600 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200">{alertCount}</span>
+                      ) : null;
+                    })()}
+                    {currentView === 'stock-alerts' && (
+                      <span className="absolute bottom-0 inset-x-2.5 h-[2px] bg-slate-900 rounded-full" />
+                    )}
+                  </button>
+
                   <button
                     onClick={() => setCurrentView('custom-requests')}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${currentView === 'custom-requests' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`relative py-1.5 px-2.5 text-xs transition-colors cursor-pointer ${
+                      currentView === 'custom-requests' 
+                        ? 'font-bold text-slate-900' 
+                        : 'font-medium text-slate-500 hover:text-slate-900'
+                    }`}
                   >
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"></span>
-                    <span>Custom Requests</span>
+                    Custom Requests
+                    {currentView === 'custom-requests' && (
+                      <span className="absolute bottom-0 inset-x-2.5 h-[2px] bg-slate-900 rounded-full" />
+                    )}
                   </button>
                 </>
               )}
             </div>
+
           </div>
 
 
@@ -2167,9 +2233,9 @@ export default function App() {
               <div className="space-y-1">
                 <button
                   onClick={() => { setCurrentView('catalog'); setIsSidebarOpen(false); }}
-                  className={`w-full text-left flex items-center gap-3 p-3 rounded-xl text-xs font-bold transition-all ${currentView === 'catalog' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'}`}
+                  className={`w-full text-left flex items-center gap-3 py-2.5 px-3 rounded-lg text-xs transition-colors ${currentView === 'catalog' ? 'bg-slate-100 font-bold text-slate-900' : 'font-medium text-slate-600 hover:bg-slate-50'}`}
                 >
-                  <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg className="w-4 h-4 shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                     <rect x="3" y="3" width="7" height="7" rx="1.5" />
                     <rect x="14" y="3" width="7" height="7" rx="1.5" />
                     <rect x="14" y="14" width="7" height="7" rx="1.5" />
@@ -2182,30 +2248,32 @@ export default function App() {
                   <>
                     <button
                       onClick={() => { setCurrentView('stock'); setIsSidebarOpen(false); }}
-                      className={`w-full text-left flex items-center gap-3 p-3 rounded-xl text-xs font-bold transition-all ${currentView === 'stock' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'}`}
+                      className={`w-full text-left flex items-center gap-3 py-2.5 px-3 rounded-lg text-xs transition-colors ${currentView === 'stock' ? 'bg-slate-100 font-bold text-slate-900' : 'font-medium text-slate-600 hover:bg-slate-50'}`}
                     >
-                      <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg className="w-4 h-4 shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                         <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
                         <path d="m3.3 7 8.7 5 8.7-5" />
                         <path d="M12 22V12" />
                       </svg>
                       <span>Kontrol Stok</span>
                     </button>
+
                     <button
                       onClick={() => { setCurrentView('dashboard'); setIsSidebarOpen(false); }}
-                      className={`w-full text-left flex items-center gap-3 p-3 rounded-xl text-xs font-bold transition-all ${currentView === 'dashboard' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'}`}
+                      className={`w-full text-left flex items-center gap-3 py-2.5 px-3 rounded-lg text-xs transition-colors ${currentView === 'dashboard' ? 'bg-slate-100 font-bold text-slate-900' : 'font-medium text-slate-600 hover:bg-slate-50'}`}
                     >
-                      <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg className="w-4 h-4 shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                         <path d="M3 3v18h18" />
                         <path d="m19 9-5 5-4-4-3 3" />
                       </svg>
                       <span>Analisis &amp; Performa</span>
                     </button>
+
                     <button
                       onClick={() => { setCurrentView('nota'); setIsSidebarOpen(false); }}
-                      className={`w-full text-left flex items-center gap-3 p-3 rounded-xl text-xs font-bold transition-all ${currentView === 'nota' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'}`}
+                      className={`w-full text-left flex items-center gap-3 py-2.5 px-3 rounded-lg text-xs transition-colors ${currentView === 'nota' ? 'bg-slate-100 font-bold text-slate-900' : 'font-medium text-slate-600 hover:bg-slate-50'}`}
                     >
-                      <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg className="w-4 h-4 shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                         <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z" />
                         <path d="M16 8h-8" />
                         <path d="M16 12h-8" />
@@ -2213,15 +2281,38 @@ export default function App() {
                       </svg>
                       <span>Kasir &amp; Cetak Nota</span>
                     </button>
+
+                    <div className="my-2 border-t border-slate-100" />
+
+                    <button
+                      onClick={() => { setCurrentView('stock-alerts'); setIsSidebarOpen(false); }}
+                      className={`w-full text-left flex items-center justify-between py-2.5 px-3 rounded-lg text-xs transition-colors ${currentView === 'stock-alerts' ? 'bg-slate-100 font-bold text-slate-900' : 'font-medium text-slate-600 hover:bg-slate-50'}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <svg className="w-4 h-4 shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                          <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                        </svg>
+                        <span>Peringatan Stok</span>
+                      </div>
+                      {(() => {
+                        const alertCount = products.filter(p => (Number(p.stock) || 0) <= 3).length;
+                        return alertCount > 0 ? (
+                          <span className="font-mono text-[10px] font-extrabold text-rose-600 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200">{alertCount}</span>
+                        ) : null;
+                      })()}
+                    </button>
+
                     <button
                       onClick={() => { setCurrentView('custom-requests'); setIsSidebarOpen(false); }}
-                      className={`w-full text-left flex items-center gap-3 p-3 rounded-xl text-xs font-bold transition-all ${currentView === 'custom-requests' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'}`}
+                      className={`w-full text-left flex items-center gap-3 py-2.5 px-3 rounded-lg text-xs transition-colors ${currentView === 'custom-requests' ? 'bg-slate-100 font-bold text-slate-900' : 'font-medium text-slate-600 hover:bg-slate-50'}`}
                     >
-                      <svg className="w-4 h-4 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg className="w-4 h-4 shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                         <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
                       </svg>
                       <span>Custom Requests</span>
                     </button>
+
                     <button
                       onClick={() => { setIsStockLogModalOpen(true); setIsSidebarOpen(false); }}
                       className="w-full text-left flex items-center justify-between p-3 rounded-xl text-xs font-bold transition-all text-slate-600 hover:bg-slate-100 hover:text-slate-900 cursor-pointer"
@@ -2336,9 +2427,11 @@ export default function App() {
               <h1 className="font-extrabold text-xl md:text-2xl text-slate-900 tracking-tight">
                 {currentView === 'catalog' && 'Katalog Produk & Persediaan'}
                 {currentView === 'stock' && 'Manajemen Kontrol Stok'}
+                {currentView === 'stock-alerts' && 'Pemberitahuan & Notifikasi Stok Minimal'}
                 {currentView === 'dashboard' && 'Analisis Penjualan & Performa'}
                 {currentView === 'nota' && 'Kasir & Pembuatan Nota'}
                 {currentView === 'custom-requests' && 'Pengajuan Custom Furniture Customer'}
+
               </h1>
             </div>
 
@@ -2644,50 +2737,50 @@ export default function App() {
 
         {/* ── STOCK CONTROL TABLE VIEW ── */}
         {currentView === 'stock' && isAdmin && (
-          <section className="px-margin-mobile lg:px-margin-desktop py-8 max-w-container-max mx-auto w-full flex-grow">
-            <div className="flex flex-col sm:flex-row justify-end items-start sm:items-center gap-4 mb-6">
-              <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
-                <div className="relative w-full sm:max-w-xs">
-                  <svg className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <circle cx="11" cy="11" r="8" />
-                    <path d="M21 21l-4.35-4.35" />
-                  </svg>
-                  <input
-                    type="text"
-                    placeholder="Cari produk..."
-                    className="pl-8 pr-3 py-1.5 bg-slate-100 border border-slate-200 text-xs rounded-xl w-full focus:ring-2 focus:ring-slate-900 focus:bg-white transition-all outline-none"
-                    value={stockSearchTerm}
-                    onChange={(e) => setStockSearchTerm(e.target.value)}
-                  />
-                </div>
+          <section className="px-4 md:px-8 py-6 md:py-8 max-w-container-max mx-auto w-full flex-grow">
+            {/* Minimal Action Toolbar */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
+              <div className="relative w-full sm:max-w-xs">
+                <svg className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="M21 21l-4.35-4.35" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Cari produk / SKU..."
+                  className="pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 text-xs rounded-lg w-full focus:ring-1 focus:ring-slate-900 focus:bg-white transition-all outline-none"
+                  value={stockSearchTerm}
+                  onChange={(e) => setStockSearchTerm(e.target.value)}
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                 <button 
                   onClick={openAdd} 
-                  className="bg-slate-900 text-white px-4 py-2 text-xs font-bold rounded-xl w-full sm:w-auto hover:bg-slate-800 transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap shadow-xs active:scale-95"
+                  className="bg-slate-900 text-white px-3.5 py-1.5 text-xs font-bold rounded-lg hover:bg-slate-800 transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap shadow-2xs"
                 >
-                  <svg className="w-4 h-4 text-white shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <svg className="w-3.5 h-3.5 text-white shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                   </svg>
-                  <span className="whitespace-nowrap">Tambah Produk</span>
+                  <span>Tambah Produk</span>
                 </button>
                 <button
                   onClick={() => setIsStockLogModalOpen(true)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 text-xs font-bold rounded-xl w-full sm:w-auto transition-all cursor-pointer flex items-center justify-center gap-1.5 border border-slate-200 whitespace-nowrap"
+                  className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 border border-slate-200 whitespace-nowrap"
                 >
-                  <svg className="w-4 h-4 text-slate-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01m-.01 4h.01" />
+                  <svg className="w-3.5 h-3.5 text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <span className="whitespace-nowrap">Riwayat Edit Stok</span>
+                  <span>Riwayat Edit</span>
                 </button>
                 <button
                   onClick={() => setIsDeletedLogModalOpen(true)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 text-xs font-bold rounded-xl w-full sm:w-auto transition-all cursor-pointer flex items-center justify-center gap-1.5 border border-slate-200 whitespace-nowrap"
+                  className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 border border-slate-200 whitespace-nowrap"
                 >
-                  <svg className="w-4 h-4 text-slate-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M7 3v4a1 1 0 001 1h8a1 1 0 001-1V3" />
-                    <rect x="3" y="8" width="18" height="13" rx="2" ry="2" />
-                    <line x1="10" y1="12" x2="14" y2="12" />
+                  <svg className="w-3.5 h-3.5 text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
-                  <span className="whitespace-nowrap">Riwayat Dihapus</span>
+                  <span>Riwayat Hapus</span>
                 </button>
               </div>
             </div>
@@ -2696,45 +2789,42 @@ export default function App() {
             <div className="md:hidden space-y-3">
               {filteredProducts.length === 0 ? (
                 <div className="text-center py-12 bg-white border border-slate-200 rounded-xl text-slate-500">
-                  <svg className="w-10 h-10 text-slate-400 mx-auto mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                  </svg>
                   <p className="text-xs font-semibold">Tidak ada data produk tersimpan.</p>
                 </div>
               ) : (
                 filteredProducts.map(p => (
-                  <div key={'mob-stock-' + p.id} className="p-4 bg-pure-white border border-border-light rounded-lg shadow-xs flex flex-col gap-3">
+                  <div key={'mob-stock-' + p.id} className="p-3.5 bg-white border border-slate-200 rounded-xl flex flex-col gap-3">
                     <div className="flex gap-3 items-start">
                       {p.image_url ? (
-                        <img src={getOptimizedImageUrl(p.image_url, 150)} className="w-16 h-16 object-cover border border-slate-200 rounded-lg shrink-0" alt={p.name} loading="lazy" decoding="async" />
+                        <img src={getOptimizedImageUrl(p.image_url, 150)} className="w-12 h-12 object-cover border border-slate-200 rounded-lg shrink-0" alt={p.name} loading="lazy" decoding="async" />
                       ) : (
-                        <div className="w-16 h-16 bg-slate-100 flex items-center justify-center border border-slate-200 text-slate-400 text-[10px] rounded-lg shrink-0 font-bold">NO FOTO</div>
+                        <div className="w-12 h-12 bg-slate-100 flex items-center justify-center border border-slate-200 text-slate-400 text-[9px] rounded-lg shrink-0 font-bold">NO PHOTO</div>
                       )}
                       <div className="min-w-0 flex-1">
-                        <div className="font-extrabold text-sm text-slate-900 truncate">{p.name}</div>
-                        <div className="text-xs text-slate-500 truncate">{p.description}</div>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          <span className="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold uppercase">{p.category}</span>
-                          {p.subcategory && <span className="text-[9px] bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold uppercase">{p.subcategory}</span>}
+                        <div className="font-bold text-xs text-slate-900 truncate">{p.name}</div>
+                        <div className="text-[11px] text-slate-500 truncate">{p.description}</div>
+                        <div className="flex items-center gap-1 mt-1 text-[10px] text-slate-400 font-mono">
+                          <span>{p.category}</span>
+                          {p.subcategory && <span>• {p.subcategory}</span>}
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-2 border-t border-border-light/60 text-xs">
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
                       <div>
-                        <span className="text-secondary block text-[10px] font-semibold">Harga Net</span>
-                        <strong className="text-primary text-sm font-bold">Rp {(p.price - p.discount).toLocaleString('id-ID')}</strong>
+                        <span className="text-slate-400 block text-[10px] font-mono uppercase">Harga Net</span>
+                        <strong className="text-slate-900 text-xs font-bold">Rp {(p.price - p.discount).toLocaleString('id-ID')}</strong>
                       </div>
                       <div>
                         {getStockLabel(p.stock)}
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-2 border-t border-border-light/60 gap-2">
-                      <div className="flex items-center border border-border-light rounded-lg overflow-hidden bg-pure-white shadow-xs">
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 gap-2">
+                      <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white shadow-2xs">
                         <button 
                           onClick={() => adjustStock(p.id, -1)} 
-                          className="px-3 py-1.5 bg-surface-container hover:bg-surface-container-high text-primary font-bold text-xs active:scale-95"
+                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs"
                           title="Kurang 1 Unit"
                         >
                           -1
@@ -2742,7 +2832,7 @@ export default function App() {
                         <StockControlInput stock={p.stock} onCommit={(newVal) => setDirectStock(p.id, newVal)} />
                         <button 
                           onClick={() => adjustStock(p.id, 1)} 
-                          className="px-3 py-1.5 bg-surface-container hover:bg-surface-container-high text-primary font-bold text-xs active:scale-95"
+                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs"
                           title="Tambah 1 Unit"
                         >
                           +1
@@ -2750,19 +2840,12 @@ export default function App() {
                       </div>
 
                       <div className="flex items-center gap-1.5">
-                        <button onClick={() => openEdit(p)} className="p-2 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer" title="Edit Produk">
-                          <svg className="w-4 h-4 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                          </svg>
+                        <button onClick={() => openEdit(p)} className="px-2.5 py-1 border border-slate-200 rounded text-slate-700 hover:bg-slate-100 text-xs font-semibold transition-colors cursor-pointer">
+                          Edit
                         </button>
-                        <button onClick={() => setDeleteConfirmId(p.id)} className="p-2 border border-slate-200 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer" title="Hapus Produk">
-                          <svg className="w-4 h-4 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M3 6h18" />
-                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                            <line x1="10" y1="11" x2="10" y2="17" />
-                            <line x1="14" y1="11" x2="14" y2="17" />
+                        <button onClick={() => setDeleteConfirmId(p.id)} className="p-1.5 border border-slate-200 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer" title="Hapus Produk">
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                           </svg>
                         </button>
                       </div>
@@ -2773,103 +2856,86 @@ export default function App() {
             </div>
 
             {/* Desktop Table View (>= md) */}
-            <div className="hidden md:block bg-pure-white border border-border-light rounded-sm overflow-hidden shadow-sm">
+            <div className="hidden md:block bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[700px]">
+                <table className="w-full text-left border-collapse min-w-[700px] text-xs">
                   <thead>
-                    <tr className="bg-surface-container border-b border-border-light">
-                      <th className="p-4 font-label-md text-label-md text-secondary uppercase">Foto SKU</th>
-                      <th className="p-4 font-label-md text-label-md text-secondary uppercase">Detail Produk</th>
-                      <th className="p-4 font-label-md text-label-md text-secondary uppercase">Harga Dasar</th>
-                      <th className="p-4 font-label-md text-label-md text-secondary uppercase">Diskon</th>
-                      <th className="p-4 font-label-md text-label-md text-secondary uppercase">Harga Bersih</th>
-                      <th className="p-4 font-label-md text-label-md text-secondary uppercase">Stok &amp; Status</th>
-                      <th className="p-4 font-label-md text-label-md text-secondary uppercase text-center">Kelola Stok (-1 / Input / +1)</th>
-                      <th className="p-4 font-label-md text-label-md text-secondary uppercase text-right">Aksi</th>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-400 font-extrabold text-[10px] uppercase tracking-wider">
+                      <th className="py-3 px-4">SKU &amp; Produk</th>
+                      <th className="py-3 px-4">Kategori</th>
+                      <th className="py-3 px-4">Harga Dasar</th>
+                      <th className="py-3 px-4">Diskon</th>
+                      <th className="py-3 px-4">Harga Bersih</th>
+                      <th className="py-3 px-4">Stok</th>
+                      <th className="py-3 px-4 text-center">Kelola Stok</th>
+                      <th className="py-3 px-4 text-right">Aksi</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-slate-100">
                     {filteredProducts.map(p => (
-                      <tr key={p.id} className="border-b border-border-light hover:bg-surface-container-low transition-colors">
-                        <td className="p-4">
-                          {p.image_url ? (
-                            <img src={getOptimizedImageUrl(p.image_url, 150)} className="w-16 h-12 object-cover border border-slate-200 rounded-lg" alt={p.name} loading="lazy" decoding="async" />
-                          ) : (
-                            <div className="w-16 h-12 bg-surface-container flex items-center justify-center border border-border-light text-secondary text-xs rounded">TIDAK ADA FOTO</div>
-                          )}
-                        </td>
-                        <td className="p-4">
-                          <div className="font-bold text-primary">{p.name}</div>
-                          <div className="text-xs text-secondary">{p.description}</div>
-                          <div className="flex gap-1.5 mt-1">
-                            <span className="inline-block text-[10px] bg-surface-container-highest text-secondary px-2 py-0.5 font-bold rounded uppercase">
-                              {p.category}
-                            </span>
-                            {p.subcategory && (
-                              <span className="inline-block text-[10px] bg-primary-fixed text-primary px-2 py-0.5 font-bold rounded uppercase">
-                                {p.subcategory}
-                              </span>
+                      <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-3">
+                            {p.image_url ? (
+                              <img src={getOptimizedImageUrl(p.image_url, 150)} className="w-10 h-10 object-cover border border-slate-200 rounded-md shrink-0" alt={p.name} loading="lazy" decoding="async" />
+                            ) : (
+                              <div className="w-10 h-10 bg-slate-100 flex items-center justify-center border border-slate-200 text-slate-400 text-[8px] font-bold rounded-md shrink-0">NO PHOTO</div>
                             )}
+                            <div>
+                              <strong className="font-bold text-slate-900 text-xs block truncate max-w-xs">{p.name}</strong>
+                              <span className="text-slate-400 text-[10px] font-mono block">SKU-{p.id.substring(0, 6)}</span>
+                            </div>
                           </div>
                         </td>
-                        <td className="p-4 font-medium">Rp {p.price.toLocaleString('id-ID')}</td>
-                        <td className="p-4 text-error font-medium">{p.discount > 0 ? `-Rp ${p.discount.toLocaleString('id-ID')}` : '-'}</td>
-                        <td className="p-4 font-bold text-primary">Rp {(p.price - p.discount).toLocaleString('id-ID')}</td>
-                        <td className="p-4">
-                          <div className="flex flex-col gap-1">
-                            <div className="font-bold text-sm text-primary flex items-center gap-1">
-                              <span>{p.stock} {p.unit}</span>
-                            </div>
+                        <td className="py-3 px-4 capitalize text-slate-600 font-medium">
+                          {p.category} {p.subcategory ? `• ${p.subcategory}` : ''}
+                        </td>
+                        <td className="py-3 px-4 font-mono text-slate-500">Rp {p.price.toLocaleString('id-ID')}</td>
+                        <td className="py-3 px-4 font-mono text-slate-400">{p.discount > 0 ? `-Rp ${p.discount.toLocaleString('id-ID')}` : '-'}</td>
+                        <td className="py-3 px-4 font-mono font-bold text-slate-900">Rp {(p.price - p.discount).toLocaleString('id-ID')}</td>
+                        <td className="py-3 px-4">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-mono font-bold text-slate-900">{p.stock} {p.unit}</span>
                             {getStockLabel(p.stock)}
                           </div>
                         </td>
-                        <td className="p-4">
-                          <div className="flex items-center justify-center">
-                            {/* Direct Edit Input & +-1 */}
-                            <div className="flex items-center border border-border-light rounded-lg overflow-hidden bg-pure-white shadow-xs">
-                              <button 
-                                onClick={() => adjustStock(p.id, -1)} 
-                                className="px-3 py-1.5 bg-surface-container hover:bg-surface-container-high text-primary font-bold transition-all active:scale-95 text-xs"
-                                title="Kurang 1 Unit"
-                              >
-                                -1
-                              </button>
-                              <StockControlInput 
-                                stock={p.stock} 
-                                onCommit={(newVal) => setDirectStock(p.id, newVal)} 
-                              />
-                              <button 
-                                onClick={() => adjustStock(p.id, 1)} 
-                                className="px-3 py-1.5 bg-surface-container hover:bg-surface-container-high text-primary font-bold transition-all active:scale-95 text-xs"
-                                title="Tambah 1 Unit"
-                              >
-                                +1
-                              </button>
-                            </div>
+                        <td className="py-3 px-4 text-center">
+                          <div className="inline-flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white shadow-2xs">
+                            <button 
+                              onClick={() => adjustStock(p.id, -1)} 
+                              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold transition-all text-xs"
+                              title="Kurang 1 Unit"
+                            >
+                              -1
+                            </button>
+                            <StockControlInput 
+                              stock={p.stock} 
+                              onCommit={(newVal) => setDirectStock(p.id, newVal)} 
+                            />
+                            <button 
+                              onClick={() => adjustStock(p.id, 1)} 
+                              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold transition-all text-xs"
+                              title="Tambah 1 Unit"
+                            >
+                              +1
+                            </button>
                           </div>
                         </td>
-                        <td className="p-4 text-right">
-                          <div className="flex justify-end gap-1.5">
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex justify-end items-center gap-1.5">
                             <button 
                               onClick={() => openEdit(p)} 
-                              className="p-1.5 border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors rounded-lg flex items-center justify-center cursor-pointer"
-                              title="Edit Produk"
+                              className="px-2.5 py-1 border border-slate-200 text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded text-xs font-semibold transition-all cursor-pointer"
                             >
-                              <svg className="w-4 h-4 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                              </svg>
+                              Edit
                             </button>
                             <button 
                               onClick={() => setDeleteConfirmId(p.id)} 
-                              className="p-1.5 border border-slate-200 text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition-colors rounded-lg flex items-center justify-center cursor-pointer"
+                              className="p-1 border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors rounded cursor-pointer"
                               title="Hapus Produk"
                             >
-                              <svg className="w-4 h-4 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <polyline points="3 6 5 6 21 6" />
-                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                                <line x1="10" y1="11" x2="10" y2="17" />
-                                <line x1="14" y1="11" x2="14" y2="17" />
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                               </svg>
                             </button>
                           </div>
@@ -2882,6 +2948,235 @@ export default function App() {
             </div>
           </section>
         )}
+
+
+        {/* ── DEDICATED STOCK ALERTS BAR VIEW ── */}
+        {currentView === 'stock-alerts' && isAdmin && (() => {
+          const outOfStock = products.filter(p => (Number(p.stock) || 0) === 0);
+          const lowStock = products.filter(p => (Number(p.stock) || 0) > 0 && (Number(p.stock) || 0) <= 3);
+          const healthyStock = products.filter(p => (Number(p.stock) || 0) > 3);
+
+          return (
+            <section className="px-4 md:px-8 py-6 md:py-8 max-w-container-max mx-auto w-full flex-grow">
+              
+              {/* Clean Metric Summary Bar */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+                <div className="p-4 bg-white border border-slate-200 rounded-xl flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">Stok Habis (0 Unit)</span>
+                    <strong className="text-xl font-mono font-black text-rose-600 mt-0.5 block">{outOfStock.length} SKU</strong>
+                  </div>
+                  <span className="text-[10px] font-mono font-extrabold text-rose-600 tracking-wider">RESTOCK</span>
+                </div>
+
+                <div className="p-4 bg-white border border-slate-200 rounded-xl flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">Stok Menipis (1-3 Unit)</span>
+                    <strong className="text-xl font-mono font-black text-amber-600 mt-0.5 block">{lowStock.length} SKU</strong>
+                  </div>
+                  <span className="text-[10px] font-mono font-extrabold text-amber-600 tracking-wider">LOW</span>
+                </div>
+
+                <div className="p-4 bg-white border border-slate-200 rounded-xl flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">Stok Aman (&gt;3 Unit)</span>
+                    <strong className="text-xl font-mono font-black text-slate-900 mt-0.5 block">{healthyStock.length} SKU</strong>
+                  </div>
+                  <span className="text-[10px] font-mono font-extrabold text-slate-400 tracking-wider">SEHAT</span>
+                </div>
+              </div>
+
+              {/* Editorial Table Panel */}
+              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+                <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-0.5">Inventory Operational Alert</span>
+                    <h3 className="font-extrabold text-base text-slate-900">Peringatan Stok Minimal</h3>
+                  </div>
+                  <button
+                    onClick={() => setCurrentView('stock')}
+                    className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer w-full sm:w-auto justify-center"
+                  >
+                    <span>Kontrol Stok Lengkap</span>
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Mobile Responsive Card List (< md) */}
+                <div className="md:hidden divide-y divide-slate-100">
+                  {[...outOfStock, ...lowStock].length === 0 ? (
+                    <div className="py-8 px-4 text-center text-slate-500 font-medium text-xs">
+                      Persediaan produk dalam kondisi sehat (&gt;3 unit). Tidak ada peringatan aktif.
+                    </div>
+                  ) : (
+                    [...outOfStock, ...lowStock].map(p => {
+                      const isZero = p.stock === 0;
+                      return (
+                        <div key={'mob-alert-row-' + p.id} className="p-3.5 flex flex-col gap-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              {p.image_url ? (
+                                <img src={getOptimizedImageUrl(p.image_url, 120)} className="w-10 h-10 object-cover border border-slate-200 rounded-md shrink-0" alt={p.name} />
+                              ) : (
+                                <div className="w-10 h-10 bg-slate-100 border border-slate-200 text-slate-400 text-[8px] font-bold rounded-md flex items-center justify-center shrink-0">NO PHOTO</div>
+                              )}
+                              <div className="min-w-0">
+                                <strong className="font-bold text-slate-900 text-xs block truncate">{p.name}</strong>
+                                <span className="text-slate-400 text-[10px] font-mono block">SKU-{p.id.substring(0, 6)} • {p.category}</span>
+                              </div>
+                            </div>
+                            <span className="font-mono font-extrabold text-[10px] tracking-wider shrink-0">
+                              {isZero ? (
+                                <span className="text-rose-600">HABIS</span>
+                              ) : (
+                                <span className="text-amber-600">MENIPIS</span>
+                              )}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-2 border-t border-slate-100 gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-slate-400 font-mono">Sisa:</span>
+                              <strong className="font-mono font-bold text-xs text-slate-900">{p.stock} {p.unit}</strong>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <div className="inline-flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white shadow-2xs">
+                                <button 
+                                  onClick={() => adjustStock(p.id, -1)} 
+                                  className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs"
+                                  title="Kurang 1 Unit"
+                                >
+                                  -1
+                                </button>
+                                <StockControlInput 
+                                  stock={p.stock} 
+                                  onCommit={(newVal) => setDirectStock(p.id, newVal)} 
+                                />
+                                <button 
+                                  onClick={() => adjustStock(p.id, 1)} 
+                                  className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs"
+                                  title="Tambah 1 Unit"
+                                >
+                                  +1
+                                </button>
+                              </div>
+                              <button
+                                onClick={() => openEdit(p)}
+                                className="px-2.5 py-1 border border-slate-200 text-slate-700 hover:text-slate-900 rounded text-xs font-semibold cursor-pointer"
+                              >
+                                Edit
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Desktop Table View (>= md) */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[650px] text-xs">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-400 font-extrabold text-[10px] uppercase tracking-wider">
+                        <th className="py-3 px-4">Produk</th>
+                        <th className="py-3 px-4">Kategori</th>
+                        <th className="py-3 px-4">Sisa Stok</th>
+                        <th className="py-3 px-4">Status</th>
+                        <th className="py-3 px-4 text-center">Kelola Stok</th>
+                        <th className="py-3 px-4 text-right">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {[...outOfStock, ...lowStock].length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="py-8 px-4 text-center text-slate-500 font-medium">
+                            Persediaan produk dalam kondisi sehat (&gt;3 unit). Tidak ada peringatan aktif.
+                          </td>
+                        </tr>
+                      ) : (
+                        [...outOfStock, ...lowStock].map(p => {
+                          const isZero = p.stock === 0;
+                          return (
+                            <tr key={'alert-row-' + p.id} className="hover:bg-slate-50/80 transition-colors">
+                              <td className="py-3 px-4">
+                                <div className="flex items-center gap-3">
+                                  {p.image_url ? (
+                                    <img src={getOptimizedImageUrl(p.image_url, 120)} className="w-10 h-10 object-cover border border-slate-200 rounded-md shrink-0" alt={p.name} />
+                                  ) : (
+                                    <div className="w-10 h-10 bg-slate-100 border border-slate-200 text-slate-400 text-[8px] font-bold rounded-md flex items-center justify-center shrink-0">NO PHOTO</div>
+                                  )}
+                                  <div>
+                                    <strong className="font-bold text-slate-900 text-xs block truncate max-w-xs">{p.name}</strong>
+                                    <span className="text-slate-400 text-[10px] font-mono block">SKU-{p.id.substring(0, 6)}</span>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="py-3 px-4 capitalize text-slate-600 font-medium">
+                                {p.category} {p.subcategory ? `• ${p.subcategory}` : ''}
+                              </td>
+                              <td className="py-3 px-4 font-mono font-bold text-xs text-slate-900">
+                                {p.stock} {p.unit}
+                              </td>
+                              <td className="py-3 px-4 font-mono font-extrabold text-[11px] tracking-wider">
+                                {isZero ? (
+                                  <span className="text-rose-600">
+                                    HABIS
+                                  </span>
+                                ) : (
+                                  <span className="text-amber-600">
+                                    MENIPIS
+                                  </span>
+                                )}
+                              </td>
+
+                              <td className="py-3 px-4 text-center">
+                                <div className="inline-flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white shadow-2xs">
+                                  <button 
+                                    onClick={() => adjustStock(p.id, -1)} 
+                                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold transition-all text-xs"
+                                    title="Kurang 1 Unit"
+                                  >
+                                    -1
+                                  </button>
+                                  <StockControlInput 
+                                    stock={p.stock} 
+                                    onCommit={(newVal) => setDirectStock(p.id, newVal)} 
+                                  />
+                                  <button 
+                                    onClick={() => adjustStock(p.id, 1)} 
+                                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold transition-all text-xs"
+                                    title="Tambah 1 Unit"
+                                  >
+                                    +1
+                                  </button>
+                                </div>
+                              </td>
+                              <td className="py-3 px-4 text-right">
+                                <button
+                                  onClick={() => openEdit(p)}
+                                  className="px-2.5 py-1 border border-slate-200 text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded text-xs font-semibold transition-all cursor-pointer"
+                                >
+                                  Edit
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+              </div>
+            </section>
+          );
+        })()}
+
+
 
         {/* ── ANALYTICS / DASHBOARD VIEW (SUPABASE LIVE SYNC) ── */}
         {currentView === 'dashboard' && isAdmin && (() => {
@@ -2946,8 +3241,8 @@ export default function App() {
           return (
             <section className="px-4 md:px-8 py-6 md:py-8 max-w-container-max mx-auto w-full flex-grow">
               
-              {/* ── 1. RINGKASAN METRIK UTAMA & NOTIFIKASI STOK ── */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
+              {/* ── 1. RINGKASAN METRIK UTAMA ── */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
                 {/* Nilai Aset Gudang */}
                 <div className="p-6 bg-white border border-slate-200/80 rounded-2xl shadow-xs flex flex-col justify-between">
                   <div>
@@ -2956,60 +3251,37 @@ export default function App() {
                       Rp {totalInventoryValue.toLocaleString('id-ID')}
                     </div>
                   </div>
-                  <span className="text-xs text-slate-500 font-medium mt-4 block">{products.length} SKU Produk ({totalUnits} Unit Fisik)</span>
+                  <span className="text-xs text-slate-500 font-medium mt-4 block">{products.length} SKU Produk</span>
                 </div>
 
-                {/* Notifikasi & Status Stok Panel */}
-                <div className="lg:col-span-2 p-6 bg-white border border-slate-200/80 rounded-2xl shadow-xs">
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="text-xs font-extrabold uppercase tracking-wider text-slate-900 flex items-center gap-2">
-                      <svg className="w-4 h-4 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                      </svg>
-                      Pemberitahuan &amp; Notifikasi Stok
-                    </span>
-                    <span className="text-[11px] font-extrabold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-md border border-slate-200">
-                      {lowStockProducts.length + outOfStockProducts.length} Perlu Perhatian
-                    </span>
+                {/* Total Fisik Unit */}
+                <div className="p-6 bg-white border border-slate-200/80 rounded-2xl shadow-xs flex flex-col justify-between">
+                  <div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Total Unit Fisik Gudang</span>
+                    <div className="text-2xl sm:text-3xl font-black text-slate-900 truncate">
+                      {totalUnits} <span className="text-sm font-bold text-slate-500">Unit</span>
+                    </div>
                   </div>
+                  <span className="text-xs text-slate-500 font-medium mt-4 block">{healthyStockCount} SKU Stok Aman (&gt;3)</span>
+                </div>
 
-                  <div className="space-y-2 max-h-[120px] overflow-y-auto pr-1">
-                    {outOfStockProducts.length === 0 && lowStockProducts.length === 0 ? (
-                      <div className="p-3 bg-slate-50 border border-slate-200/70 rounded-xl flex items-center gap-2 text-xs text-slate-600 font-medium">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
-                        Semua persediaan stok dalam kondisi sehat ({healthyStockCount} SKU Aman).
-                      </div>
-                    ) : (
-                      <>
-                        {outOfStockProducts.map(p => (
-                          <div key={'alert-out-' + p.id} className="p-2.5 bg-slate-50 border border-slate-200/70 rounded-xl flex items-center justify-between gap-3 text-xs">
-                            <div className="flex items-center gap-2 min-w-0 flex-1">
-                              <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0 animate-pulse"></span>
-                              <span className="font-bold text-slate-900 text-xs leading-snug line-clamp-2">{p.name}</span>
-                            </div>
-                            <span className="font-black text-rose-600 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200 text-[11px] shrink-0 whitespace-nowrap self-center">
-                              Stok Habis (0 Unit)
-                            </span>
-                          </div>
-                        ))}
-
-                        {lowStockProducts.map(p => (
-                          <div key={'alert-low-' + p.id} className="p-2.5 bg-slate-50 border border-slate-200/70 rounded-xl flex items-center justify-between gap-3 text-xs">
-                            <div className="flex items-center gap-2 min-w-0 flex-1">
-                              <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0"></span>
-                              <span className="font-bold text-slate-900 text-xs leading-snug line-clamp-2">{p.name}</span>
-                            </div>
-                            <span className="font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200 text-[11px] shrink-0 whitespace-nowrap self-center">
-                              Sisa {p.stock} {p.unit}
-                            </span>
-                          </div>
-                        ))}
-                      </>
-                    )}
+                {/* Status Ringkasan Perhatian */}
+                <div className="p-6 bg-white border border-slate-200/80 rounded-2xl shadow-xs flex flex-col justify-between">
+                  <div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Stok Perlu Perhatian</span>
+                    <div className="text-2xl sm:text-3xl font-black text-rose-600 truncate">
+                      {lowStockProducts.length + outOfStockProducts.length} <span className="text-sm font-bold text-slate-500">SKU</span>
+                    </div>
                   </div>
+                  <button 
+                    onClick={() => setCurrentView('stock-alerts')}
+                    className="text-xs font-bold text-rose-600 hover:text-rose-800 flex items-center gap-1 mt-4 transition-colors cursor-pointer"
+                  >
+                    <span>Buka Bar Peringatan Stok &rarr;</span>
+                  </button>
                 </div>
               </div>
+
 
               {/* ── 2. DIAGRAM CHART TREN PENJUALAN 7 HARI TERAKHIR ── */}
               <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-xs mb-8">
