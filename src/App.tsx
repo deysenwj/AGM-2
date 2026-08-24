@@ -2006,9 +2006,10 @@ export default function App() {
   const getStockLabel = (stock: number) => {
     const s = isNaN(stock) ? 0 : Math.max(0, Number(stock) || 0);
     if (s === 0) return <span className="font-mono text-[10px] font-black tracking-wider text-rose-600 uppercase">HABIS</span>;
-    if (s <= 3) return <span className="font-mono text-[10px] font-black tracking-wider text-amber-600 uppercase">TERBATAS</span>;
+    if (s === 1) return <span className="font-mono text-[10px] font-black tracking-wider text-amber-600 uppercase">MENIPIS</span>;
     return <span className="font-mono text-[10px] font-extrabold tracking-wider text-slate-400 uppercase">TERSEDIA</span>;
   };
+
 
 
   return (
@@ -2109,11 +2110,12 @@ export default function App() {
                   >
                     <span>Peringatan Stok</span>
                     {(() => {
-                      const alertCount = products.filter(p => (Number(p.stock) || 0) <= 3).length;
+                      const alertCount = products.filter(p => (Number(p.stock) || 0) <= 1).length;
                       return alertCount > 0 ? (
                         <span className="font-mono text-[10px] font-extrabold text-rose-600 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200">{alertCount}</span>
                       ) : null;
                     })()}
+
                     {currentView === 'stock-alerts' && (
                       <span className="absolute bottom-0 inset-x-2.5 h-[2px] bg-slate-900 rounded-full" />
                     )}
@@ -2296,11 +2298,12 @@ export default function App() {
                         <span>Peringatan Stok</span>
                       </div>
                       {(() => {
-                        const alertCount = products.filter(p => (Number(p.stock) || 0) <= 3).length;
+                        const alertCount = products.filter(p => (Number(p.stock) || 0) <= 1).length;
                         return alertCount > 0 ? (
                           <span className="font-mono text-[10px] font-extrabold text-rose-600 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200">{alertCount}</span>
                         ) : null;
                       })()}
+
                     </button>
 
                     <button
@@ -2955,8 +2958,8 @@ export default function App() {
         {/* ── DEDICATED STOCK ALERTS BAR VIEW ── */}
         {currentView === 'stock-alerts' && isAdmin && (() => {
           const outOfStock = products.filter(p => (Number(p.stock) || 0) === 0);
-          const lowStock = products.filter(p => (Number(p.stock) || 0) > 0 && (Number(p.stock) || 0) <= 3);
-          const healthyStock = products.filter(p => (Number(p.stock) || 0) > 3);
+          const lowStock = products.filter(p => (Number(p.stock) || 0) === 1);
+          const healthyStock = products.filter(p => (Number(p.stock) || 0) >= 2);
 
           return (
             <section className="px-4 md:px-8 py-6 md:py-8 max-w-container-max mx-auto w-full flex-grow">
@@ -2973,7 +2976,7 @@ export default function App() {
 
                 <div className="p-4 bg-white border border-slate-200 rounded-xl flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">Stok Menipis (1-3 Unit)</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">Stok Menipis (1 Unit)</span>
                     <strong className="text-xl font-mono font-black text-amber-600 mt-0.5 block">{lowStock.length} SKU</strong>
                   </div>
                   <span className="text-[10px] font-mono font-extrabold text-amber-600 tracking-wider">LOW</span>
@@ -2981,7 +2984,7 @@ export default function App() {
 
                 <div className="p-4 bg-white border border-slate-200 rounded-xl flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">Stok Aman (&gt;3 Unit)</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">Stok Aman (≥2 Unit)</span>
                     <strong className="text-xl font-mono font-black text-slate-900 mt-0.5 block">{healthyStock.length} SKU</strong>
                   </div>
                   <span className="text-[10px] font-mono font-extrabold text-slate-400 tracking-wider">SEHAT</span>
@@ -3010,7 +3013,7 @@ export default function App() {
                 <div className="md:hidden divide-y divide-slate-100">
                   {[...outOfStock, ...lowStock].length === 0 ? (
                     <div className="py-8 px-4 text-center text-slate-500 font-medium text-xs">
-                      Persediaan produk dalam kondisi sehat (&gt;3 unit). Tidak ada peringatan aktif.
+                      Persediaan produk dalam kondisi sehat (≥2 unit). Tidak ada peringatan aktif.
                     </div>
                   ) : (
                     [...outOfStock, ...lowStock].map(p => {
@@ -3073,10 +3076,11 @@ export default function App() {
                       {[...outOfStock, ...lowStock].length === 0 ? (
                         <tr>
                           <td colSpan={5} className="py-8 px-4 text-center text-slate-500 font-medium">
-                            Persediaan produk dalam kondisi sehat (&gt;3 unit). Tidak ada peringatan aktif.
+                            Persediaan produk dalam kondisi sehat (≥2 unit). Tidak ada peringatan aktif.
                           </td>
                         </tr>
                       ) : (
+
                         [...outOfStock, ...lowStock].map(p => {
                           const isZero = p.stock === 0;
                           return (
@@ -3140,9 +3144,10 @@ export default function App() {
           const totalInventoryValue = products.reduce((acc, p) => acc + (((Number(p.price) || 0) - (Number(p.discount) || 0)) * (Number(p.stock) || 0)), 0);
           const totalUnits = products.reduce((acc, p) => acc + (Number(p.stock) || 0), 0);
 
-          const lowStockProducts = products.filter(p => (Number(p.stock) || 0) > 0 && (Number(p.stock) || 0) <= 3);
+          const lowStockProducts = products.filter(p => (Number(p.stock) || 0) === 1);
           const outOfStockProducts = products.filter(p => (Number(p.stock) || 0) === 0);
-          const healthyStockCount = products.filter(p => (Number(p.stock) || 0) > 3).length;
+          const healthyStockCount = products.filter(p => (Number(p.stock) || 0) >= 2).length;
+
 
           // Filter transactions based on date inputs
           const filteredTransactions = transactions.filter(tx => {
@@ -4312,9 +4317,10 @@ export default function App() {
 
               <div className="flex items-center justify-between pt-2">
                 <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
-                  <span className={`w-2.5 h-2.5 rounded-full ${selectedProductDetail.stock > 3 ? 'bg-emerald-500' : selectedProductDetail.stock > 0 ? 'bg-amber-500' : 'bg-rose-500'}`}></span>
-                  <span>{selectedProductDetail.stock > 0 ? `Stok Tersedia (${selectedProductDetail.stock} ${selectedProductDetail.unit})` : 'Habis / Pre-Order'}</span>
+                  <span className={`w-2.5 h-2.5 rounded-full ${selectedProductDetail.stock >= 2 ? 'bg-slate-400' : selectedProductDetail.stock === 1 ? 'bg-amber-500' : 'bg-rose-500'}`}></span>
+                  <span>{selectedProductDetail.stock >= 2 ? `Stok Aman (${selectedProductDetail.stock} ${selectedProductDetail.unit})` : selectedProductDetail.stock === 1 ? `Stok Menipis (1 ${selectedProductDetail.unit})` : 'Stok Habis'}</span>
                 </div>
+
 
                 {isAdmin && (
                   <div className="text-right">
