@@ -333,6 +333,12 @@ export default function App() {
   const [txStartDate, setTxStartDate] = useState<string>('');
   const [txEndDate, setTxEndDate] = useState<string>('');
 
+  // ── SAFETY STOCK & REORDER POINT ALGORITHM PARAMETERS ──
+  const [safetyStockLeadTime, setSafetyStockLeadTime] = useState<number>(3); // Supplier Lead Time (days)
+  const [safetyStockPeriodDays, setSafetyStockPeriodDays] = useState<number>(30); // Sales analysis period (days)
+  const [safetyStockSearch, setSafetyStockSearch] = useState<string>('');
+
+
   const [selectedTxDetail, setSelectedTxDetail] = useState<Transaction | null>(null);
   const [selectedProductDetail, setSelectedProductDetail] = useState<Product | null>(null);
   const [fullscreenImage, setFullscreenImage] = useState<{ urls: string[]; index: number } | null>(null);
@@ -3326,7 +3332,7 @@ export default function App() {
               </div>
 
               {/* ── 2. RIWAYAT TRANSAKSI PENJUALAN ── */}
-              <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-xs">
+              <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-xs mb-8">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-slate-100">
                   <div>
                     <h3 className="font-extrabold text-base text-slate-900">Riwayat Transaksi Penjualan</h3>
@@ -3354,7 +3360,7 @@ export default function App() {
                     {(txStartDate || txEndDate) && (
                       <button 
                         onClick={() => { setTxStartDate(''); setTxEndDate(''); }}
-                        className="text-rose-600 hover:text-rose-700 font-bold text-xs border border-rose-200 bg-rose-50 px-3 py-1.5 rounded-xl transition-all"
+                        className="text-rose-600 hover:text-rose-700 font-bold text-xs border border-rose-200 bg-rose-50 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
                       >
                         Reset
                       </button>
@@ -3363,23 +3369,25 @@ export default function App() {
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse min-w-[500px] text-xs">
+                  <table className="w-full text-left border-collapse text-xs">
                     <thead>
-                      <tr className="bg-slate-100/70 border-b border-slate-200/80 text-xs uppercase text-slate-500 font-extrabold tracking-wider">
-                        <th className="p-3.5 rounded-l-xl">No. Nota &amp; Tanggal</th>
-                        <th className="p-3.5">Nama Pelanggan</th>
-                        <th className="p-3.5 text-center">Status</th>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-400 font-extrabold text-[10px] uppercase tracking-wider">
+                        <th className="p-3.5">No. Nota &amp; Waktu</th>
+                        <th className="p-3.5">Pelanggan</th>
+                        <th className="p-3.5 text-center">Status Pembayaran</th>
                         <th className="p-3.5 text-right">Total Transaksi</th>
-                        <th className="p-3.5 text-center rounded-r-xl">Aksi</th>
+                        <th className="p-3.5 text-center">Aksi</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {filteredTransactions.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="p-8 text-center text-slate-500 font-medium">Belum ada transaksi terekam / tidak cocok dengan filter tanggal.</td>
+                          <td colSpan={5} className="p-8 text-center text-slate-400 text-xs font-medium">
+                            {txStartDate || txEndDate ? 'Tidak ada transaksi ditemukan pada rentang tanggal ini.' : 'Belum ada transaksi tersimpan.'}
+                          </td>
                         </tr>
                       ) : (
-                        filteredTransactions.map(tx => {
+                        filteredTransactions.map((tx) => {
                           const isPending = tx.remainingAmount !== undefined && tx.remainingAmount > 0;
                           return (
                             <tr 
@@ -3405,23 +3413,22 @@ export default function App() {
                                     LUNAS
                                   </span>
                                 )}
-
                               </td>
                               <td className="p-3.5 text-right font-black text-slate-900 text-sm">
                                 Rp {tx.totalPrice.toLocaleString('id-ID')}
                               </td>
                               <td className="p-3.5 text-center">
                                 <div className="flex items-center justify-center gap-2">
-                                  <button 
+                                  <button
                                     onClick={(e) => { e.stopPropagation(); setSelectedTxDetail(tx); }}
-                                    className="px-2.5 py-1 bg-slate-100 text-slate-800 rounded-lg text-[11px] font-extrabold hover:bg-slate-200 transition-all"
+                                    className="px-2.5 py-1 border border-slate-200 text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded text-xs font-semibold transition-all cursor-pointer"
                                   >
-                                    Detail
+                                    Rincian
                                   </button>
                                   {isAdmin && (
                                     <button 
                                       onClick={(e) => { e.stopPropagation(); setTransactionToDelete(tx.id); setIsDeleteTransactionModalOpen(true); }}
-                                      className="p-1 text-slate-400 hover:text-rose-600 active:scale-95 transition-all rounded-lg hover:bg-rose-50"
+                                      className="p-1 text-slate-400 hover:text-rose-600 active:scale-95 transition-all rounded-lg hover:bg-rose-50 cursor-pointer"
                                       title="Hapus Transaksi"
                                     >
                                       <svg className="w-4 h-4 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -3440,9 +3447,286 @@ export default function App() {
                   </table>
                 </div>
               </div>
+
+              {/* ── 3. PREDIKSI SAFETY STOCK & SUPPLY DEMAND RESTOCK (TERLETAK DI PALING BAWAH HALAMAN ANALISIS) ── */}
+              {(() => {
+                const cutoffDate = new Date();
+                cutoffDate.setDate(cutoffDate.getDate() - safetyStockPeriodDays);
+
+                const productSalesMap: { [productId: string]: { totalSold: number; salesByDay: { [dateStr: string]: number } } } = {};
+                products.forEach(p => {
+                  productSalesMap[p.id] = { totalSold: 0, salesByDay: {} };
+                });
+
+                transactions.forEach(tx => {
+                  try {
+                    const rawDate = tx.dateRaw ? new Date(tx.dateRaw) : new Date(tx.date);
+                    if (!isNaN(rawDate.getTime()) && rawDate >= cutoffDate) {
+                      const dateKey = rawDate.toISOString().split('T')[0];
+                      tx.items.forEach(item => {
+                        if (productSalesMap[item.productId]) {
+                          productSalesMap[item.productId].totalSold += Number(item.quantity || 0);
+                          productSalesMap[item.productId].salesByDay[dateKey] = (productSalesMap[item.productId].salesByDay[dateKey] || 0) + Number(item.quantity || 0);
+                        }
+                      });
+                    }
+                  } catch (e) {}
+                });
+
+                const safetyStockCalculations = products.map(p => {
+                  const pData = productSalesMap[p.id] || { totalSold: 0, salesByDay: {} };
+                  const periodDays = Math.max(1, safetyStockPeriodDays);
+                  const dAvg = pData.totalSold / periodDays;
+                  const dailyQuantities = Object.values(pData.salesByDay);
+                  const dMax = dailyQuantities.length > 0 ? Math.max(...dailyQuantities) : (dAvg > 0 ? Math.ceil(dAvg * 1.5) : 0);
+
+                  const L = Math.max(1, safetyStockLeadTime);
+                  const Lmax = L + 2;
+
+                  let ss = Math.ceil((dMax * Lmax) - (dAvg * L));
+                  if (ss < 0) ss = 0;
+                  if (pData.totalSold > 0 && ss === 0) ss = 1;
+
+                  const rop = Math.ceil((dAvg * L) + ss);
+                  const isReorderNeeded = (Number(p.stock) || 0) <= rop;
+                  const orderQty = isReorderNeeded ? Math.max(1, (rop * 2) - (Number(p.stock) || 0)) : 0;
+
+                  return {
+                    product: p,
+                    totalSold: pData.totalSold,
+                    dAvg,
+                    dMax,
+                    safetyStock: ss,
+                    reorderPoint: rop,
+                    isReorderNeeded,
+                    orderQty,
+                  };
+                });
+
+                const filteredSSList = safetyStockCalculations.filter(item => {
+                  if (!safetyStockSearch.trim()) return true;
+                  const query = safetyStockSearch.toLowerCase();
+                  return item.product.name.toLowerCase().includes(query) || item.product.id.toLowerCase().includes(query) || item.product.category.toLowerCase().includes(query);
+                });
+
+                const reorderNeededCount = safetyStockCalculations.filter(i => i.isReorderNeeded).length;
+                const totalSafetyUnits = safetyStockCalculations.reduce((acc, i) => acc + i.safetyStock, 0);
+
+                return (
+                  <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-xs">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 pb-4 border-b border-slate-100">
+                      <div>
+                        <span className="font-mono text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block mb-0.5">Inventory Optimization</span>
+                        <h3 className="font-extrabold text-base text-slate-900">Prediksi Safety Stock &amp; Pesan Ulang (ROP)</h3>
+                        <p className="text-xs text-slate-500 mt-0.5">Perhitungan stok pengaman berbasis data transaksi harian dan estimasi waktu pengiriman supplier</p>
+                      </div>
+
+                      {/* Controls Parameter Bar */}
+                      <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+                        <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 text-xs">
+                          <span className="text-slate-500 font-semibold text-[11px] whitespace-nowrap">Lead Time:</span>
+                          <select
+                            value={safetyStockLeadTime}
+                            onChange={(e) => setSafetyStockLeadTime(Number(e.target.value))}
+                            className="bg-transparent font-bold text-slate-900 border-none outline-none text-xs cursor-pointer"
+                          >
+                            <option value={1}>1 Hari</option>
+                            <option value={2}>2 Hari</option>
+                            <option value={3}>3 Hari</option>
+                            <option value={5}>5 Hari</option>
+                            <option value={7}>7 Hari</option>
+                            <option value={14}>14 Hari</option>
+                          </select>
+                        </div>
+
+                        <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 text-xs">
+                          <span className="text-slate-500 font-semibold text-[11px] whitespace-nowrap">Periode Data:</span>
+                          <select
+                            value={safetyStockPeriodDays}
+                            onChange={(e) => setSafetyStockPeriodDays(Number(e.target.value))}
+                            className="bg-transparent font-bold text-slate-900 border-none outline-none text-xs cursor-pointer"
+                          >
+                            <option value={7}>7 Hari</option>
+                            <option value={14}>14 Hari</option>
+                            <option value={30}>30 Hari</option>
+                            <option value={60}>60 Hari</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Safety Stock Metric Summary Cards */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+                      <div className="p-4 bg-white border border-slate-200 rounded-xl flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] font-mono font-extrabold uppercase tracking-wider text-slate-400 block">Restock Segera (≤ ROP)</span>
+                          <strong className="text-lg font-mono font-black text-rose-600 mt-0.5 block">{reorderNeededCount} SKU</strong>
+                        </div>
+                        <span className="text-[10px] font-mono font-extrabold text-rose-600 tracking-wider">RESTOCK</span>
+                      </div>
+
+                      <div className="p-4 bg-white border border-slate-200 rounded-xl flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] font-mono font-extrabold uppercase tracking-wider text-slate-400 block">Total Safety Stock</span>
+                          <strong className="text-lg font-mono font-black text-slate-900 mt-0.5 block">{totalSafetyUnits} Unit</strong>
+                        </div>
+                        <span className="text-[10px] font-mono font-extrabold text-slate-400 tracking-wider">BUFFER</span>
+                      </div>
+
+                      <div className="p-4 bg-white border border-slate-200 rounded-xl flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] font-mono font-extrabold uppercase tracking-wider text-slate-400 block">Lead Time Supplier</span>
+                          <strong className="text-lg font-mono font-black text-slate-900 mt-0.5 block">{safetyStockLeadTime} Hari</strong>
+                        </div>
+                        <span className="text-[10px] font-mono font-extrabold text-slate-400 tracking-wider">LEAD TIME</span>
+                      </div>
+                    </div>
+
+                    {/* Search Bar */}
+                    <div className="mb-4">
+                      <div className="relative w-full sm:max-w-xs">
+                        <svg className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                          <circle cx="11" cy="11" r="8" />
+                          <path d="M21 21l-4.35-4.35" />
+                        </svg>
+                        <input
+                          type="text"
+                          placeholder="Cari produk / SKU..."
+                          className="pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 text-xs rounded-lg w-full focus:ring-1 focus:ring-slate-900 focus:bg-white transition-all outline-none"
+                          value={safetyStockSearch}
+                          onChange={(e) => setSafetyStockSearch(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Mobile Card List (< md) */}
+                    <div className="md:hidden divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden bg-white">
+                      {filteredSSList.length === 0 ? (
+                        <div className="py-8 text-center text-xs text-slate-400 font-medium">Tidak ada data produk ditemukan.</div>
+                      ) : (
+                        filteredSSList.map(calc => (
+                          <div key={'mob-ss-' + calc.product.id} className="p-3.5 flex flex-col gap-2.5">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <strong className="font-bold text-slate-900 text-xs block truncate">{calc.product.name}</strong>
+                                <span className="text-slate-400 text-[10px] font-mono block">SKU-{calc.product.id.substring(0, 6)} • {calc.product.category}</span>
+                              </div>
+                              <span className="font-mono font-extrabold text-[10px] tracking-wider shrink-0">
+                                {calc.isReorderNeeded ? (
+                                  <span className="text-rose-600">RESTOCK</span>
+                                ) : (
+                                  <span className="text-slate-400">AMAM</span>
+                                )}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs font-mono">
+                              <div className="flex items-center gap-3">
+                                <div>
+                                  <span className="text-[9px] text-slate-400 uppercase block">Stok Fisik</span>
+                                  <strong className="text-slate-900 text-xs">{calc.product.stock} {calc.product.unit}</strong>
+                                </div>
+                                <div>
+                                  <span className="text-[9px] text-slate-400 uppercase block">Safety Stock</span>
+                                  <strong className="text-slate-900 text-xs">{calc.safetyStock} Unit</strong>
+                                </div>
+                                <div>
+                                  <span className="text-[9px] text-slate-400 uppercase block">Titik ROP</span>
+                                  <strong className="text-slate-900 text-xs">{calc.reorderPoint} Unit</strong>
+                                </div>
+                              </div>
+
+                              <button
+                                onClick={() => setCurrentView('stock')}
+                                className="text-[11px] font-semibold text-slate-600 hover:text-slate-900 cursor-pointer whitespace-nowrap"
+                              >
+                                Kelola &rarr;
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    {/* Desktop Table View (>= md) */}
+                    <div className="hidden md:block overflow-x-auto border border-slate-200 rounded-xl">
+                      <table className="w-full text-left border-collapse min-w-[700px] text-xs">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-200 text-slate-400 font-extrabold text-[10px] uppercase tracking-wider">
+                            <th className="py-3 px-4">Produk</th>
+                            <th className="py-3 px-4 text-center">Rata-rata/Hari</th>
+                            <th className="py-3 px-4 text-center">Safety Stock (SS)</th>
+                            <th className="py-3 px-4 text-center">Titik Pesan (ROP)</th>
+                            <th className="py-3 px-4 text-center">Stok Fisik Saat Ini</th>
+                            <th className="py-3 px-4 text-center">Status Prediksi</th>
+                            <th className="py-3 px-4 text-right">Tindakan</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {filteredSSList.length === 0 ? (
+                            <tr>
+                              <td colSpan={7} className="py-8 text-center text-slate-400 text-xs font-medium">Tidak ada data produk ditemukan.</td>
+                            </tr>
+                          ) : (
+                            filteredSSList.map(calc => (
+                              <tr key={'ss-row-' + calc.product.id} className="hover:bg-slate-50/80 transition-colors">
+                                <td className="py-3 px-4">
+                                  <div className="flex items-center gap-3">
+                                    {calc.product.image_url ? (
+                                      <img src={getOptimizedImageUrl(calc.product.image_url, 120)} className="w-9 h-9 object-cover border border-slate-200 rounded-md shrink-0" alt={calc.product.name} />
+                                    ) : (
+                                      <div className="w-9 h-9 bg-slate-100 border border-slate-200 text-slate-400 text-[8px] font-bold rounded-md flex items-center justify-center shrink-0">NO PHOTO</div>
+                                    )}
+                                    <div>
+                                      <strong className="font-bold text-slate-900 text-xs block truncate max-w-xs">{calc.product.name}</strong>
+                                      <span className="text-slate-400 text-[10px] font-mono block">SKU-{calc.product.id.substring(0, 6)}</span>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="py-3 px-4 text-center font-mono text-slate-600">
+                                  {calc.dAvg.toFixed(1)} unit
+                                </td>
+                                <td className="py-3 px-4 text-center font-mono font-bold text-slate-900">
+                                  {calc.safetyStock} {calc.product.unit}
+                                </td>
+                                <td className="py-3 px-4 text-center font-mono font-bold text-slate-900">
+                                  {calc.reorderPoint} {calc.product.unit}
+                                </td>
+                                <td className="py-3 px-4 text-center font-mono font-bold text-slate-900">
+                                  {calc.product.stock} {calc.product.unit}
+                                </td>
+                                <td className="py-3 px-4 text-center font-mono font-extrabold text-[11px] tracking-wider">
+                                  {calc.isReorderNeeded ? (
+                                    <span className="text-rose-600">
+                                      RESTOCK (+{calc.orderQty})
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-400">
+                                      AMAN
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-3 px-4 text-right">
+                                  <button
+                                    onClick={() => setCurrentView('stock')}
+                                    className="px-2.5 py-1 border border-slate-200 text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded text-xs font-semibold transition-all cursor-pointer inline-flex items-center gap-1"
+                                  >
+                                    <span>Kelola &rarr;</span>
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()}
             </section>
           );
         })()}
+
 
         {/* ── NOTA PRINTING VIEW ── */}
         {currentView === 'nota' && isAdmin && (
