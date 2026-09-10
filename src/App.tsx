@@ -2,6 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 import NotaView from './NotaView'; // Import NotaView
 import AIChatWidget from './components/AIChatWidget';
+import { 
+  Search, X, Menu, LayoutGrid, Package, 
+  BarChart3, FileText, AlertTriangle, User, LogOut, Trash2, ChevronDown, History, Archive, ClipboardList, MoreHorizontal
+} from 'lucide-react';
 
 
 export interface Product {
@@ -341,6 +345,7 @@ export default function App() {
 
   const [selectedTxDetail, setSelectedTxDetail] = useState<Transaction | null>(null);
   const [selectedProductDetail, setSelectedProductDetail] = useState<Product | null>(null);
+  const [activeCardMenuId, setActiveCardMenuId] = useState<string | null>(null);
   const [fullscreenImage, setFullscreenImage] = useState<{ urls: string[]; index: number } | null>(null);
   const [activeFooterFaq, setActiveFooterFaq] = useState<number | null>(null);
 
@@ -2022,18 +2027,16 @@ export default function App() {
     <div className="bg-surface text-on-surface selection:bg-primary-fixed selection:text-primary min-h-screen flex flex-col font-body-md">
       
       {/* ── TOP NAV BAR ── */}
-      <nav className="fixed top-0 left-0 w-full z-50 px-4 md:px-8 h-16 bg-white/90 backdrop-blur-xl border-b border-slate-200/80 shadow-xs flex items-center">
+      <nav className="fixed top-0 left-0 w-full z-50 px-4 md:px-8 h-16 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs flex items-center">
         <div className="max-w-[1400px] w-full mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-3 lg:gap-8">
+          <div className="flex items-center gap-4 lg:gap-6">
             {/* Mobile hamburger menu */}
             <button 
               onClick={() => setIsSidebarOpen(true)}
-              className="lg:hidden text-slate-700 hover:text-slate-900 flex items-center justify-center p-2 rounded-xl hover:bg-slate-100/80 transition-colors cursor-pointer"
+              className="lg:hidden text-slate-600 hover:text-slate-900 flex items-center justify-center p-1.5 rounded-lg hover:bg-slate-100/80 transition-colors cursor-pointer"
               title="Buka Menu"
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
+              <Menu className="w-5 h-5" />
             </button>
             <div 
               className="flex items-center gap-2 cursor-pointer select-none group"
@@ -2043,19 +2046,19 @@ export default function App() {
               <span className="text-[10px] font-mono font-extrabold text-slate-400 uppercase tracking-widest hidden sm:inline border-l border-slate-200 pl-2">PADANG</span>
             </div>
 
-            {/* Clean Enterprise Navigation (Linear / Vercel style) */}
-            <div className="hidden lg:flex items-center gap-1 ml-4 border-l border-slate-200 pl-4">
+            {/* Clean Enterprise Navigation (Typography-driven) */}
+            <div className="hidden lg:flex items-center gap-6 ml-2 border-l border-slate-200 pl-6 h-7">
               <button
                 onClick={() => setCurrentView('catalog')}
-                className={`relative py-1.5 px-3 text-xs transition-colors cursor-pointer ${
+                className={`relative py-1 text-xs transition-colors cursor-pointer ${
                   currentView === 'catalog' 
                     ? 'font-bold text-slate-900' 
                     : 'font-medium text-slate-500 hover:text-slate-900'
                 }`}
               >
-                Katalog
+                <span>Katalog</span>
                 {currentView === 'catalog' && (
-                  <span className="absolute bottom-0 inset-x-3 h-[2px] bg-slate-900 rounded-full" />
+                  <span className="absolute -bottom-[19px] inset-x-0 h-[2px] bg-slate-900 rounded-full" />
                 )}
               </button>
 
@@ -2063,52 +2066,49 @@ export default function App() {
                 <>
                   <button
                     onClick={() => setCurrentView('stock')}
-                    className={`relative py-1.5 px-3 text-xs transition-colors cursor-pointer ${
+                    className={`relative py-1 text-xs transition-colors cursor-pointer ${
                       currentView === 'stock' 
                         ? 'font-bold text-slate-900' 
                         : 'font-medium text-slate-500 hover:text-slate-900'
                     }`}
                   >
-                    Inventaris
+                    <span>Inventaris</span>
                     {currentView === 'stock' && (
-                      <span className="absolute bottom-0 inset-x-3 h-[2px] bg-slate-900 rounded-full" />
+                      <span className="absolute -bottom-[19px] inset-x-0 h-[2px] bg-slate-900 rounded-full" />
                     )}
                   </button>
 
                   <button
                     onClick={() => setCurrentView('dashboard')}
-                    className={`relative py-1.5 px-3 text-xs transition-colors cursor-pointer ${
+                    className={`relative py-1 text-xs transition-colors cursor-pointer ${
                       currentView === 'dashboard' 
                         ? 'font-bold text-slate-900' 
                         : 'font-medium text-slate-500 hover:text-slate-900'
                     }`}
                   >
-                    Analisis
+                    <span>Analisis</span>
                     {currentView === 'dashboard' && (
-                      <span className="absolute bottom-0 inset-x-3 h-[2px] bg-slate-900 rounded-full" />
+                      <span className="absolute -bottom-[19px] inset-x-0 h-[2px] bg-slate-900 rounded-full" />
                     )}
                   </button>
 
                   <button
                     onClick={() => setCurrentView('nota')}
-                    className={`relative py-1.5 px-3 text-xs transition-colors cursor-pointer ${
+                    className={`relative py-1 text-xs transition-colors cursor-pointer ${
                       currentView === 'nota' 
                         ? 'font-bold text-slate-900' 
                         : 'font-medium text-slate-500 hover:text-slate-900'
                     }`}
                   >
-                    Nota
+                    <span>Nota</span>
                     {currentView === 'nota' && (
-                      <span className="absolute bottom-0 inset-x-3 h-[2px] bg-slate-900 rounded-full" />
+                      <span className="absolute -bottom-[19px] inset-x-0 h-[2px] bg-slate-900 rounded-full" />
                     )}
                   </button>
 
-                  <div className="h-4 w-[1px] bg-slate-200 mx-2" />
-
-                  {/* Secondary Status Items */}
                   <button
                     onClick={() => setCurrentView('stock-alerts')}
-                    className={`relative py-1.5 px-2.5 text-xs transition-colors cursor-pointer flex items-center gap-1.5 ${
+                    className={`relative py-1 text-xs transition-colors cursor-pointer flex items-center gap-1 ${
                       currentView === 'stock-alerts' 
                         ? 'font-bold text-slate-900' 
                         : 'font-medium text-slate-500 hover:text-slate-900'
@@ -2118,93 +2118,96 @@ export default function App() {
                     {(() => {
                       const alertCount = products.filter(p => (Number(p.stock) || 0) <= 1).length;
                       return alertCount > 0 ? (
-                        <span className="font-mono text-[10px] font-extrabold text-rose-600 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200">{alertCount}</span>
+                        <span className="font-mono text-[11px] text-slate-400 font-medium ml-0.5">{alertCount}</span>
                       ) : null;
                     })()}
 
                     {currentView === 'stock-alerts' && (
-                      <span className="absolute bottom-0 inset-x-2.5 h-[2px] bg-slate-900 rounded-full" />
+                      <span className="absolute -bottom-[19px] inset-x-0 h-[2px] bg-slate-900 rounded-full" />
                     )}
                   </button>
 
                   <button
                     onClick={() => setCurrentView('custom-requests')}
-                    className={`relative py-1.5 px-2.5 text-xs transition-colors cursor-pointer ${
+                    className={`relative py-1 text-xs transition-colors cursor-pointer ${
                       currentView === 'custom-requests' 
                         ? 'font-bold text-slate-900' 
                         : 'font-medium text-slate-500 hover:text-slate-900'
                     }`}
                   >
-                    Custom Requests
+                    <span>Custom Requests</span>
                     {currentView === 'custom-requests' && (
-                      <span className="absolute bottom-0 inset-x-2.5 h-[2px] bg-slate-900 rounded-full" />
+                      <span className="absolute -bottom-[19px] inset-x-0 h-[2px] bg-slate-900 rounded-full" />
                     )}
                   </button>
                 </>
               )}
             </div>
-
           </div>
 
-
-          {/* Right Top Items (Responsive Search and Login) */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="relative max-w-[130px] sm:max-w-xs">
-              <svg className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8" />
-                <path d="M21 21l-4.35-4.35" />
-              </svg>
+          {/* Right Top Items (Search & User Area) */}
+          <div className="flex items-center gap-5 sm:gap-6">
+            {/* Subtle Search Input */}
+            <div className="relative max-w-[130px] sm:max-w-[180px] lg:max-w-[220px]">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 placeholder="Cari barang..."
-                className="pl-9 pr-7 py-1.5 bg-slate-100/80 border border-slate-200/80 text-xs rounded-xl w-full focus:ring-2 focus:ring-slate-900 focus:bg-white transition-all outline-none text-slate-900 placeholder:text-slate-400"
+                className="w-full pl-8 pr-7 py-1.5 bg-slate-50 hover:bg-slate-100/60 focus:bg-white border border-slate-200/80 focus:border-slate-300 rounded-lg text-xs transition-all outline-none text-slate-900 placeholder:text-slate-400"
                 value={globalSearch}
                 onChange={(e) => setGlobalSearch(e.target.value)}
               />
               {globalSearch && (
                 <button 
                   onClick={() => setGlobalSearch('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer p-0.5"
                 >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <X className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
             
             {isAdmin ? (
-              <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="flex items-center gap-5 sm:gap-6 text-xs leading-none">
+                {/* 1. Status indicator: clean text + green dot */}
                 <button
                   onClick={() => setIsOnlineAdminsModalOpen(true)}
-                  className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200/80 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 transition-all cursor-pointer"
+                  className="hidden sm:inline-flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors cursor-pointer select-none"
                   title="Petugas Admin Online"
                 >
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
-                  <span>{activeOnlineAdmins.length || 1} Online</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                  <span className="font-normal text-slate-500 text-xs tracking-normal">{activeOnlineAdmins.length || 1} Online</span>
                 </button>
 
-                <div className="px-2.5 sm:px-3 py-1.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-800">
-                  <span>{currentAdminUser?.name || 'Admin'}</span>
-                </div>
+                {/* 2. User profile: Initial avatar + prominent name + subtle chevron */}
+                <button
+                  onClick={() => setIsOnlineAdminsModalOpen(true)}
+                  className="inline-flex items-center gap-2 font-semibold text-slate-900 hover:text-slate-700 transition-colors cursor-pointer select-none group"
+                >
+                  <span className="w-6 h-6 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-bold uppercase shrink-0 group-hover:bg-slate-800 transition-colors">
+                    {(currentAdminUser?.name || 'A').charAt(0)}
+                  </span>
+                  <span className="text-slate-900 font-semibold text-xs tracking-tight">{currentAdminUser?.name || 'Admin'}</span>
+                  <ChevronDown className="w-3 h-3 text-slate-400 group-hover:text-slate-600 transition-colors shrink-0" />
+                </button>
+
+                {/* 3. Logout action: subtle text button with small icon */}
                 <button 
                   onClick={handleLogout}
-                  className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-all active:scale-[0.98] cursor-pointer"
-                  title="Logout Admin"
+                  className="inline-flex items-center gap-1.5 font-normal text-slate-500 hover:text-slate-900 transition-colors cursor-pointer select-none text-xs"
+                  title="Keluar dari akun admin"
                 >
-                  Keluar
+                  <LogOut className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <span>Keluar</span>
                 </button>
               </div>
             ) : (
               <button 
                 onClick={() => setIsLoginOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-all active:scale-[0.98] shadow-xs cursor-pointer"
+                className="flex items-center gap-1.5 text-xs font-bold text-slate-900 hover:text-slate-600 transition-colors cursor-pointer"
                 title="Login Admin"
               >
-                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                  <circle cx="12" cy="7" r="4" />
-                </svg>
+                <User className="w-4 h-4 text-slate-700" />
                 <span className="hidden md:inline uppercase tracking-wider">LOGIN ADMIN</span>
               </button>
             )}
@@ -2230,9 +2233,7 @@ export default function App() {
                 <span className="font-extrabold text-slate-900 text-xs tracking-tight">Katalog Padang</span>
               </div>
               <button onClick={() => setIsSidebarOpen(false)} className="text-slate-400 hover:text-slate-900 flex items-center justify-center p-1 rounded-lg cursor-pointer">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -2243,12 +2244,7 @@ export default function App() {
                   onClick={() => { setCurrentView('catalog'); setIsSidebarOpen(false); }}
                   className={`w-full text-left flex items-center gap-3 py-2.5 px-3 rounded-lg text-xs transition-colors ${currentView === 'catalog' ? 'bg-slate-100 font-bold text-slate-900' : 'font-medium text-slate-600 hover:bg-slate-50'}`}
                 >
-                  <svg className="w-4 h-4 shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="3" width="7" height="7" rx="1.5" />
-                    <rect x="14" y="3" width="7" height="7" rx="1.5" />
-                    <rect x="14" y="14" width="7" height="7" rx="1.5" />
-                    <rect x="3" y="14" width="7" height="7" rx="1.5" />
-                  </svg>
+                  <LayoutGrid className="w-4 h-4 shrink-0 text-slate-500" />
                   <span>Katalog Produk</span>
                 </button>
 
@@ -2258,11 +2254,7 @@ export default function App() {
                       onClick={() => { setCurrentView('stock'); setIsSidebarOpen(false); }}
                       className={`w-full text-left flex items-center gap-3 py-2.5 px-3 rounded-lg text-xs transition-colors ${currentView === 'stock' ? 'bg-slate-100 font-bold text-slate-900' : 'font-medium text-slate-600 hover:bg-slate-50'}`}
                     >
-                      <svg className="w-4 h-4 shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                        <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
-                        <path d="m3.3 7 8.7 5 8.7-5" />
-                        <path d="M12 22V12" />
-                      </svg>
+                      <Package className="w-4 h-4 shrink-0 text-slate-500" />
                       <span>Kontrol Stok</span>
                     </button>
 
@@ -2270,10 +2262,7 @@ export default function App() {
                       onClick={() => { setCurrentView('dashboard'); setIsSidebarOpen(false); }}
                       className={`w-full text-left flex items-center gap-3 py-2.5 px-3 rounded-lg text-xs transition-colors ${currentView === 'dashboard' ? 'bg-slate-100 font-bold text-slate-900' : 'font-medium text-slate-600 hover:bg-slate-50'}`}
                     >
-                      <svg className="w-4 h-4 shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                        <path d="M3 3v18h18" />
-                        <path d="m19 9-5 5-4-4-3 3" />
-                      </svg>
+                      <BarChart3 className="w-4 h-4 shrink-0 text-slate-500" />
                       <span>Analisis &amp; Performa</span>
                     </button>
 
@@ -2281,12 +2270,7 @@ export default function App() {
                       onClick={() => { setCurrentView('nota'); setIsSidebarOpen(false); }}
                       className={`w-full text-left flex items-center gap-3 py-2.5 px-3 rounded-lg text-xs transition-colors ${currentView === 'nota' ? 'bg-slate-100 font-bold text-slate-900' : 'font-medium text-slate-600 hover:bg-slate-50'}`}
                     >
-                      <svg className="w-4 h-4 shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                        <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z" />
-                        <path d="M16 8h-8" />
-                        <path d="M16 12h-8" />
-                        <path d="M13 16h-5" />
-                      </svg>
+                      <FileText className="w-4 h-4 shrink-0 text-slate-500" />
                       <span>Kasir &amp; Cetak Nota</span>
                     </button>
 
@@ -2297,28 +2281,22 @@ export default function App() {
                       className={`w-full text-left flex items-center justify-between py-2.5 px-3 rounded-lg text-xs transition-colors ${currentView === 'stock-alerts' ? 'bg-slate-100 font-bold text-slate-900' : 'font-medium text-slate-600 hover:bg-slate-50'}`}
                     >
                       <div className="flex items-center gap-3">
-                        <svg className="w-4 h-4 shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                          <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                        </svg>
+                        <AlertTriangle className="w-4 h-4 shrink-0 text-slate-500" />
                         <span>Peringatan Stok</span>
                       </div>
                       {(() => {
                         const alertCount = products.filter(p => (Number(p.stock) || 0) <= 1).length;
                         return alertCount > 0 ? (
-                          <span className="font-mono text-[10px] font-extrabold text-rose-600 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200">{alertCount}</span>
+                          <span className="font-mono text-[11px] text-slate-400 font-medium ml-1">({alertCount})</span>
                         ) : null;
                       })()}
-
                     </button>
 
                     <button
                       onClick={() => { setCurrentView('custom-requests'); setIsSidebarOpen(false); }}
                       className={`w-full text-left flex items-center gap-3 py-2.5 px-3 rounded-lg text-xs transition-colors ${currentView === 'custom-requests' ? 'bg-slate-100 font-bold text-slate-900' : 'font-medium text-slate-600 hover:bg-slate-50'}`}
                     >
-                      <svg className="w-4 h-4 shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                      </svg>
+                      <ClipboardList className="w-4 h-4 shrink-0 text-slate-500" />
                       <span>Custom Requests</span>
                     </button>
 
@@ -2327,9 +2305,7 @@ export default function App() {
                       className="w-full text-left flex items-center justify-between p-3 rounded-xl text-xs font-bold transition-all text-slate-600 hover:bg-slate-100 hover:text-slate-900 cursor-pointer"
                     >
                       <div className="flex items-center gap-3">
-                        <svg className="w-4 h-4 shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01m-.01 4h.01" />
-                        </svg>
+                        <History className="w-4 h-4 shrink-0 text-slate-500" />
                         <span className="whitespace-nowrap">Riwayat Edit Stok</span>
                       </div>
                     </button>
@@ -2338,14 +2314,11 @@ export default function App() {
                       className="w-full text-left flex items-center justify-between p-3 rounded-xl text-xs font-bold transition-all text-slate-600 hover:bg-slate-100 hover:text-slate-900 cursor-pointer"
                     >
                       <div className="flex items-center gap-3">
-                        <svg className="w-4 h-4 shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M7 3v4a1 1 0 001 1h8a1 1 0 001-1V3" />
-                          <rect x="3" y="8" width="18" height="13" rx="2" ry="2" />
-                          <line x1="10" y1="12" x2="14" y2="12" />
-                        </svg>
+                        <Archive className="w-4 h-4 shrink-0 text-slate-500" />
                         <span className="whitespace-nowrap">Riwayat Dihapus</span>
                       </div>
                     </button>
+
                     <button
                       onClick={() => { setIsOnlineAdminsModalOpen(true); setIsSidebarOpen(false); }}
                       className="w-full text-left flex items-center justify-between p-3 rounded-xl text-xs font-bold transition-all text-slate-600 hover:bg-slate-100 hover:text-slate-900 cursor-pointer"
@@ -2430,33 +2403,32 @@ export default function App() {
       <main className="pt-16 min-h-screen flex flex-col transition-all bg-white">
         
         {/* ── SLEEK POS OPERATIONAL HEADER ── */}
-        <header className="w-full px-4 md:px-8 py-4 md:py-5 border-b border-slate-200/80 bg-white shadow-xs">
+        <header className="w-full px-4 md:px-8 py-4 border-b border-slate-200/80 bg-white">
           <div className="max-w-container-max mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
             <div>
-              <h1 className="font-extrabold text-xl md:text-2xl text-slate-900 tracking-tight">
+              <h1 className="font-bold text-xl md:text-2xl text-slate-900 tracking-tight">
                 {currentView === 'catalog' && 'Katalog Produk & Persediaan'}
                 {currentView === 'stock' && 'Manajemen Kontrol Stok'}
                 {currentView === 'stock-alerts' && 'Pemberitahuan & Notifikasi Stok Minimal'}
                 {currentView === 'dashboard' && 'Analisis Penjualan & Performa'}
                 {currentView === 'nota' && 'Kasir & Pembuatan Nota'}
                 {currentView === 'custom-requests' && 'Pengajuan Custom Furniture Customer'}
-
               </h1>
             </div>
 
             <div className="flex items-center gap-3">
-              <div className="hidden sm:flex items-center gap-3 px-3.5 py-1.5 bg-slate-100/80 border border-slate-200/80 rounded-xl text-xs text-slate-600 font-semibold">
-                <span>SKU: <strong className="text-slate-900 font-bold">{products.length}</strong></span>
+              <div className="hidden sm:flex items-center gap-3 px-3 py-1.5 bg-slate-50 border border-slate-200/80 rounded-lg text-xs text-slate-500 font-medium">
+                <span>SKU: <strong className="text-slate-900 font-semibold">{products.length}</strong></span>
                 <span className="text-slate-300">•</span>
-                <span>Tersedia: <strong className="text-emerald-700 font-bold">{products.filter(p => p.stock > 0).length}</strong></span>
+                <span>Tersedia: <strong className="text-emerald-700 font-semibold">{products.filter(p => p.stock > 0).length}</strong></span>
               </div>
 
               {isAdmin && currentView === 'catalog' && (
                 <button
                   onClick={openAdd}
-                  className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-all flex items-center gap-1.5 shadow-xs active:scale-[0.98] cursor-pointer"
+                  className="px-3.5 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
-                  <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                   </svg>
                   <span>Tambah Produk</span>
@@ -2472,16 +2444,16 @@ export default function App() {
             
             {/* Guest Welcome Banner */}
             {!isAdmin && (
-              <div className="mb-6 p-5 sm:p-6 bg-slate-900 text-white rounded-2xl border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-md">
+              <div className="mb-6 p-5 sm:p-6 bg-slate-900 text-white rounded-xl border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                  <h3 className="font-black text-base sm:text-lg text-white tracking-tight">Katalog Produk AGM 2 Padang</h3>
+                  <h3 className="font-bold text-base sm:text-lg text-white tracking-tight">Katalog Produk AGM 2 Padang</h3>
                   <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">Pilihan Furniture &amp; Elektronik berkualitas. Klik produk untuk detail atau konsultasi pesanan.</p>
                 </div>
                 <a
                   href="https://wa.me/6289694127723?text=Halo%20Toko%20AGM%202%20Padang,%20saya%20ingin%20bertanya%20mengenai%20katalog%20produk"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full sm:w-auto px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl transition-all whitespace-nowrap flex items-center justify-center gap-2.5 shadow-md hover:shadow-emerald-900/30 active:scale-95 shrink-0"
+                  className="w-full sm:w-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg transition-colors whitespace-nowrap flex items-center justify-center gap-2 shrink-0"
                 >
                   <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
                     <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
@@ -2494,39 +2466,38 @@ export default function App() {
             {/* Grid Filters Row */}
             <div className="flex flex-col gap-4 mb-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div className="flex p-1 bg-slate-200/60 rounded-xl gap-1 w-full sm:w-auto overflow-x-auto hide-scrollbar">
+                <div className="flex p-1 bg-slate-100 border border-slate-200/80 rounded-lg gap-1 w-full sm:w-auto overflow-x-auto hide-scrollbar">
                   <button
                     onClick={() => selectCategoryFilter('all')}
-                    className={`flex-1 sm:flex-initial px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${filterCategory === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`flex-1 sm:flex-initial px-3.5 py-1.5 rounded-md text-xs transition-colors whitespace-nowrap ${filterCategory === 'all' ? 'bg-white text-slate-900 font-semibold shadow-xs' : 'text-slate-600 hover:text-slate-900 font-medium'}`}
                   >
                     Semua ({products.length})
                   </button>
                   <button
                     onClick={() => selectCategoryFilter('furniture')}
-                    className={`flex-1 sm:flex-initial px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${filterCategory === 'furniture' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`flex-1 sm:flex-initial px-3.5 py-1.5 rounded-md text-xs transition-colors whitespace-nowrap ${filterCategory === 'furniture' ? 'bg-white text-slate-900 font-semibold shadow-xs' : 'text-slate-600 hover:text-slate-900 font-medium'}`}
                   >
                     Furniture ({products.filter(p => p.category === 'furniture').length})
                   </button>
                   <button
                     onClick={() => selectCategoryFilter('electronics')}
-                    className={`flex-1 sm:flex-initial px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${filterCategory === 'electronics' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`flex-1 sm:flex-initial px-3.5 py-1.5 rounded-md text-xs transition-colors whitespace-nowrap ${filterCategory === 'electronics' ? 'bg-white text-slate-900 font-semibold shadow-xs' : 'text-slate-600 hover:text-slate-900 font-medium'}`}
                   >
                     Elektronik ({products.filter(p => p.category === 'electronics').length})
                   </button>
                 </div>
 
-                <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto text-xs text-slate-500 font-semibold">
+                <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto text-xs text-slate-500 font-medium">
                   <span>Menampilkan {filteredProducts.length} dari {products.length} barang</span>
                 </div>
               </div>
-
 
               {/* Mobile Sub-Category Dropdown */}
               <div className="block md:hidden pt-1">
                 <select
                   value={filterSubcategory}
                   onChange={(e) => setFilterSubcategory(e.target.value)}
-                  className="w-full bg-slate-100/90 border border-slate-200 text-xs font-bold rounded-xl px-3.5 py-2 text-slate-900 focus:ring-2 focus:ring-slate-900 shadow-xs outline-none cursor-pointer"
+                  className="w-full bg-slate-50 border border-slate-200 text-xs font-semibold rounded-lg px-3 py-2 text-slate-900 focus:ring-1 focus:ring-slate-900 outline-none cursor-pointer"
                 >
                   <option value="all">Semua Subkategori</option>
                   {(filterCategory === 'furniture' ? FURNITURE_SUBCATEGORIES : filterCategory === 'electronics' ? ELECTRONICS_SUBCATEGORIES : Array.from(new Set([...FURNITURE_SUBCATEGORIES, ...ELECTRONICS_SUBCATEGORIES]))).map(sub => (
@@ -2535,14 +2506,14 @@ export default function App() {
                 </select>
               </div>
 
-              {/* Desktop Sub-Category Pill Chips */}
-              <div className="hidden md:flex items-center gap-2 overflow-x-auto pb-1 pt-1 hide-scrollbar">
+              {/* Desktop Sub-Category Chips */}
+              <div className="hidden md:flex items-center gap-1.5 overflow-x-auto pb-1 pt-1 hide-scrollbar">
                 <button
                   onClick={() => setFilterSubcategory('all')}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all active:scale-95 ${
+                  className={`px-3 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition-colors ${
                     filterSubcategory === 'all'
-                      ? 'bg-slate-900 text-white shadow-xs'
-                      : 'bg-slate-100/80 text-slate-600 hover:text-slate-900 hover:bg-slate-200/80'
+                      ? 'bg-slate-900 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200/80 font-medium'
                   }`}
                 >
                   Semua Subkategori
@@ -2551,18 +2522,16 @@ export default function App() {
                   <button
                     key={sub}
                     onClick={() => setFilterSubcategory(sub)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all active:scale-95 ${
+                    className={`px-3 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition-colors ${
                       filterSubcategory === sub
-                        ? 'bg-slate-900 text-white shadow-xs'
-                        : 'bg-slate-100/80 text-slate-600 hover:text-slate-900 hover:bg-slate-200/80'
+                        ? 'bg-slate-900 text-white'
+                        : 'bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200/80 font-medium'
                     }`}
                   >
                     {sub}
                   </button>
                 ))}
               </div>
-
-
             </div>
 
             {/* Warning banner if running on cached data due to network error */}
@@ -2578,9 +2547,9 @@ export default function App() {
                 <button
                   onClick={() => fetchProducts(3)}
                   disabled={isFetchingData}
-                  className="px-3 py-1 bg-amber-600 text-white font-bold rounded text-[11px] hover:bg-amber-700 transition-colors shrink-0 flex items-center gap-1 cursor-pointer"
+                  className="px-3 py-1 bg-amber-600 text-white font-semibold rounded text-[11px] hover:bg-amber-700 transition-colors shrink-0 flex items-center gap-1 cursor-pointer"
                 >
-                  <svg className={`w-3.5 h-3.5 ${isFetchingData ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <svg className={`w-3.5 h-3.5 ${isFetchingData ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 0 0 4.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 0 1-15.357-2m15.357 2H15" />
                   </svg>
                   {isFetchingData ? 'Memproses...' : 'Coba Lagi'}
@@ -2588,98 +2557,94 @@ export default function App() {
               </div>
             )}
 
-            {/* Bento-Inspired Product Grid / Skeleton Loader / Error view */}
+            {/* Product Grid / Skeleton Loader / Error view */}
             {isFetchingData && products.length === 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 animate-pulse">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-5 animate-pulse">
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
-                  <div key={'skeleton-' + i} className="bg-pure-white border border-border-light p-3 flex flex-col gap-3 rounded-lg">
-                    <div className="aspect-square bg-surface-container rounded-md w-full" />
-                    <div className="h-4 bg-surface-container rounded w-3/4" />
-                    <div className="h-3 bg-surface-container rounded w-1/2" />
-                    <div className="h-4 bg-surface-container rounded w-2/3 mt-2" />
+                  <div key={'skeleton-' + i} className="bg-white border border-slate-200 p-3 flex flex-col gap-3 rounded-xl">
+                    <div className="aspect-square bg-slate-100 rounded-lg w-full" />
+                    <div className="h-4 bg-slate-100 rounded w-3/4" />
+                    <div className="h-3 bg-slate-100 rounded w-1/2" />
+                    <div className="h-4 bg-slate-100 rounded w-2/3 mt-2" />
                   </div>
                 ))}
               </div>
             ) : fetchError && products.length === 0 ? (
-              <div className="text-center py-12 px-6 bg-red-50/60 border border-red-200 rounded-xl text-secondary max-w-md mx-auto my-8">
-                <svg className="w-10 h-10 text-rose-500 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+              <div className="text-center py-12 px-6 bg-rose-50 border border-rose-200 rounded-xl text-slate-700 max-w-md mx-auto my-8">
+                <svg className="w-8 h-8 text-rose-500 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
-                <h4 className="font-bold text-primary text-base mb-1">Gagal Memuat Data Database</h4>
-                <p className="text-xs text-secondary mb-5 leading-relaxed">{fetchError}</p>
+                <h4 className="font-bold text-slate-900 text-sm mb-1">Gagal Memuat Data Database</h4>
+                <p className="text-xs text-slate-600 mb-4 leading-relaxed">{fetchError}</p>
                 <button
                   onClick={() => fetchProducts(3)}
-                  className="px-5 py-2.5 bg-primary text-pure-white text-xs font-bold uppercase rounded-lg hover:bg-opacity-90 transition-all inline-flex items-center gap-2 shadow-sm cursor-pointer"
+                  className="px-4 py-2 bg-slate-900 text-white text-xs font-semibold rounded-lg hover:bg-slate-800 transition-colors inline-flex items-center gap-1.5 cursor-pointer"
                 >
-                  <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 0 0 4.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 0 1-15.357-2m15.357 2H15" />
                   </svg>
                   Coba Muat Ulang Data
                 </button>
               </div>
             ) : filteredProducts.length === 0 ? (
-              <div className="text-center py-16 text-secondary">
-                <svg className="w-10 h-10 text-slate-400 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+              <div className="text-center py-16 text-slate-500">
+                <svg className="w-8 h-8 text-slate-400 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                 </svg>
-                <p className="text-sm font-semibold text-slate-600">Tidak ada produk yang cocok dengan kriteria.</p>
+                <p className="text-xs font-medium text-slate-600">Tidak ada produk yang cocok dengan kriteria.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
                 {filteredProducts.map(p => (
                   <div 
                     key={p.id} 
                     onClick={() => setSelectedProductDetail(p)}
-                    className="product-card group relative flex flex-col bg-white rounded-2xl overflow-hidden cursor-pointer hover-lift border border-slate-200/80"
+                    className="product-card group relative flex flex-col bg-white rounded-lg border border-slate-200/80 hover:border-slate-300 transition-colors duration-200 cursor-pointer overflow-hidden"
                   >
-                    <div className="aspect-[4/3] sm:aspect-square overflow-hidden bg-slate-100 relative rounded-t-2xl border border-slate-200/80">
+                    <div className="aspect-[4/3] sm:aspect-square overflow-hidden bg-slate-50 relative border-b border-slate-200/60">
                       {p.image_url ? (
                         <img 
-                          className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105" 
+                          className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105" 
                           src={getOptimizedImageUrl(p.image_url, 600)} 
                           alt={p.name}
                           loading="lazy"
                           decoding="async"
                         />
                       ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 text-slate-400">
-                          <svg className="w-9 h-9 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 text-slate-400">
+                          <svg className="w-8 h-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                           </svg>
-                          <span className="text-[10px] uppercase font-extrabold tracking-wider mt-1 text-slate-400">Tidak Ada Foto</span>
-                        </div>
-                      )}
-                      {p.arrivalType && (
-                        <div className="absolute top-3 left-3 bg-slate-900/90 text-white backdrop-blur-md px-2.5 py-1 rounded-md text-[9px] font-extrabold uppercase tracking-widest border border-slate-700/50 shadow-2xs">
-                          {p.arrivalType}
+                          <span className="text-[10px] font-semibold uppercase tracking-wider mt-1 text-slate-400">Tidak Ada Foto</span>
                         </div>
                       )}
                     </div>
                     
-                    <div className="p-4 flex flex-col justify-between flex-grow border border-t-0 border-slate-200/80 rounded-b-2xl bg-white shadow-2xs group-hover:border-slate-300 group-hover:shadow-md transition-all duration-300">
+                    <div className="p-4 flex flex-col justify-between flex-grow bg-white">
                       <div className="space-y-1 min-w-0">
-                        {p.subcategory && (
-                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
-                            {p.subcategory}
-                          </span>
-                        )}
+                        {/* 1. Subtle Natural Category */}
+                        <span className="text-[11px] font-medium text-slate-400 capitalize block truncate">
+                          {(p.subcategory || p.category)}
+                        </span>
 
-                        <h3 className="font-extrabold text-sm sm:text-base text-slate-900 tracking-tight leading-snug truncate group-hover:text-slate-600 transition-colors" title={p.name}>
+                        {/* 2. Product Name */}
+                        <h3 className="font-bold text-sm sm:text-base text-slate-900 tracking-tight leading-snug truncate group-hover:text-slate-600 transition-colors" title={p.name}>
                           {p.name}
                         </h3>
 
+                        {/* 3. Material / Secondary Info */}
                         <p className="text-xs text-slate-500 line-clamp-1" title={p.description}>
-                          {p.description}
+                          {p.description || 'Bahan berkualitas'}
                         </p>
 
-                        {/* Render Price for Admin ONLY or Guest Inquiry Button */}
+                        {/* 4. Price (Primary emphasis + subtle strikethrough with extra gap) */}
                         {isAdmin ? (
-                          <div className="pt-2">
-                            <span className="font-black text-base sm:text-lg text-slate-900">
+                          <div className="pt-2 flex items-baseline flex-wrap gap-x-3">
+                            <span className="font-extrabold text-sm sm:text-base text-slate-900">
                               Rp {(p.price - p.discount).toLocaleString('id-ID')}
                             </span>
                             {p.discount > 0 && (
-                              <span className="text-[11px] text-slate-400 line-through block font-medium">
+                              <span className="text-[11px] text-slate-400/70 line-through font-normal">
                                 Rp {p.price.toLocaleString('id-ID')}
                               </span>
                             )}
@@ -2692,7 +2657,7 @@ export default function App() {
                                 e.stopPropagation();
                                 window.open(`https://wa.me/6289694127723?text=${encodeURIComponent(`Halo Toko AGM 2 Padang, saya berminat dan ingin bertanya mengenai produk: ${p.name}`)}`, '_blank');
                               }}
-                              className="w-full py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 shadow-xs active:scale-[0.98]"
+                              className="w-full py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                             >
                               <svg className="w-3.5 h-3.5 fill-white shrink-0" viewBox="0 0 24 24">
                                 <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
@@ -2703,38 +2668,48 @@ export default function App() {
                         )}
                       </div>
                       
-                      {/* Availability status */}
-                      <div className="flex items-center justify-between pt-3 border-t border-slate-100 mt-3">
-                        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
-                          <span className={`w-2 h-2 rounded-full ${p.stock > 3 ? 'bg-emerald-500' : p.stock > 0 ? 'bg-amber-500' : 'bg-rose-500'}`}></span>
-                          <span>{p.stock > 0 ? `${p.stock} ${p.unit} Tersedia` : 'Habis / Pre-Order'}</span>
+                      {/* 5. Single-Line Stock Status + Clean "···" Action Menu */}
+                      <div className="flex items-center justify-between pt-3.5 mt-auto">
+                        <div className="flex items-center gap-1.5 text-xs text-slate-500 font-normal">
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${p.stock > 3 ? 'bg-emerald-500' : p.stock > 0 ? 'bg-amber-500' : 'bg-rose-500'}`}></span>
+                          <span>{p.stock > 0 ? `${p.stock} pcs tersedia` : 'habis / pre-order'}</span>
                         </div>
 
                         {isAdmin && (
-                          <div className="flex items-center gap-1">
+                          <div className="relative">
                             <button 
-                              onClick={(e) => { e.stopPropagation(); openEdit(p); }}
-                              className="p-1.5 text-slate-400 hover:text-slate-900 transition-colors rounded-lg hover:bg-slate-100 flex items-center justify-center cursor-pointer"
-                              title="Edit Produk"
+                              type="button"
+                              onClick={(e) => { 
+                                e.stopPropagation(); 
+                                setActiveCardMenuId(activeCardMenuId === p.id ? null : p.id); 
+                              }}
+                              className="p-1 -mr-1 text-slate-400 hover:text-slate-700 transition-colors rounded hover:bg-slate-100 flex items-center justify-center cursor-pointer"
+                              title="Opsi Produk"
                             >
-                              <svg className="w-4 h-4 text-slate-500 hover:text-slate-900 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                              </svg>
+                              <MoreHorizontal className="w-4 h-4 text-slate-400 hover:text-slate-700 transition-colors" />
                             </button>
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(p.id); }}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors rounded-lg hover:bg-rose-50 flex items-center justify-center cursor-pointer"
-                              title="Hapus Produk"
-                            >
-                              <svg className="w-4 h-4 text-slate-400 hover:text-rose-600 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M3 6h18" />
-                                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                                <line x1="10" y1="11" x2="10" y2="17" />
-                                <line x1="14" y1="11" x2="14" y2="17" />
-                              </svg>
-                            </button>
+
+                            {activeCardMenuId === p.id && (
+                              <div 
+                                className="absolute right-0 bottom-full mb-1.5 w-28 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-20 animate-fade-in"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => { setActiveCardMenuId(null); openEdit(p); }}
+                                  className="w-full px-3 py-1.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => { setActiveCardMenuId(null); setDeleteConfirmId(p.id); }}
+                                  className="w-full px-3 py-1.5 text-left text-xs font-medium text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer"
+                                >
+                                  Hapus
+                                </button>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -2854,10 +2829,8 @@ export default function App() {
                         <button onClick={() => openEdit(p)} className="px-2.5 py-1 border border-slate-200 rounded text-slate-700 hover:bg-slate-100 text-xs font-semibold transition-colors cursor-pointer">
                           Edit
                         </button>
-                        <button onClick={() => setDeleteConfirmId(p.id)} className="p-1.5 border border-slate-200 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer" title="Hapus Produk">
-                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
+                        <button onClick={() => setDeleteConfirmId(p.id)} className="p-1.5 border border-slate-200 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer flex items-center justify-center" title="Hapus Produk">
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
@@ -2942,15 +2915,14 @@ export default function App() {
                             </button>
                             <button 
                               onClick={() => setDeleteConfirmId(p.id)} 
-                              className="p-1 border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors rounded cursor-pointer"
+                              className="p-1 border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors rounded cursor-pointer flex items-center justify-center"
                               title="Hapus Produk"
                             >
-                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </td>
+
                       </tr>
                     ))}
                   </tbody>
@@ -3428,13 +3400,10 @@ export default function App() {
                                   {isAdmin && (
                                     <button 
                                       onClick={(e) => { e.stopPropagation(); setTransactionToDelete(tx.id); setIsDeleteTransactionModalOpen(true); }}
-                                      className="p-1 text-slate-400 hover:text-rose-600 active:scale-95 transition-all rounded-lg hover:bg-rose-50 cursor-pointer"
+                                      className="p-1.5 text-slate-400 hover:text-slate-900 active:scale-95 transition-all rounded-lg hover:bg-slate-100 cursor-pointer flex items-center justify-center"
                                       title="Hapus Transaksi"
                                     >
-                                      <svg className="w-4 h-4 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <polyline points="3 6 5 6 21 6" />
-                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                                      </svg>
+                                      <Trash2 className="w-3.5 h-3.5 text-slate-400 hover:text-slate-900 transition-colors" />
                                     </button>
                                   )}
                                 </div>
@@ -5076,7 +5045,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ── DELETE CONFIRMATION MODAL (Ultra-Clean Minimalist) ── */}
+      {/* ── DELETE CONFIRMATION MODAL (Refined & Professional) ── */}
       {deleteConfirmId && (() => {
         const targetProduct = products.find(p => p.id === deleteConfirmId);
         return (
@@ -5085,26 +5054,26 @@ export default function App() {
             onClick={() => setDeleteConfirmId(null)}
           >
             <div 
-              className="w-full max-w-[340px] bg-white border border-slate-200 rounded-2xl p-5 shadow-lg relative animate-pop-in space-y-4" 
+              className="w-full max-w-[340px] bg-white border border-slate-200/80 rounded-xl p-5 shadow-xs relative animate-pop-in space-y-4" 
               onClick={(e) => e.stopPropagation()}
             >
               <div>
-                <h3 className="font-bold text-sm text-slate-900">Hapus Produk?</h3>
-                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  Apakah Anda yakin ingin menghapus <strong className="text-slate-800">{targetProduct?.name || 'produk ini'}</strong>? Data akan dihapus dari katalog.
+                <h3 className="font-bold text-sm text-slate-900 tracking-tight">Hapus Produk?</h3>
+                <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                  Apakah Anda yakin ingin menghapus <strong className="font-bold text-slate-900">{targetProduct?.name || 'produk ini'}</strong>? Data akan dihapus dari katalog.
                 </p>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-3 pt-1">
                 <button 
                   onClick={() => setDeleteConfirmId(null)} 
-                  className="px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                  className="text-xs font-medium text-slate-500 hover:text-slate-900 transition-colors cursor-pointer px-2.5 py-1.5"
                 >
                   Batal
                 </button>
                 <button 
                   onClick={() => deleteProduct(deleteConfirmId)} 
-                  className="px-3.5 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors shadow-2xs cursor-pointer"
+                  className="px-3.5 py-1.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors cursor-pointer"
                 >
                   Hapus
                 </button>
@@ -5115,37 +5084,37 @@ export default function App() {
       })()}
 
 
-      {/* ── DELETE TRANSACTION CONFIRMATION MODAL (Ultra-Clean Minimalist) ── */}
+      {/* ── DELETE TRANSACTION CONFIRMATION MODAL (Refined & Professional) ── */}
       {isDeleteTransactionModalOpen && isAdmin && (
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in" 
           onClick={() => !isAuthenticating && setIsDeleteTransactionModalOpen(false)}
         >
           <div 
-            className="w-full max-w-[340px] bg-white border border-slate-200 rounded-2xl p-5 shadow-lg relative animate-pop-in space-y-4" 
+            className="w-full max-w-[340px] bg-white border border-slate-200/80 rounded-xl p-5 shadow-xs relative animate-pop-in space-y-4" 
             onClick={(e) => e.stopPropagation()}
           >
             <div>
-              <h3 className="font-bold text-sm text-slate-900">Hapus Transaksi?</h3>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Apakah Anda yakin ingin menghapus transaksi ini? Tindakan ini akan menghapus transaksi dari riwayat dan database.
+              <h3 className="font-bold text-sm text-slate-900 tracking-tight">Hapus Transaksi?</h3>
+              <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                Apakah Anda yakin ingin menghapus transaksi ini? Data akan dihapus dari riwayat dan database.
               </p>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <div className="flex items-center justify-end gap-3 pt-1">
               <button 
                 onClick={() => { setIsDeleteTransactionModalOpen(false); setTransactionToDelete(null); }} 
                 disabled={isAuthenticating}
-                className="px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+                className="text-xs font-medium text-slate-500 hover:text-slate-900 transition-colors disabled:opacity-50 cursor-pointer px-2.5 py-1.5"
               >
                 Batal
               </button>
               <button 
                 onClick={handleDeleteTransaction} 
                 disabled={isAuthenticating}
-                className="px-3.5 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors shadow-2xs disabled:opacity-50 cursor-pointer"
+                className="px-3.5 py-1.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
               >
-                {isAuthenticating ? 'Memproses...' : 'Ya, Hapus'}
+                {isAuthenticating ? 'Memproses...' : 'Hapus'}
               </button>
             </div>
           </div>

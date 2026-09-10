@@ -563,33 +563,33 @@ const AIChatWidget: React.FC = () => {
             onClick={() => setIsOpen(true)}
             aria-label="AGM Assistant"
             title="AGM Assistant"
-            className="bg-slate-900 text-white rounded-full w-13 h-13 shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center border border-slate-700 focus:outline-none cursor-pointer"
+            className="bg-slate-900 text-white rounded-full w-12 h-12 shadow-lg hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center border border-slate-700 focus:outline-none cursor-pointer"
           >
-            <AGMAssistantMark variant="dark" className="w-6 h-6" />
+            <AGMAssistantMark variant="dark" className="w-5 h-5" />
           </button>
         </div>
       )}
 
-      {/* Full-Screen Native Shell on Mobile, Floating Card on Desktop */}
+      {/* Dynamic Shell: Full-Screen Native Sheet on Mobile, Bounded Card on Desktop */}
       {isOpen && (
         <div 
-          style={viewportHeight ? ({ height: `${viewportHeight}px` } as React.CSSProperties) : undefined}
-          className="fixed inset-0 sm:inset-auto sm:bottom-6 sm:right-6 z-[99999] w-full sm:w-[440px] h-[100dvh] sm:h-[640px] max-h-[100dvh] bg-white rounded-none sm:rounded-2xl shadow-2xl border-0 sm:border sm:border-slate-200 flex flex-col overflow-hidden animate-fade-in font-sans pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)]"
+          style={viewportHeight && typeof window !== 'undefined' && window.innerWidth < 640 ? ({ height: `${viewportHeight}px` } as React.CSSProperties) : undefined}
+          className="fixed inset-0 sm:inset-auto sm:bottom-6 sm:right-6 z-[99999] w-full sm:w-[420px] sm:max-w-[calc(100vw-3rem)] h-full sm:h-[600px] sm:max-h-[calc(100vh-6rem)] bg-white rounded-none sm:rounded-xl shadow-2xl border-0 sm:border sm:border-slate-200 flex flex-col overflow-hidden animate-fade-in font-sans"
         >
           {/* Header Bar - Compact Native Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-white text-slate-900 select-none h-[52px] shrink-0">
-
-
-
-            <div className="flex items-center gap-2">
-              <AGMAssistantMark variant="light" className="w-5 h-5 text-slate-900" />
-              <h3 className="font-semibold text-slate-900 text-sm tracking-tight">AGM Assistant</h3>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-white text-slate-900 select-none h-14 shrink-0">
+            <div className="flex items-center gap-2.5">
+              <AGMAssistantMark variant="light" className="w-5 h-5 text-slate-900 shrink-0" />
+              <div>
+                <h3 className="font-bold text-slate-900 text-xs sm:text-sm tracking-tight leading-none">AGM Assistant</h3>
+                <span className="text-[10px] text-slate-400 font-medium">Konsultan Furniture &amp; Stok</span>
+              </div>
             </div>
 
             <div className="flex items-center gap-1">
               <button 
                 onClick={clearConversation} 
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded transition-colors cursor-pointer"
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-md transition-colors cursor-pointer"
                 title="Hapus percakapan"
                 aria-label="Hapus percakapan"
               >
@@ -599,7 +599,7 @@ const AIChatWidget: React.FC = () => {
               </button>
               <button 
                 onClick={() => setIsOpen(false)} 
-                className="p-1.5 text-slate-400 hover:text-slate-900 rounded transition-colors cursor-pointer"
+                className="p-1.5 text-slate-400 hover:text-slate-900 rounded-md transition-colors cursor-pointer"
                 title="Tutup AGM Assistant"
                 aria-label="Tutup AGM Assistant"
               >
@@ -611,7 +611,7 @@ const AIChatWidget: React.FC = () => {
           </div>
 
           {/* Canvas Area */}
-          <div ref={chatWindowRef} className="flex-1 p-4 overflow-y-auto space-y-4 bg-slate-50 text-slate-900 text-xs sm:text-sm min-h-0 flex flex-col justify-start font-sans">
+          <div ref={chatWindowRef} className="flex-1 p-4 overflow-y-auto space-y-4 bg-slate-50/50 text-slate-900 text-xs sm:text-sm min-h-0 flex flex-col justify-start font-sans">
             {history.length === 0 ? (
               /* Intentional Editorial Commerce Layout Empty State */
               <div className="py-6 flex flex-col items-start justify-center px-2 my-auto max-w-sm">
@@ -619,7 +619,7 @@ const AIChatWidget: React.FC = () => {
                 <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-snug mb-2">
                   Cari furniture, tentukan ukuran,<br />atau rancang furniture custom Anda.
                 </h2>
-                <p className="text-xs text-slate-600 mb-5 leading-relaxed">
+                <p className="text-xs text-slate-500 mb-5 leading-relaxed">
                   Saya dapat membantu Anda menemukan produk yang sesuai atau menyusun spesifikasi furniture sesuai kebutuhan.
                 </p>
 
@@ -627,17 +627,17 @@ const AIChatWidget: React.FC = () => {
                 <div className="w-full space-y-2">
                   <button
                     onClick={() => sendMessage('Saya ingin mencari produk furniture dari katalog AGM')}
-                    className="w-full py-2.5 px-3.5 bg-slate-900 text-white rounded font-medium text-xs text-left hover:bg-slate-800 transition-colors cursor-pointer flex items-center justify-between"
+                    className="w-full py-2.5 px-3.5 bg-slate-900 text-white rounded-lg font-semibold text-xs text-left hover:bg-slate-800 transition-colors cursor-pointer flex items-center justify-between"
                   >
                     <span>Cari dari katalog</span>
-                    <span>→</span>
+                    <span>&rarr;</span>
                   </button>
                   <button
                     onClick={() => sendMessage('Saya ingin mulai desain custom furniture')}
-                    className="w-full py-2.5 px-3.5 bg-white border border-slate-300 text-slate-900 rounded font-medium text-xs text-left hover:bg-slate-100 transition-colors cursor-pointer flex items-center justify-between"
+                    className="w-full py-2.5 px-3.5 bg-white border border-slate-200 text-slate-900 rounded-lg font-semibold text-xs text-left hover:bg-slate-50 transition-colors cursor-pointer flex items-center justify-between"
                   >
                     <span>Rancang furniture custom</span>
-                    <span>→</span>
+                    <span>&rarr;</span>
                   </button>
                 </div>
               </div>
@@ -645,7 +645,7 @@ const AIChatWidget: React.FC = () => {
               history.map((msg, index) => (
                 <div key={index} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                   {msg.sender === 'user' ? (
-                    <div className="max-w-[85%] bg-slate-900 text-white rounded px-3.5 py-2.5 text-xs sm:text-sm font-normal border border-slate-800">
+                    <div className="max-w-[85%] bg-slate-900 text-white rounded-lg px-3.5 py-2.5 text-xs sm:text-sm font-normal">
                       {msg.attachment && (
                         <div className="flex items-center gap-1.5 text-slate-300 border-b border-slate-800 pb-1.5 mb-1.5 text-xs">
                           <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -714,8 +714,6 @@ const AIChatWidget: React.FC = () => {
                               }}
                             />
                           )}
-
-
                         </div>
                       )}
                       <span className="block text-[9px] text-slate-400 font-mono mt-1">{msg.timestamp}</span>
@@ -727,7 +725,7 @@ const AIChatWidget: React.FC = () => {
 
             {!isLoading && currentJobId && (
               <div className="flex justify-start">
-                <div className="p-2.5 rounded bg-rose-50 border border-rose-200 text-rose-800 text-xs">
+                <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs">
                   <p className="font-medium">Layanan sedang sibuk atau offline.</p>
                   <span className="text-[9px] opacity-75 mt-0.5 block font-mono">Job ID: {currentJobId}</span>
                 </div>
@@ -738,7 +736,7 @@ const AIChatWidget: React.FC = () => {
           {/* Unified Composer Container */}
           <div className="p-3 border-t border-slate-200 bg-white shrink-0">
             {selectedFile && (
-              <div className="flex items-center justify-between bg-slate-100 border border-slate-200 rounded px-3 py-1.5 text-xs text-slate-700 mb-2">
+              <div className="flex items-center justify-between bg-slate-100 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 mb-2">
                 <div className="flex items-center gap-2 truncate">
                   <span className="font-semibold text-slate-800 px-1.5 py-0.5 bg-slate-200 rounded text-[10px]">
                     {getFileBadge(selectedFile.name)}
@@ -762,7 +760,7 @@ const AIChatWidget: React.FC = () => {
             )}
             {/* Attachment Category Selection Menu */}
             {showAttachmentMenu && (
-              <div className="mb-2 bg-slate-900 border border-slate-800 text-slate-200 rounded-lg p-1.5 shadow-lg text-xs space-y-1 z-10 animate-fadeIn select-none">
+              <div className="mb-2 bg-slate-900 border border-slate-800 text-slate-200 rounded-lg p-1.5 shadow-lg text-xs space-y-1 z-10 animate-fade-in select-none">
                 <button
                   type="button"
                   onClick={() => {
@@ -822,7 +820,7 @@ const AIChatWidget: React.FC = () => {
               </div>
             )}
 
-            <div className="bg-slate-50 border border-slate-300 focus-within:border-slate-900 focus-within:bg-white rounded px-3 py-2 flex items-center gap-2 transition-all">
+            <div className="bg-slate-50 border border-slate-200 focus-within:border-slate-400 focus-within:bg-white rounded-lg px-3 py-2 flex items-center gap-2 transition-all">
               <input 
                 type="file" 
                 ref={fileInputRef} 
@@ -862,12 +860,11 @@ const AIChatWidget: React.FC = () => {
                 disabled={isLoading}
               />
 
-
               <button
                 onClick={() => sendMessage()}
                 disabled={isLoading || (!message.trim() && !selectedFile)}
                 aria-label="Kirim pesan"
-                className="w-7 h-7 rounded bg-slate-900 text-white flex items-center justify-center hover:bg-slate-800 disabled:opacity-20 disabled:bg-slate-400 disabled:cursor-not-allowed transition-all shrink-0 cursor-pointer"
+                className="w-7 h-7 rounded-md bg-slate-900 text-white flex items-center justify-center hover:bg-slate-800 disabled:opacity-20 disabled:bg-slate-300 disabled:cursor-not-allowed transition-all shrink-0 cursor-pointer"
               >
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
@@ -882,3 +879,4 @@ const AIChatWidget: React.FC = () => {
 };
 
 export default AIChatWidget;
+

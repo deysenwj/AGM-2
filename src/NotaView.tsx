@@ -553,13 +553,13 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           
           {/* ── LEFT COLUMN: ETALASE PRODUK ── */}
-          <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col">
+          <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-5 sm:p-6 flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="font-bold text-base text-slate-900">Etalase Stok Produk</h3>
                 <p className="text-xs text-slate-500">Pilih barang untuk ditambahkan ke dalam nota</p>
               </div>
-              <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1 rounded-lg">
+              <span className="text-xs font-medium text-slate-600 bg-slate-100 px-3 py-1 rounded-md border border-slate-200/60">
                 Stok: {products.length} Item
               </span>
             </div>
@@ -570,46 +570,45 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
                 ref={searchInputRef}
                 type="text"
                 placeholder="Cari produk..."
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-1 focus:ring-slate-900 focus:bg-white transition-all outline-none"
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2 text-xs focus:ring-1 focus:ring-slate-900 focus:bg-white transition-colors outline-none placeholder:text-slate-400"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
             
             {filteredProducts.length === 0 && searchTerm ? (
-              <div className="text-center py-12 text-slate-400 text-sm">Tidak ada produk ditemukan.</div>
+              <div className="text-center py-12 text-slate-400 text-xs">Tidak ada produk ditemukan.</div>
             ) : filteredProducts.length === 0 && !searchTerm ? (
-              <div className="text-center py-12 text-slate-400 text-sm">Belum ada produk di etalase.</div>
+              <div className="text-center py-12 text-slate-400 text-xs">Belum ada produk di etalase.</div>
             ) : (
               <div>
                 {/* Desktop Table View */}
                 <div className="hidden md:block max-h-[500px] overflow-y-auto border border-slate-200 rounded-xl">
-                  <table className="min-w-full divide-y divide-slate-200">
-                    <thead className="bg-slate-50 sticky top-0 z-10">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase">Produk</th>
-                        <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase">Harga</th>
-                        <th className="px-4 py-3 text-center text-xs font-bold text-slate-500 uppercase">Stok</th>
-                        <th className="px-4 py-3 text-right text-xs font-bold text-slate-500 uppercase">Aksi</th>
+                  <table className="min-w-full divide-y divide-slate-200 text-xs">
+                    <thead className="bg-slate-50/80 sticky top-0 z-10">
+                      <tr className="text-slate-500 uppercase font-semibold text-[10px] tracking-wider">
+                        <th className="px-4 py-2.5 text-left">Produk</th>
+                        <th className="px-4 py-2.5 text-left">Harga</th>
+                        <th className="px-4 py-2.5 text-center">Stok</th>
+                        <th className="px-4 py-2.5 text-right">Aksi</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {filteredProducts.map(p => {
                         const inNota = selectedProducts.find(i => i.product.id === p.id);
                         return (
-                          <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                            <td className="px-4 py-3 text-sm font-semibold text-slate-900">{p.name}</td>
-                            <td className="px-4 py-3 text-sm text-slate-700 font-medium">{formatCurrency(p.price - p.discount)}</td>
-                            <td className="px-4 py-3 text-sm text-center">
-                              <span className="font-mono text-xs font-bold text-slate-900 shrink-0 whitespace-nowrap">
+                          <tr key={p.id} className="hover:bg-slate-50/60 transition-colors">
+                            <td className="px-4 py-2.5 font-bold text-slate-900">{p.name}</td>
+                            <td className="px-4 py-2.5 text-slate-700 font-medium font-mono">{formatCurrency(p.price - p.discount)}</td>
+                            <td className="px-4 py-2.5 text-center">
+                              <span className="font-mono text-xs font-medium text-slate-900 shrink-0 whitespace-nowrap">
                                 {p.stock} {p.unit}
                               </span>
-
                             </td>
-                            <td className="px-4 py-3 text-right">
+                            <td className="px-4 py-2.5 text-right">
                               <button
                                 onClick={() => handleAddProduct(p)}
-                                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
                                   inNota 
                                     ? 'bg-slate-800 text-white hover:bg-slate-900' 
                                     : 'bg-slate-900 text-white hover:bg-slate-800'
@@ -630,17 +629,17 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
                   {filteredProducts.map(p => {
                     const inNota = selectedProducts.find(i => i.product.id === p.id);
                     return (
-                      <div key={'mob-p-' + p.id} className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3">
+                      <div key={'mob-p-' + p.id} className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between gap-3">
                         <div className="min-w-0 flex-1">
                           <h4 className="font-bold text-xs text-slate-900 truncate">{p.name}</h4>
                           <div className="flex items-center gap-2 mt-1">
-                            <span className="font-semibold text-xs text-slate-800">{formatCurrency(p.price - p.discount)}</span>
+                            <span className="font-medium text-xs text-slate-800 font-mono">{formatCurrency(p.price - p.discount)}</span>
                             <span className="text-[10px] text-slate-500 font-medium">Stok: {p.stock}</span>
                           </div>
                         </div>
                         <button
                           onClick={() => handleAddProduct(p)}
-                          className={`px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer ${
+                          className={`px-3 py-1.5 text-xs font-semibold rounded-lg cursor-pointer ${
                             inNota ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-white'
                           }`}
                         >
@@ -655,31 +654,31 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
           </div>
 
           {/* ── RIGHT COLUMN: KASIR NOTA & PEMBAYARAN ── */}
-          <div className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col">
+          <div className="lg:col-span-5 bg-white border border-slate-200 rounded-xl p-5 sm:p-6 flex flex-col">
             <h3 className="font-bold text-base text-slate-900 mb-4">Detail &amp; Pembayaran Nota</h3>
             
             <div className="space-y-3 mb-4">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1 text-xs">Nama Pelanggan <span className="text-rose-500">*</span></label>
+                <label className="block font-medium text-slate-700 mb-1 text-xs">Nama Pelanggan <span className="text-rose-500">*</span></label>
                 <input
                   type="text"
                   required
                   placeholder="cth: Ibu Rahma"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-sm font-medium focus:ring-1 focus:ring-slate-900 focus:bg-white transition-all outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2 text-xs font-medium focus:ring-1 focus:ring-slate-900 focus:bg-white transition-colors outline-none placeholder:text-slate-400"
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1 text-xs">Uang Diterima / Bayar (Rp)</label>
+                <label className="block font-medium text-slate-700 mb-1 text-xs">Uang Diterima / Bayar (Rp)</label>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">Rp</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-semibold text-xs">Rp</span>
                   <input
                     type="text"
                     inputMode="numeric"
                     placeholder="0 (cth: 500.000)"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2 text-sm font-bold text-slate-900 focus:ring-1 focus:ring-slate-900 focus:bg-white transition-all outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-3.5 py-2 text-xs font-bold text-slate-900 focus:ring-1 focus:ring-slate-900 focus:bg-white transition-colors outline-none placeholder:text-slate-400"
                     value={payAmount}
                     onChange={handlePayAmountChange}
                   />
@@ -689,7 +688,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
                   <button 
                     type="button" 
                     onClick={() => setPayAmount(subtotal.toLocaleString('id-ID'))}
-                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs"
+                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 border border-slate-200/80 text-slate-700 rounded-md text-xs font-medium transition-colors cursor-pointer"
                   >
                     Uang Pas
                   </button>
@@ -698,21 +697,21 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1 text-xs">No. HP (Opsional)</label>
+                  <label className="block font-medium text-slate-700 mb-1 text-xs">No. HP (Opsional)</label>
                   <input
                     type="text"
                     placeholder="0812xxxxxxxx"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:ring-1 focus:ring-slate-900 focus:bg-white transition-all outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-medium focus:ring-1 focus:ring-slate-900 focus:bg-white transition-colors outline-none placeholder:text-slate-400"
                     value={customerPhone}
                     onChange={(e) => setCustomerPhone(e.target.value)}
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1 text-xs">Alamat (Opsional)</label>
+                  <label className="block font-medium text-slate-700 mb-1 text-xs">Alamat (Opsional)</label>
                   <input
                     type="text"
                     placeholder="Alamat singkat"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:ring-1 focus:ring-slate-900 focus:bg-white transition-all outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-medium focus:ring-1 focus:ring-slate-900 focus:bg-white transition-colors outline-none placeholder:text-slate-400"
                     value={customerAddress}
                     onChange={(e) => setCustomerAddress(e.target.value)}
                   />
@@ -720,14 +719,14 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1 text-xs">Ongkos Antar (Opsional)</label>
+                <label className="block font-medium text-slate-700 mb-1 text-xs">Ongkos Antar (Opsional)</label>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">Rp</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-semibold text-xs">Rp</span>
                   <input
                     type="text"
                     inputMode="numeric"
                     placeholder="0 (cth: 20.000)"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2 text-sm font-bold text-slate-900 focus:ring-1 focus:ring-slate-900 focus:bg-white transition-all outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-3.5 py-1.5 text-xs font-bold text-slate-900 focus:ring-1 focus:ring-slate-900 focus:bg-white transition-colors outline-none placeholder:text-slate-400"
                     value={deliveryFee}
                     onChange={handleDeliveryFeeChange}
                   />
@@ -735,11 +734,11 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
               </div>
               
               <div>
-                <label className="block font-semibold text-slate-700 mb-1 text-xs">Keterangan (Opsional)</label>
+                <label className="block font-medium text-slate-700 mb-1 text-xs">Keterangan (Opsional)</label>
                 <input
                   type="text"
                   placeholder="cth: DP 50%, Lunas, Titip Toko, dll."
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-medium focus:ring-1 focus:ring-slate-900 focus:bg-white transition-all outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-1.5 text-xs font-medium focus:ring-1 focus:ring-slate-900 focus:bg-white transition-colors outline-none placeholder:text-slate-400"
                   value={customerNotes}
                   onChange={(e) => setCustomerNotes(e.target.value)}
                 />
