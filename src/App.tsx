@@ -2146,21 +2146,21 @@ export default function App() {
           </div>
 
           {/* Right Top Items (Search & User Area) */}
-          <div className="flex items-center gap-5 sm:gap-6">
+          <div className="flex items-center gap-2.5 sm:gap-6">
             {/* Subtle Search Input */}
-            <div className="relative max-w-[130px] sm:max-w-[180px] lg:max-w-[220px]">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <div className="relative w-full max-w-[100px] min-w-[70px] xs:max-w-[140px] sm:max-w-[180px] lg:max-w-[220px] transition-all">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2 sm:left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 placeholder="Cari barang..."
-                className="w-full pl-8 pr-7 py-1.5 bg-slate-50 hover:bg-slate-100/60 focus:bg-white border border-slate-200/80 focus:border-slate-300 rounded-lg text-xs transition-all outline-none text-slate-900 placeholder:text-slate-400"
+                className="w-full pl-7 sm:pl-8 pr-6 sm:pr-7 py-1.5 bg-slate-50 hover:bg-slate-100/60 focus:bg-white border border-slate-200/80 focus:border-slate-300 rounded-lg text-xs transition-all outline-none text-slate-900 placeholder:text-slate-400"
                 value={globalSearch}
                 onChange={(e) => setGlobalSearch(e.target.value)}
               />
               {globalSearch && (
                 <button 
                   onClick={() => setGlobalSearch('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer p-0.5"
+                  className="absolute right-1.5 sm:right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer p-0.5"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -2168,7 +2168,7 @@ export default function App() {
             </div>
             
             {isAdmin ? (
-              <div className="flex items-center gap-5 sm:gap-6 text-xs leading-none">
+              <div className="flex items-center gap-2 sm:gap-6 text-xs leading-none shrink-0">
                 {/* 1. Status indicator: clean text + green dot */}
                 <button
                   onClick={() => setIsOnlineAdminsModalOpen(true)}
@@ -2182,23 +2182,24 @@ export default function App() {
                 {/* 2. User profile: Initial avatar + prominent name + subtle chevron */}
                 <button
                   onClick={() => setIsOnlineAdminsModalOpen(true)}
-                  className="inline-flex items-center gap-2 font-semibold text-slate-900 hover:text-slate-700 transition-colors cursor-pointer select-none group"
+                  className="inline-flex items-center gap-1.5 font-semibold text-slate-900 hover:text-slate-700 transition-colors cursor-pointer select-none group"
+                  title={currentAdminUser?.name || 'Admin'}
                 >
                   <span className="w-6 h-6 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-bold uppercase shrink-0 group-hover:bg-slate-800 transition-colors">
                     {(currentAdminUser?.name || 'A').charAt(0)}
                   </span>
-                  <span className="text-slate-900 font-semibold text-xs tracking-tight">{currentAdminUser?.name || 'Admin'}</span>
-                  <ChevronDown className="w-3 h-3 text-slate-400 group-hover:text-slate-600 transition-colors shrink-0" />
+                  <span className="text-slate-900 font-semibold text-xs tracking-tight hidden sm:inline">{currentAdminUser?.name || 'Admin'}</span>
+                  <ChevronDown className="w-3 h-3 text-slate-400 group-hover:text-slate-600 transition-colors shrink-0 hidden sm:inline" />
                 </button>
 
                 {/* 3. Logout action: subtle text button with small icon */}
                 <button 
                   onClick={handleLogout}
-                  className="inline-flex items-center gap-1.5 font-normal text-slate-500 hover:text-slate-900 transition-colors cursor-pointer select-none text-xs"
+                  className="inline-flex items-center gap-1 font-normal text-slate-500 hover:text-slate-900 transition-colors cursor-pointer select-none text-xs p-1 sm:p-0 rounded-md hover:bg-slate-100 sm:hover:bg-transparent"
                   title="Keluar dari akun admin"
                 >
-                  <LogOut className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <span>Keluar</span>
+                  <LogOut className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-slate-400 shrink-0" />
+                  <span className="hidden sm:inline">Keluar</span>
                 </button>
               </div>
             ) : (
@@ -2236,6 +2237,30 @@ export default function App() {
                 <X className="w-4 h-4" />
               </button>
             </div>
+
+            {isAdmin && (
+              <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200/80 rounded-xl">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-bold uppercase shrink-0">
+                    {(currentAdminUser?.name || 'A').charAt(0)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-slate-900 truncate">{currentAdminUser?.name || 'Admin'}</p>
+                    <span className="text-[10px] font-medium text-emerald-600 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span> Online
+                    </span>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => { handleLogout(); setIsSidebarOpen(false); }}
+                  className="text-xs font-semibold text-slate-500 hover:text-rose-600 flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer"
+                  title="Keluar dari akun admin"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Keluar</span>
+                </button>
+              </div>
+            )}
 
             <div>
               <h3 className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 mb-3">Menu</h3>

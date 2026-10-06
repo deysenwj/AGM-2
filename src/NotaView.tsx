@@ -56,10 +56,10 @@ const generateNotaHtml = (
     const itemSubtotal = discountedPrice * item.quantity;
     return `
       <tr>
-        <td style="padding: 6px 4px 6px 0; font-weight: bold; word-break: break-word;">${item.product.name}</td>
-        <td style="padding: 6px 0; text-align: center; font-weight: bold;">${item.quantity}</td>
-        <td style="padding: 6px 8px 6px 0; text-align: right; white-space: nowrap;">${formatCurrency(discountedPrice)}</td>
-        <td style="padding: 6px 0; text-align: right; font-weight: bold; white-space: nowrap;">${formatCurrency(itemSubtotal)}</td>
+        <td style="padding: 5px 4px 5px 0; font-weight: 700; color: #000000; word-break: break-word;">${item.product.name}</td>
+        <td style="padding: 5px 0; text-align: center; font-weight: 700; color: #000000;">${item.quantity}</td>
+        <td style="padding: 5px 8px 5px 0; text-align: right; white-space: nowrap; color: #000000; font-weight: 600;">${formatCurrency(discountedPrice)}</td>
+        <td style="padding: 5px 0; text-align: right; font-weight: 700; color: #000000; white-space: nowrap;">${formatCurrency(itemSubtotal)}</td>
       </tr>
     `;
   }).join('');
@@ -75,50 +75,63 @@ const generateNotaHtml = (
             size: 110mm auto;
             margin: 0;
           }
+          * {
+            box-sizing: border-box;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
+          }
           body {
             width: 100mm;
             margin: 0 auto;
-            padding: 14px;
-            font-family: 'Courier New', Courier, monospace, sans-serif;
+            padding: 12px;
+            font-family: 'Consolas', 'Courier New', Monaco, 'Liberation Mono', monospace, sans-serif;
             font-size: 10pt;
-            line-height: 1.45;
-            color: #111;
-            background-color: #fff;
+            line-height: 1.4;
+            color: #000000;
+            background-color: #ffffff;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
           }
           .header {
             text-align: center;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
           }
           .store-address {
             font-size: 8.5pt;
-            color: #333;
+            color: #000000;
             line-height: 1.35;
+            font-weight: 600;
           }
           .divider {
-            border-top: 1.5px dashed #333;
-            margin: 10px 0;
+            border-top: 1.5px dashed #000000;
+            margin: 8px 0;
           }
           .info-table {
             width: 100%;
             table-layout: fixed;
             border-collapse: collapse;
             font-size: 9.5pt;
+            color: #000000;
           }
           .info-table td {
             padding: 3px 0;
+            color: #000000;
           }
           .items-table {
             width: 100%;
             table-layout: fixed;
             border-collapse: collapse;
             font-size: 9.5pt;
+            color: #000000;
           }
           .items-table th {
-            border-bottom: 1.5px dashed #333;
+            border-bottom: 1.5px dashed #000000;
             padding: 5px 0;
-            font-weight: bold;
+            font-weight: 700;
             font-size: 9pt;
             text-transform: uppercase;
+            color: #000000;
           }
           .summary-table {
             width: 100%;
@@ -126,36 +139,53 @@ const generateNotaHtml = (
             border-collapse: collapse;
             font-size: 10pt;
             margin-top: 4px;
+            color: #000000;
           }
           .summary-table td {
             padding: 3.5px 0;
+            color: #000000;
           }
           .row-total {
-            font-weight: bold;
+            font-weight: 700;
             font-size: 11pt;
+            color: #000000;
           }
           .row-pay {
-            font-weight: bold;
+            font-weight: 700;
+            color: #000000;
           }
           .row-change {
-            font-weight: bold;
+            font-weight: 700;
+            color: #000000;
           }
           .row-remaining {
-            font-weight: bold;
-            color: #c2410c;
+            font-weight: 700;
+            color: #000000;
           }
           @media print {
-            body {
-              padding: 4px;
+            html, body {
+              width: 100% !important;
+              margin: 0 !important;
+              padding: 4px !important;
+              color: #000000 !important;
+              background: #ffffff !important;
+            }
+            .divider {
+              border-top: 1.5px dashed #000000 !important;
+            }
+            * {
+              color: #000000 !important;
+              text-shadow: none !important;
+              box-shadow: none !important;
             }
           }
         </style>
       </head>
       <body>
         <div class="header">
-          <img src="${window.location.origin}/logo.png" style="height: 34px; max-width: 140px; object-fit: contain; margin: 0 auto 4px auto; display: block;" alt="AGM 2 Logo" />
+          <img src="${window.location.origin}/logo.png" style="height: 34px; max-width: 140px; object-fit: contain; margin: 0 auto 4px auto; display: block; image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; filter: contrast(120%);" alt="AGM 2 Logo" />
           <div class="store-address">Jalan Rahadi Ismail, Desa Padang,<br>Kec. Benua Kayong, Kab. Ketapang</div>
-          <div class="store-address" style="margin-top: 3px; font-weight: bold;">WhatsApp: 0896-9412-7723</div>
+          <div class="store-address" style="margin-top: 3px; font-weight: 700;">WhatsApp: 0896-9412-7723</div>
         </div>
         
         <div class="divider"></div>
@@ -166,31 +196,31 @@ const generateNotaHtml = (
             <col style="width: 65%;" />
           </colgroup>
           <tr>
-            <td>No Nota:</td>
-            <td style="text-align: right; font-weight: bold;">${notaId}</td>
+            <td style="font-weight: 600;">No Nota:</td>
+            <td style="text-align: right; font-weight: 700;">${notaId}</td>
           </tr>
           <tr>
-            <td>Tanggal:</td>
-            <td style="text-align: right;">${dateStr}</td>
+            <td style="font-weight: 600;">Tanggal:</td>
+            <td style="text-align: right; font-weight: 600;">${dateStr}</td>
           </tr>
-          <tr style="border-top: 1px solid #eee;">
-            <td style="font-weight: bold; padding-top: 4px;">Pelanggan:</td>
-            <td style="text-align: right; padding-top: 4px; font-weight: bold;">${customerName}</td>
+          <tr style="border-top: 1px dashed #000000;">
+            <td style="font-weight: 700; padding-top: 4px;">Pelanggan:</td>
+            <td style="text-align: right; padding-top: 4px; font-weight: 700;">${customerName}</td>
           </tr>
           ${customerPhone && customerPhone.trim() ? `
           <tr>
-            <td>No. HP:</td>
-            <td style="text-align: right;">${customerPhone}</td>
+            <td style="font-weight: 600;">No. HP:</td>
+            <td style="text-align: right; font-weight: 600;">${customerPhone}</td>
           </tr>` : ''}
           ${customerAddress && customerAddress.trim() ? `
           <tr>
-            <td>Alamat:</td>
-            <td style="text-align: right; max-width: 180px; word-wrap: break-word;">${customerAddress}</td>
+            <td style="font-weight: 600;">Alamat:</td>
+            <td style="text-align: right; max-width: 180px; word-wrap: break-word; font-weight: 600;">${customerAddress}</td>
           </tr>` : ''}
           ${customerNotes && customerNotes.trim() ? `
           <tr>
-            <td>Keterangan:</td>
-            <td style="text-align: right; max-width: 180px; word-wrap: break-word;">${customerNotes}</td>
+            <td style="font-weight: 600;">Keterangan:</td>
+            <td style="text-align: right; max-width: 180px; word-wrap: break-word; font-weight: 600;">${customerNotes}</td>
           </tr>` : ''}
         </table>
         
@@ -220,37 +250,37 @@ const generateNotaHtml = (
         
         <table class="summary-table">
           <tr class="row-total">
-            <td>Subtotal:</td>
-            <td style="text-align: right;">${formatCurrency(subtotalVal)}</td>
+            <td style="font-weight: 700;">Subtotal:</td>
+            <td style="text-align: right; font-weight: 700;">${formatCurrency(subtotalVal)}</td>
           </tr>
           ${deliveryFee > 0 ? `
-          <tr>
-            <td>Ongkos Antar:</td>
-            <td style="text-align: right;">${formatCurrency(deliveryFee)}</td>
+          <tr class="row-total">
+            <td style="font-weight: 700;">Ongkos Antar:</td>
+            <td style="text-align: right; font-weight: 700;">${formatCurrency(deliveryFee)}</td>
           </tr>` : ''}
           <tr class="row-total">
-            <td>Total:</td>
-            <td style="text-align: right;">${formatCurrency(totalWithDelivery)}</td>
+            <td style="font-weight: 700;">Total:</td>
+            <td style="text-align: right; font-weight: 700;">${formatCurrency(totalWithDelivery)}</td>
           </tr>
           <tr class="row-pay">
-            <td>Bayar:</td>
-            <td style="text-align: right;">${formatCurrency(numericPay)}</td>
+            <td style="font-weight: 700;">Bayar:</td>
+            <td style="text-align: right; font-weight: 700;">${formatCurrency(numericPay)}</td>
           </tr>
           ${kurangVal > 0 ? `
           <tr class="row-remaining">
-            <td>Kurang (Sisa):</td>
-            <td style="text-align: right;">${formatCurrency(kurangVal)}</td>
+            <td style="font-weight: 700;">Kurang (Sisa):</td>
+            <td style="text-align: right; font-weight: 700;">${formatCurrency(kurangVal)}</td>
           </tr>` : ''}
           ${kembaliVal > 0 ? `
           <tr class="row-change">
-            <td>Kembalian:</td>
-            <td style="text-align: right;">${formatCurrency(kembaliVal)}</td>
+            <td style="font-weight: 700;">Kembalian:</td>
+            <td style="text-align: right; font-weight: 700;">${formatCurrency(kembaliVal)}</td>
           </tr>` : ''}
         </table>
         
         <div class="divider" style="margin-top: 12px;"></div>
         
-        <div style="text-align: center; font-size: 9pt; margin-top: 10px; line-height: 1.35; color: #444;">
+        <div style="text-align: center; font-size: 9pt; margin-top: 10px; line-height: 1.35; color: #000000; font-weight: 600;">
           Terima Kasih atas Kunjungan Anda!<br>
           Barang yang sudah dibeli tidak dapat ditukar/dikembalikan.
         </div>
@@ -481,11 +511,11 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
     iframeDoc.write(printHtml);
     iframeDoc.close();
 
-    await new Promise(resolve => setTimeout(resolve, 150));
+    await new Promise(resolve => setTimeout(resolve, 250));
 
     try {
       const canvas = await html2canvas(iframeDoc.body, { 
-        scale: 2,
+        scale: 3,
         useCORS: true, 
         logging: false, 
         allowTaint: true, 
@@ -493,7 +523,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
         ignoreElements: (element) => element.tagName === 'SCRIPT',
       });
 
-      const imageData = canvas.toDataURL('image/jpeg', 0.95);
+      const imageData = canvas.toDataURL('image/png');
       const byteString = atob(imageData.split(',')[1]);
       const mimeString = imageData.split(',')[0].split(':')[1].split(';')[0];
       const ab = new ArrayBuffer(byteString.length);
@@ -506,13 +536,13 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
 
       const link = document.createElement('a');
       link.href = url;
-      link.download = `nota-${notaId}.jpg`; 
+      link.download = `nota-${notaId}.png`; 
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      triggerToast('Nota berhasil diunduh sebagai gambar JPG!'); 
+      triggerToast('Nota berhasil diunduh sebagai gambar PNG tajam!'); 
 
     } catch (error: any) { 
       console.error('Error generating image from iframe:', error);
@@ -917,7 +947,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
                 disabled={isProcessingPrint}
                 className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-900 font-bold rounded-xl transition-all disabled:opacity-50 cursor-pointer"
               >
-                Gambar (JPG)
+                Gambar (PNG)
               </button>
               <button 
                 onClick={() => executePrintAndSync('pdf')} 
