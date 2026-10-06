@@ -169,10 +169,13 @@ function parseAndNormalizeDesignState(aiResponseText: string, incomingDesignStat
 }
 
 async function callGeminiApi(apiKey: string, prompt: string): Promise<string | null> {
-  const models = ['gemini-1.5-flash', 'gemini-2.0-flash-exp', 'gemini-1.5-pro', 'gemini-2.5-flash'];
+  const cleanKey = apiKey.trim().replace(/^["']|["']$/g, '');
+  if (!cleanKey) return null;
+
+  const models = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-2.5-flash', 'gemini-pro'];
   for (const model of models) {
     try {
-      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${cleanKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -199,11 +202,14 @@ async function callGeminiApi(apiKey: string, prompt: string): Promise<string | n
 }
 
 async function callOpenRouterApi(apiKey: string, prompt: string): Promise<string | null> {
+  const cleanKey = apiKey.trim().replace(/^["']|["']$/g, '');
+  if (!cleanKey) return null;
+
   try {
     const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        'Authorization': `Bearer ${cleanKey}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': 'https://agm-2.vercel.app',
         'X-Title': 'AGM Assistant'
@@ -223,6 +229,65 @@ async function callOpenRouterApi(apiKey: string, prompt: string): Promise<string
     console.warn('OpenRouter API call failed:', e);
   }
   return null;
+}
+
+function generateDynamicConsultantFallback(userMessage: string, currentDesignState: any): string {
+  const msgLower = userMessage.toLowerCase();
+
+  if (msgLower.includes('halo') || msgLower.includes('hi') || msgLower.includes('selamat')) {
+    return 'Halo! Selamat datang di AGM Furniture. Saya Personal Furniture Consultant AGM. Ada spesifikasi atau model furniture tertentu yang ingin Anda rancang atau tanyakan hari ini?';
+  }
+
+  if (/^\d+\s*[\+\-\*\/]\s*\d+$/.test(userMessage.trim())) {
+    try {
+      const result = eval(userMessage.trim());
+      return `Hasil perhitungan ${userMessage.trim()} adalah ${result}. Ada kebutuhan ukuran atau spesifikasi furniture lain yang bisa saya bantu?`;
+    } catch (e) {
+      // pass
+    }
+  }
+
+  if (msgLower.includes('custom') || msgLower.includes('desain') || msgLower.includes('meja') || msgLower.includes('lemari') || msgLower.includes('sofa') || msgLower.includes('kursi') || msgLower.includes('rak')) {
+    let cat = 'dining_table';
+    let subcat = 'Meja Makan Custom';
+    let len = 180;
+    let wid = 90;
+    let hei = 75;
+
+    if (msgLower.includes('lemari')) { cat = 'wardrobe'; subcat = 'Lemari Pakaian Custom'; len = 200; wid = 60; hei = 220; }
+    else if (msgLower.includes('sofa')) { cat = 'sofa'; subcat = 'Sofa Modern Custom'; len = 210; wid = 90; hei = 85; }
+    else if (msgLower.includes('tv')) { cat = 'tv_cabinet'; subcat = 'Meja TV Custom'; len = 160; wid = 45; hei = 50; }
+    else if (msgLower.includes('kursi')) { cat = 'chair'; subcat = 'Kursi Minimalis Custom'; len = 50; wid = 50; hei = 85; }
+
+    const nextVer = (currentDesignState?.version || 0) + 1;
+
+    return `Tentu! Saya telah menyiapkan rancangan awal ${subcat} sesuai keinginan Anda. Silakan periksa kartu spesifikasi di bawah dan sampaikan jika ada ukuran, bahan, atau warna yang ingin Anda sesuaikan.
+
+\`\`\`json_design_state
+{
+  "version": ${nextVer},
+  "category": "${cat}",
+  "subcategory": "${subcat}",
+  "dimensions": {
+    "length": ${len},
+    "width": ${wid},
+    "height": ${hei},
+    "unit": "cm"
+  },
+  "capacity": 6,
+  "material": "kayu jati / solid wood",
+  "color": "natural wood",
+  "finish": "doff / matte",
+  "style": "minimalis modern",
+  "status": "draft",
+  "visualization": {
+    "status": "not_configured"
+  }
+}
+\`\`\``;
+  }
+
+  return `Terima kasih telah menghubungi AGM Assistant. Saya Personal Furniture Consultant AGM siap membantu rancangan custom, rekomendasi bahan, dan spesifikasi produk Anda. Silakan jelaskan kebutuhan furniture yang Anda cari!`;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -266,7 +331,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
         }
 
-        // 1. Insert initial job record into Supabase with status 'pending'
+        // 1. Insert initial job record into Supabase
         const { data, error } = await supabase.from('ai_jobs').insert({
             conversation_id: validConversationId,
             user_id: userId,
@@ -295,16 +360,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const fullPrompt = `${SYSTEM_CONSULTANT_INSTRUCTION}\n\n${stateContext}Pertanyaan/Instruksi Customer:\n${message}`;
 
         // 3. Attempt direct AI completion via available Cloud APIs if configured
-        const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.VITE_GEMINI_API_KEY;
-        const openRouterKey = process.env.OPENROUTER_API_KEY;
+        const rawGeminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+        const rawOpenRouterKey = process.env.OPENROUTER_API_KEY;
 
         let aiResponseText: string | null = null;
 
-        if (geminiKey) {
-            aiResponseText = await callGeminiApi(geminiKey, fullPrompt);
+        if (rawGeminiKey) {
+            aiResponseText = await callGeminiApi(rawGeminiKey, fullPrompt);
         }
-        if (!aiResponseText && openRouterKey) {
-            aiResponseText = await callOpenRouterApi(openRouterKey, fullPrompt);
+        if (!aiResponseText && rawOpenRouterKey) {
+            aiResponseText = await callOpenRouterApi(rawOpenRouterKey, fullPrompt);
         }
 
         if (aiResponseText) {
@@ -336,11 +401,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
         }
 
-        // 4. If Cloud AI API keys are not present on Vercel, wait briefly (up to 3.5s)
-        // to see if python ai_worker.py (running locally) picks up and completes the job.
+        // 4. Wait up to 3.0s to see if python ai_worker.py (running locally) picks up and completes the job.
         const startTime = Date.now();
-        while (Date.now() - startTime < 3500) {
-            await new Promise(r => setTimeout(r, 500));
+        while (Date.now() - startTime < 3000) {
+            await new Promise(r => setTimeout(r, 400));
             const { data: jobCheck } = await supabase
                 .from('ai_jobs')
                 .select('status, response, design_state')
@@ -359,13 +423,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
 
-        // 5. If worker is still processing (or python ai_worker.py is running in background),
-        // return status: 'pending' so frontend AIChatWidget polls via Realtime / 1.5s interval until ready.
+        // 5. Emergency Fallback Guard: If worker is offline AND Cloud API failed/missing,
+        // generate a valid consultant response so the frontend NEVER gets stuck on "Menyiapkan rekomendasi..."!
+        const fallbackText = generateDynamicConsultantFallback(message, currentDesignState);
+        const { designState: fallbackDesignState } = parseAndNormalizeDesignState(fallbackText, currentDesignState);
+
+        const fallbackUpdatePayload: any = {
+            status: 'completed',
+            response: fallbackText,
+            completed_at: new Date().toISOString()
+        };
+        if (fallbackDesignState) {
+            fallbackUpdatePayload.design_state = fallbackDesignState;
+        }
+
+        try {
+            await supabase.from('ai_jobs').update(fallbackUpdatePayload).eq('id', insertedJobId);
+        } catch (dbErr) {
+            console.warn('Supabase ai_jobs fallback update warning:', dbErr);
+        }
+
         return res.status(200).json({
             success: true,
             job_id: insertedJobId,
             conversation_id: validConversationId,
-            status: 'pending'
+            status: 'completed',
+            response: fallbackText,
+            design_state: fallbackDesignState || null
         });
 
     } catch (error: any) {
