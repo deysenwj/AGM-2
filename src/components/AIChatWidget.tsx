@@ -168,8 +168,9 @@ const AIChatWidget: React.FC = () => {
     const targetJobId = currentJobId;
     console.log(`[AI POLLING] started for job ${targetJobId}`);
 
-    const intervalId = setInterval(async () => {
-      console.log(`[AI POLLING] checking job ${targetJobId}`);
+    let isSubscribed = true;
+
+    const checkJob = async () => {
       try {
         const { data, error } = await supabase
           .from('ai_jobs')
@@ -179,24 +180,35 @@ const AIChatWidget: React.FC = () => {
 
         if (error) {
           console.error(`[AI POLLING] error checking job ${targetJobId}:`, error.message);
-          return;
+          return false;
         }
 
-        if (data) {
+        if (data && isSubscribed) {
           console.log(`[AI POLLING] status: ${data.status}`);
           if (data.status === 'completed' || data.status === 'failed') {
             console.log(`[AI POLLING] response received`);
             handleJobCompleted(data.status, data.response, data.error, 'Polling');
-            console.log(`[AI POLLING] stopped`);
-            clearInterval(intervalId);
+            return true;
           }
         }
       } catch (err: any) {
         console.error(`[AI POLLING] exception polling job ${targetJobId}:`, err);
       }
-    }, 2000);
+      return false;
+    };
+
+    // Immediate check so user doesn't wait for first interval tick
+    checkJob();
+
+    const intervalId = setInterval(async () => {
+      const finished = await checkJob();
+      if (finished) {
+        clearInterval(intervalId);
+      }
+    }, 1500);
 
     return () => {
+      isSubscribed = false;
       console.log(`[AI POLLING] stopped/cleanup interval for job ${targetJobId}`);
       clearInterval(intervalId);
     };
