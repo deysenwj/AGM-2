@@ -169,7 +169,7 @@ function parseAndNormalizeDesignState(aiResponseText: string, incomingDesignStat
 }
 
 async function callGeminiApi(apiKey: string, prompt: string): Promise<string | null> {
-  const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-flash'];
+  const models = ['gemini-1.5-flash', 'gemini-2.0-flash-exp', 'gemini-1.5-pro', 'gemini-2.5-flash'];
   for (const model of models) {
     try {
       const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
@@ -187,6 +187,9 @@ async function callGeminiApi(apiKey: string, prompt: string): Promise<string | n
         const data = await resp.json();
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (text && text.trim()) return text.trim();
+      } else {
+        const errText = await resp.text();
+        console.warn(`Gemini API model ${model} HTTP ${resp.status}:`, errText);
       }
     } catch (e) {
       console.warn(`Gemini API call (${model}) failed:`, e);
