@@ -172,7 +172,7 @@ async function callGeminiApi(apiKey: string, prompt: string): Promise<string | n
   const cleanKey = apiKey.trim().replace(/^["']|["']$/g, '');
   if (!cleanKey) return null;
 
-  const models = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-2.5-flash', 'gemini-pro'];
+  const models = ['gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite'];
   for (const model of models) {
     try {
       const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${cleanKey}`, {
