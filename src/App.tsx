@@ -2238,30 +2238,6 @@ export default function App() {
               </button>
             </div>
 
-            {isAdmin && (
-              <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200/80 rounded-xl">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-bold uppercase shrink-0">
-                    {(currentAdminUser?.name || 'A').charAt(0)}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-slate-900 truncate">{currentAdminUser?.name || 'Admin'}</p>
-                    <span className="text-[10px] font-medium text-emerald-600 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span> Online
-                    </span>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => { handleLogout(); setIsSidebarOpen(false); }}
-                  className="text-xs font-semibold text-slate-500 hover:text-rose-600 flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer"
-                  title="Keluar dari akun admin"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span>Keluar</span>
-                </button>
-              </div>
-            )}
-
             <div>
               <h3 className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 mb-3">Menu</h3>
               <div className="space-y-1">
