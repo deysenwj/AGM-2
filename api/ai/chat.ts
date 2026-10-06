@@ -222,81 +222,6 @@ async function callOpenRouterApi(apiKey: string, prompt: string): Promise<string
   return null;
 }
 
-async function callNineRouterApi(baseUrl: string, apiKey: string, prompt: string): Promise<string | null> {
-  try {
-    const cleanUrl = baseUrl.replace(/\/+$/, '');
-    const resp = await fetch(`${cleanUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Authorization': apiKey ? `Bearer ${apiKey}` : '',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'gc/gemini-2.5-flash',
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-    if (resp.ok) {
-      const data = await resp.json();
-      const text = data.choices?.[0]?.message?.content;
-      if (text && text.trim()) return text.trim();
-    }
-  } catch (e) {
-    console.warn('9Router API call failed:', e);
-  }
-  return null;
-}
-
-function generateFallbackResponse(userMessage: string, currentDesignState: any): string {
-  const msgLower = userMessage.toLowerCase();
-
-  if (msgLower.includes('halo') || msgLower.includes('hi') || msgLower.includes('selamat')) {
-    return 'Halo! Selamat datang di AGM Furniture. Saya Personal Furniture Consultant AGM. Ada spesifikasi atau model furniture tertentu yang ingin Anda rancang atau tanyakan hari ini?';
-  }
-
-  if (msgLower.includes('custom') || msgLower.includes('desain') || msgLower.includes('meja') || msgLower.includes('lemari') || msgLower.includes('sofa') || msgLower.includes('kursi') || msgLower.includes('rak')) {
-    let cat = 'dining_table';
-    let subcat = 'Meja Makan Custom';
-    let len = 180;
-    let wid = 90;
-    let hei = 75;
-
-    if (msgLower.includes('lemari')) { cat = 'wardrobe'; subcat = 'Lemari Pakaian Custom'; len = 200; wid = 60; hei = 220; }
-    else if (msgLower.includes('sofa')) { cat = 'sofa'; subcat = 'Sofa Modern Custom'; len = 210; wid = 90; hei = 85; }
-    else if (msgLower.includes('tv')) { cat = 'tv_cabinet'; subcat = 'Meja TV Custom'; len = 160; wid = 45; hei = 50; }
-    else if (msgLower.includes('kursi')) { cat = 'chair'; subcat = 'Kursi Minimalis Custom'; len = 50; wid = 50; hei = 85; }
-
-    const nextVer = (currentDesignState?.version || 0) + 1;
-
-    return `Tentu! Saya telah membuatkan draf spesifikasi ${subcat} sesuai keinginan Anda. Silakan periksa kartu spesifikasi di bawah dan sampaikan jika ada ukuran, bahan, atau warna yang ingin Anda sesuaikan.
-
-\`\`\`json_design_state
-{
-  "version": ${nextVer},
-  "category": "${cat}",
-  "subcategory": "${subcat}",
-  "dimensions": {
-    "length": ${len},
-    "width": ${wid},
-    "height": ${hei},
-    "unit": "cm"
-  },
-  "capacity": 6,
-  "material": "kayu jati / solid wood",
-  "color": "natural wood",
-  "finish": "doff / matte",
-  "style": "minimalis modern",
-  "status": "draft",
-  "visualization": {
-    "status": "not_configured"
-  }
-}
-\`\`\``;
-  }
-
-  return 'Terima kasih telah menghubungi AGM Assistant. Kami siap membantu konsultasi spesifikasi furniture dan rancangan custom Anda. Silakan jelaskan kebutuhan furniture yang Anda cari!';
-}
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -338,12 +263,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
         }
 
-        // 1. Insert initial job record into Supabase
+        // 1. Insert initial job record into Supabase with status 'pending'
         const { data, error } = await supabase.from('ai_jobs').insert({
             conversation_id: validConversationId,
             user_id: userId,
             message: messagePayload,
-            status: 'processing',
+            status: 'pending',
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
         }).select();
@@ -366,11 +291,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const fullPrompt = `${SYSTEM_CONSULTANT_INSTRUCTION}\n\n${stateContext}Pertanyaan/Instruksi Customer:\n${message}`;
 
-        // 3. Attempt direct AI completion via available Cloud APIs
+        // 3. Attempt direct AI completion via available Cloud APIs if configured
         const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.VITE_GEMINI_API_KEY;
         const openRouterKey = process.env.OPENROUTER_API_KEY;
-        const nineRouterUrl = process.env.NINE_ROUTER_BASE_URL;
-        const nineRouterKey = process.env.NINE_ROUTER_API_KEY;
 
         let aiResponseText: string | null = null;
 
@@ -380,38 +303,66 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!aiResponseText && openRouterKey) {
             aiResponseText = await callOpenRouterApi(openRouterKey, fullPrompt);
         }
-        if (!aiResponseText && nineRouterUrl) {
-            aiResponseText = await callNineRouterApi(nineRouterUrl, nineRouterKey || '', fullPrompt);
-        }
-        if (!aiResponseText) {
-            aiResponseText = generateFallbackResponse(message, currentDesignState);
+
+        if (aiResponseText) {
+            // Cloud AI key executed successfully! Parse and complete job.
+            const { cleanText, designState: updatedDesignState } = parseAndNormalizeDesignState(aiResponseText, currentDesignState);
+
+            const updatePayload: any = {
+                status: 'completed',
+                response: aiResponseText,
+                completed_at: new Date().toISOString()
+            };
+            if (updatedDesignState) {
+                updatePayload.design_state = updatedDesignState;
+            }
+
+            try {
+                await supabase.from('ai_jobs').update(updatePayload).eq('id', insertedJobId);
+            } catch (dbErr) {
+                console.warn('Supabase ai_jobs update warning:', dbErr);
+            }
+
+            return res.status(200).json({
+                success: true,
+                job_id: insertedJobId,
+                conversation_id: validConversationId,
+                status: 'completed',
+                response: aiResponseText,
+                design_state: updatedDesignState || null
+            });
         }
 
-        // 4. Parse output design state & update Supabase ai_jobs table to completed
-        const { cleanText, designState: updatedDesignState } = parseAndNormalizeDesignState(aiResponseText, currentDesignState);
+        // 4. If Cloud AI API keys are not present on Vercel, wait briefly (up to 3.5s)
+        // to see if python ai_worker.py (running locally) picks up and completes the job.
+        const startTime = Date.now();
+        while (Date.now() - startTime < 3500) {
+            await new Promise(r => setTimeout(r, 500));
+            const { data: jobCheck } = await supabase
+                .from('ai_jobs')
+                .select('status, response, design_state')
+                .eq('id', insertedJobId)
+                .single();
 
-        const updatePayload: any = {
-            status: 'completed',
-            response: aiResponseText,
-            completed_at: new Date().toISOString()
-        };
-        if (updatedDesignState) {
-            updatePayload.design_state = updatedDesignState;
+            if (jobCheck && (jobCheck.status === 'completed' || jobCheck.status === 'failed')) {
+                return res.status(200).json({
+                    success: true,
+                    job_id: insertedJobId,
+                    conversation_id: validConversationId,
+                    status: jobCheck.status,
+                    response: jobCheck.response || undefined,
+                    design_state: jobCheck.design_state || null
+                });
+            }
         }
 
-        try {
-            await supabase.from('ai_jobs').update(updatePayload).eq('id', insertedJobId);
-        } catch (dbErr) {
-            console.warn('Supabase ai_jobs update warning:', dbErr);
-        }
-
+        // 5. If worker is still processing (or python ai_worker.py is running in background),
+        // return status: 'pending' so frontend AIChatWidget polls via Realtime / 1.5s interval until ready.
         return res.status(200).json({
             success: true,
             job_id: insertedJobId,
             conversation_id: validConversationId,
-            status: 'completed',
-            response: aiResponseText,
-            design_state: updatedDesignState || null
+            status: 'pending'
         });
 
     } catch (error: any) {
@@ -419,4 +370,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(500).json({ success: false, message: 'Internal server error.', error: error.message });
     }
 }
+
 
