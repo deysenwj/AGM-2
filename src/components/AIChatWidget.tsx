@@ -14,11 +14,13 @@ interface AttachmentInfo {
 }
 
 interface Message {
+  id: string;
   sender: 'user' | 'ai';
   text: string;
   timestamp: string;
   attachment?: AttachmentInfo;
   designState?: FurnitureDesignState;
+  isEdited?: boolean;
 }
 
 const generateUuid = () => {
@@ -95,12 +97,15 @@ const AIChatWidget: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStatusText, setLoadingStatusText] = useState('Sedang memproses...');
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
+
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState<string>('');
   
   const chatWindowRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const conversationIdRef = useRef<string>(generateUuid());
 
-  const handleJobCompleted = (status: string, responseText?: string, errorText?: string, source: 'Realtime' | 'Polling' = 'Realtime') => {
+  const handleJobCompleted = (status: string, responseText?: string, errorText?: string, source: 'Realtime' | 'Polling' | 'Direct' = 'Realtime') => {
     console.log(`[AI ${source.toUpperCase()}] response received via ${source}. Status: ${status}`);
     setCurrentJobId(null);
     setIsLoading(false);
@@ -116,6 +121,7 @@ const AIChatWidget: React.FC = () => {
       setHistory(prev => prev.map(msg => 
         msg.text === 'AGM Assistant sedang memproses...' 
           ? { 
+              id: msg.id || generateUuid(),
               sender: 'ai', 
               text: cleanText, 
               timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -127,7 +133,7 @@ const AIChatWidget: React.FC = () => {
       const errorMessageText = `Terjadi kesalahan: ${errorText}`;
       setHistory(prev => prev.map(msg => 
         msg.text === 'AGM Assistant sedang memproses...' 
-          ? { sender: 'ai', text: errorMessageText, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
+          ? { id: msg.id || generateUuid(), sender: 'ai', text: errorMessageText, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
           : msg
       ));
     }
@@ -276,6 +282,7 @@ const AIChatWidget: React.FC = () => {
           setHistory(prev => [
             ...prev,
             {
+              id: generateUuid(),
               sender: 'ai',
               text: notifText,
               timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -379,6 +386,97 @@ const AIChatWidget: React.FC = () => {
     });
   };
 
+  const startEditingMessage = (msg: Message) => {
+    if (isLoading) return;
+    setEditingMessageId(msg.id);
+    setEditingText(msg.text);
+  };
+
+  const cancelEditingMessage = () => {
+    setEditingMessageId(null);
+    setEditingText('');
+  };
+
+  const saveAndResendMessage = async (msgId: string) => {
+    const trimmed = editingText.trim();
+    if (!trimmed || isLoading) return;
+
+    const msgIndex = history.findIndex(m => m.id === msgId);
+    if (msgIndex === -1) return;
+
+    const editedUserMsg: Message = {
+      ...history[msgIndex],
+      text: trimmed,
+      isEdited: true,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    const loadingAiMsg: Message = {
+      id: generateUuid(),
+      sender: 'ai',
+      text: 'AGM Assistant sedang memproses...',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    const truncatedHistory = history.slice(0, msgIndex);
+    truncatedHistory.push(editedUserMsg, loadingAiMsg);
+
+    setHistory(truncatedHistory);
+    setEditingMessageId(null);
+    setEditingText('');
+    setIsLoading(true);
+    setLoadingStatusText('Menyiapkan rekomendasi...');
+
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData?.user?.id || generateUuid();
+
+      const response = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': userId,
+        },
+        body: JSON.stringify({ 
+          message: trimmed, 
+          conversationId: conversationIdRef.current, 
+          userId: userId,
+          attachment: editedUserMsg.attachment,
+          currentDesignState: activeDesignState
+        }),
+      });
+
+      const responseText = await response.text();
+      let data: any = {};
+      try {
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch (parseError) {
+        throw new Error(`Server response error (HTTP ${response.status})`);
+      }
+
+      if (!response.ok || data.success === false) {
+        throw new Error(data.message || `Gagal mengirim permintaan.`);
+      }
+
+      setCurrentJobId(data.job_id);
+      if (data.response) {
+        handleJobCompleted('completed', data.response, undefined, 'Direct');
+      }
+
+    } catch (error: any) {
+      const errorMessageText = `Error: ${error.message}`;
+      setHistory(prev => prev.map(msg => 
+        msg.text === 'AGM Assistant sedang memproses...' 
+          ? { id: msg.id || generateUuid(), sender: 'ai', text: errorMessageText, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
+          : msg
+      ));
+      setIsLoading(false);
+      setLoadingStatusText('Sedang memproses...');
+      setCurrentJobId(null);
+      console.error('Error resending edited message:', error);
+    }
+  };
+
   const sendMessage = async (textToSend?: string) => {
     const queryText = (textToSend || message).trim();
     if ((!queryText && !selectedFile) || isLoading) return;
@@ -387,6 +485,7 @@ const AIChatWidget: React.FC = () => {
     const activeFile = selectedFile;
     
     const userMessage: Message = { 
+      id: generateUuid(),
       sender: 'user', 
       text: userMessageText, 
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -397,12 +496,20 @@ const AIChatWidget: React.FC = () => {
       } : undefined
     };
 
-    setHistory(prev => [...prev, userMessage]);
+    const loadingAiMsg: Message = {
+      id: generateUuid(),
+      sender: 'ai',
+      text: 'AGM Assistant sedang memproses...',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    setHistory(prev => [...prev, userMessage, loadingAiMsg]);
     if (!textToSend) setMessage('');
     setSelectedFile(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
     
     setIsLoading(true);
+    setLoadingStatusText('Menyiapkan rekomendasi...');
 
     try {
       const { data: authData } = await supabase.auth.getUser();
@@ -466,19 +573,17 @@ const AIChatWidget: React.FC = () => {
       }
 
       setCurrentJobId(data.job_id);
-      setHistory(prev => [...prev, { 
-        sender: 'ai', 
-        text: 'AGM Assistant sedang memproses...', 
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
-      }]);
+      if (data.response) {
+        handleJobCompleted('completed', data.response, undefined, 'Direct');
+      }
 
     } catch (error: any) {
-      const errorMessage: Message = { 
-        sender: 'ai', 
-        text: `Error: ${error.message}`, 
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
-      };
-      setHistory(prev => [...prev, errorMessage]);
+      const errorMessageText = `Error: ${error.message}`;
+      setHistory(prev => prev.map(msg => 
+        msg.text === 'AGM Assistant sedang memproses...' 
+          ? { id: msg.id || generateUuid(), sender: 'ai', text: errorMessageText, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
+          : msg
+      ));
       setIsLoading(false);
       setLoadingStatusText('Sedang memproses...');
       setCurrentJobId(null);
@@ -523,6 +628,7 @@ const AIChatWidget: React.FC = () => {
       setHistory(prev => [
         ...prev,
         {
+          id: generateUuid(),
           sender: 'ai',
           text: `Spesifikasi custom furniture Anda telah berhasil diajukan ke Admin AGM dengan Nomor Referensi ${refNum}. Tim konsultan kami akan segera memeriksa rincian teknis dan menghubungi Anda untuk penawaran resmi.`,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -582,7 +688,6 @@ const AIChatWidget: React.FC = () => {
               <AGMAssistantMark variant="light" className="w-5 h-5 text-slate-900 shrink-0" />
               <div>
                 <h3 className="font-bold text-slate-900 text-xs sm:text-sm tracking-tight leading-none">AGM Assistant</h3>
-                <span className="text-[10px] text-slate-400 font-medium">Konsultan Furniture &amp; Stok</span>
               </div>
             </div>
 
@@ -643,20 +748,66 @@ const AIChatWidget: React.FC = () => {
               </div>
             ) : (
               history.map((msg, index) => (
-                <div key={index} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div key={msg.id || index} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                   {msg.sender === 'user' ? (
-                    <div className="max-w-[85%] bg-slate-900 text-white rounded-lg px-3.5 py-2.5 text-xs sm:text-sm font-normal">
-                      {msg.attachment && (
-                        <div className="flex items-center gap-1.5 text-slate-300 border-b border-slate-800 pb-1.5 mb-1.5 text-xs">
-                          <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                          </svg>
-                          <span className="font-medium truncate max-w-[160px]">{msg.attachment.filename}</span>
-                          <span className="text-[10px] text-slate-400 font-mono">({formatFileSize(msg.attachment.size)})</span>
+                    <div className="max-w-[85%] group flex items-center gap-1.5">
+                      {editingMessageId === msg.id ? (
+                        <div className="bg-slate-900 text-white rounded-xl p-3 border border-slate-700 shadow-md min-w-[240px] w-full">
+                          <textarea
+                            value={editingText}
+                            onChange={(e) => setEditingText(e.target.value)}
+                            className="w-full bg-slate-950 text-white border border-slate-700 rounded-lg p-2 text-xs focus:ring-1 focus:ring-slate-400 outline-none resize-none font-sans"
+                            rows={3}
+                            placeholder="Edit pesan Anda..."
+                            autoFocus
+                          />
+                          <div className="flex items-center justify-end gap-1.5 mt-2">
+                            <button
+                              onClick={cancelEditingMessage}
+                              className="px-2.5 py-1 text-[11px] font-medium text-slate-300 hover:text-white rounded bg-slate-800 hover:bg-slate-700 transition-colors cursor-pointer"
+                            >
+                              Batal
+                            </button>
+                            <button
+                              onClick={() => saveAndResendMessage(msg.id)}
+                              disabled={!editingText.trim() || isLoading}
+                              className="px-2.5 py-1 text-[11px] font-semibold text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 rounded transition-colors cursor-pointer flex items-center gap-1"
+                            >
+                              <span>Simpan &amp; Kirim</span>
+                            </button>
+                          </div>
                         </div>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => startEditingMessage(msg)}
+                            className="opacity-70 sm:opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 shrink-0 cursor-pointer"
+                            title="Edit pesan ini"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                          </button>
+                          <div className="bg-slate-900 text-white rounded-lg px-3.5 py-2.5 text-xs sm:text-sm font-normal">
+                            {msg.attachment && (
+                              <div className="flex items-center gap-1.5 text-slate-300 border-b border-slate-800 pb-1.5 mb-1.5 text-xs">
+                                <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                </svg>
+                                <span className="font-medium truncate max-w-[160px]">{msg.attachment.filename}</span>
+                                <span className="text-[10px] text-slate-400 font-mono">({formatFileSize(msg.attachment.size)})</span>
+                              </div>
+                            )}
+                            <p className="leading-relaxed whitespace-pre-wrap break-words">{msg.text}</p>
+                            <div className="flex items-center justify-end gap-1.5 mt-1 text-[10px]">
+                              {msg.isEdited && (
+                                <span className="text-[9px] text-slate-400 italic font-mono mr-1">(diedit)</span>
+                              )}
+                              <span className="text-[9px] font-mono text-slate-400">{msg.timestamp}</span>
+                            </div>
+                          </div>
+                        </>
                       )}
-                      <p className="leading-relaxed whitespace-pre-wrap break-words">{msg.text}</p>
-                      <span className="block text-[9px] text-right mt-1 font-mono text-slate-400">{msg.timestamp}</span>
                     </div>
                   ) : (
                     <div className="max-w-[95%] py-0.5 w-full">

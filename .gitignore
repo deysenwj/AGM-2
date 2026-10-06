@@ -34,3 +34,6 @@ __pycache__/
 *.pyc
 laporan_operasional.docx
 rekap_paku.xlsx
+
+.vercel
+.env*
