@@ -60,12 +60,12 @@ Anda adalah AGM Assistant, Personal Furniture Consultant & Ahli Desain Custom re
 \`\`\`
 
 **Detail Semantik Kategori & Dimensi (MANDATORY)**:
--   Gunakan `subcategory` untuk penamaan Bahasa Indonesia alami (misal: subcategory: "Meja Makan Minimalis").
+-   Gunakan \`subcategory\` untuk penamaan Bahasa Indonesia alami (misal: subcategory: "Meja Makan Minimalis").
 -   "panjang" / "panjangnya" → map ke \`dimensions.length\` (TIDAK BOLEH ke width!).
 -   "lebar" → map ke \`dimensions.width\`.
 -   "kedalaman" / "dalam" → map ke \`dimensions.depth\`.
 -   "tinggi" → map ke \`dimensions.height\`.
--   `capacity` WAJIB berupa angka integer murni (misal: 6, BUKAN string "6 orang").
+-   \`capacity\` WAJIB berupa angka integer murni (misal: 6, BUKAN string "6 orang").
 `;
 
 function parseAndNormalizeDesignState(aiResponseText: string, incomingDesignState: any) {
