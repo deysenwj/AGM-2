@@ -158,10 +158,8 @@ async function callGeminiApi(apiKey: string, prompt: string): Promise<string | n
   const GLOBAL_BUDGET_MS = 9000;
 
   const models = [
-    'gemini-2.0-flash-lite',   // Lightweight, fast, most likely available
-    'gemini-1.5-flash',        // Stable, well-established model
-    'gemini-3.5-flash',        // Previously working but often 503
-    'gemini-2.5-flash-lite',   // Alternative lite model
+    'gemini-3.5-flash-lite',   // CONFIRMED WORKING (200 OK) with user's key
+    'gemini-3.5-flash',        // Backup - often 503 high demand
   ];
 
   for (const model of models) {
