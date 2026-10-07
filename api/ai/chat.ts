@@ -174,6 +174,8 @@ async function callGeminiApi(apiKey: string, prompt: string): Promise<string | n
 
   const models = ['gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite'];
   for (const model of models) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
     try {
       const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${cleanKey}`, {
         method: 'POST',
@@ -184,8 +186,10 @@ async function callGeminiApi(apiKey: string, prompt: string): Promise<string | n
             temperature: 0.7,
             maxOutputTokens: 2048
           }
-        })
+        }),
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
       if (resp.ok) {
         const data = await resp.json();
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -194,8 +198,13 @@ async function callGeminiApi(apiKey: string, prompt: string): Promise<string | n
         const errText = await resp.text();
         console.warn(`Gemini API model ${model} HTTP ${resp.status}:`, errText);
       }
-    } catch (e) {
-      console.warn(`Gemini API call (${model}) failed:`, e);
+    } catch (e: any) {
+      clearTimeout(timeoutId);
+      if (e.name === 'AbortError') {
+        console.warn(`Gemini API call (${model}) timed out after 5s, trying next model...`);
+      } else {
+        console.warn(`Gemini API call (${model}) failed:`, e);
+      }
     }
   }
   return null;
@@ -205,6 +214,8 @@ async function callOpenRouterApi(apiKey: string, prompt: string): Promise<string
   const cleanKey = apiKey.trim().replace(/^["']|["']$/g, '');
   if (!cleanKey) return null;
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 6000);
   try {
     const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -218,15 +229,22 @@ async function callOpenRouterApi(apiKey: string, prompt: string): Promise<string
         model: 'google/gemini-2.0-flash-001',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.7
-      })
+      }),
+      signal: controller.signal
     });
+    clearTimeout(timeoutId);
     if (resp.ok) {
       const data = await resp.json();
       const text = data.choices?.[0]?.message?.content;
       if (text && text.trim()) return text.trim();
     }
-  } catch (e) {
-    console.warn('OpenRouter API call failed:', e);
+  } catch (e: any) {
+    clearTimeout(timeoutId);
+    if (e.name === 'AbortError') {
+      console.warn('OpenRouter API call timed out after 6s.');
+    } else {
+      console.warn('OpenRouter API call failed:', e);
+    }
   }
   return null;
 }
@@ -401,9 +419,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
         }
 
-        // 4. Wait up to 3.0s to see if python ai_worker.py (running locally) picks up and completes the job.
+        // 4. Wait up to 2.0s to see if python ai_worker.py (running locally) picks up and completes the job.
         const startTime = Date.now();
-        while (Date.now() - startTime < 3000) {
+        while (Date.now() - startTime < 2000) {
             await new Promise(r => setTimeout(r, 400));
             const { data: jobCheck } = await supabase
                 .from('ai_jobs')
