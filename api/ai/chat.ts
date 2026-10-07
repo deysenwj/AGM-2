@@ -149,6 +149,49 @@ function parseAndNormalizeDesignState(aiResponseText: string, incomingDesignStat
   return { cleanText: aiResponseText, designState: incomingDesignState };
 }
 
+async function fetchCatalogContext(userMessage: string): Promise<string> {
+  try {
+    const terms = userMessage.toLowerCase().split(/[^a-z0-9À-ÿ]+/i).filter(term => term.length >= 3).slice(0, 8);
+    const query = supabase
+      .from('products')
+      .select('id,name,category,subcategory,description,price,discount,stock,unit,image_url')
+      .order('created_at', { ascending: false })
+      .limit(30);
+
+    const { data, error } = await query;
+    if (error || !data) {
+      console.warn('Catalog retrieval warning:', error?.message || 'empty result');
+      return '[KATALOG SUPABASE]\nTidak dapat mengambil katalog saat ini. Jangan mengarang detail produk.\n[/KATALOG SUPABASE]';
+    }
+
+    const ranked = data
+      .map((product: any) => {
+        const searchable = `${product.name || ''} ${product.category || ''} ${product.subcategory || ''} ${product.description || ''}`.toLowerCase();
+        const score = terms.reduce((sum, term) => sum + (searchable.includes(term) ? 1 : 0), 0);
+        return { product, score };
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 8)
+      .map(({ product }) => ({
+        id: product.id,
+        name: product.name,
+        category: product.category,
+        subcategory: product.subcategory,
+        description: product.description,
+        price: Number(product.price) || 0,
+        discount: Number(product.discount) || 0,
+        stock: Number(product.stock) || 0,
+        unit: product.unit || 'Pcs',
+        image_url: product.image_url || null
+      }));
+
+    return `[KATALOG SUPABASE - DATA REAL-TIME]\n${JSON.stringify(ranked, null, 2)}\nGunakan hanya produk, harga, stok, dan atribut yang tercantum. Jika tidak ada kecocokan, katakan data tidak ditemukan dan jangan mengarang.\n[/KATALOG SUPABASE]`;
+  } catch (error: any) {
+    console.warn('Catalog retrieval exception:', error?.message || error);
+    return '[KATALOG SUPABASE]\nKatalog sementara tidak tersedia. Jangan mengarang detail produk.\n[/KATALOG SUPABASE]';
+  }
+}
+
 async function callGeminiApi(apiKey: string, prompt: string): Promise<string | null> {
   const cleanKey = apiKey.trim().replace(/^["']|["']$/g, '');
   if (!cleanKey) return null;
@@ -395,7 +438,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ? `[CURRENT DESIGN STATE IN SESSION]\n\`\`\`json\n${JSON.stringify(currentDesignState, null, 2)}\n\`\`\`\n`
             : `[CURRENT DESIGN STATE IN SESSION]\n(Belum ada draf desain aktif).\n`;
 
-        const fullPrompt = `${SYSTEM_CONSULTANT_INSTRUCTION}\n\n${stateContext}Pertanyaan/Instruksi Customer:\n${message}`;
+        const catalogContext = await fetchCatalogContext(message);
+        const fullPrompt = `${SYSTEM_CONSULTANT_INSTRUCTION}\n\n${catalogContext}\n\n${stateContext}Pertanyaan/Instruksi Customer:\n${message}`;
 
         // 3. Attempt direct AI completion via available Cloud APIs if configured
         const rawGeminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.VITE_GEMINI_API_KEY;

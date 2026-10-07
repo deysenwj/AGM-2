@@ -333,8 +333,18 @@ def process_ai_job(job):
         else:
             state_context = "[CURRENT DESIGN STATE IN SESSION]\n(Belum ada draf desain aktif. Jangan mengarang desain kecuali user meminta membuat custom furniture).\n\n"
 
-        # Combine System Persona + State Context + Vision Context + Attachment + User Prompt
-        full_prompt = f"{SYSTEM_CONSULTANT_INSTRUCTION}\n\n{state_context}{vision_context}{attachment_prefix}Pertanyaan/Instruksi Customer:\n{user_prompt}"
+        catalog_context = "[KATALOG SUPABASE - DATA REAL-TIME]\n"
+        try:
+            catalog_res = supabase.from_("products").select("id,name,category,subcategory,description,price,discount,stock,unit,image_url").order("created_at", desc=True).limit(30).execute()
+            catalog_items = catalog_res.data or []
+            catalog_context += json.dumps(catalog_items[:8], ensure_ascii=False)
+            catalog_context += "\nGunakan hanya fakta produk di atas; jangan mengarang harga atau stok.\n[/KATALOG SUPABASE]"
+        except Exception as catalog_err:
+            print(f"[{time.strftime('%H:%M:%S')}] Catalog retrieval warning: {catalog_err}")
+            catalog_context += "Katalog sementara tidak tersedia; jangan mengarang detail produk.\n[/KATALOG SUPABASE]"
+
+        # Combine System Persona + State Context + Live Catalog + Vision Context + Attachment + User Prompt
+        full_prompt = f"{SYSTEM_CONSULTANT_INSTRUCTION}\n\n{catalog_context}\n\n{state_context}{vision_context}{attachment_prefix}Pertanyaan/Instruksi Customer:\n{user_prompt}"
 
         ai_response_text = call_hermes_cli(full_prompt)
 
