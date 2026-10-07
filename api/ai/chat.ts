@@ -14,49 +14,22 @@ const generateUuid = () => {
 };
 
 const SYSTEM_CONSULTANT_INSTRUCTION = `
-Anda adalah AGM Assistant, Personal Furniture Consultant & Ahli Desain Custom resmi dari toko AGM.
+Anda adalah AGM Assistant, Personal Furniture Consultant & Ahli Desain Custom resmi dari toko AGM. Anda akan selalu merespons dengan gaya konsultan showroom premium: ramah, sopan, singkat, profesional, dan alami. Hindari gaya AI generik (DILARANG pakai emoji, "Sebagai AI...").
 
-GAYA RESPON & NADA BICARA (SHOWROOM CONSULTANT STYLE):
-1. Anda adalah konsultan profesional toko furniture AGM, BUKAN chatbot AI generik.
-2. DILARANG menggunakan gaya AI generik: DILARANG pakai emoji dekoratif (✨, 🤖), DILARANG bilang "Sebagai AI...", "Tentu! Saya siap membantu Anda...".
-3. Gunakan bahasa Indonesia yang ramah, sopan, singkat, profesional, dan alami seperti konsultan showroom premium.
+**Instruksi Utama Pemrosesan Desain & Mutasi State:**
 
-KLASIFIKASI INTENT CUSTOMER & ATURAN MUTASI STATE:
-- GENERAL_QUESTION: Pertanyaan umum / diskusi materi (misal: "halo", "2+2", "apakah kayu walnut tahan lama?"). Jawab singkat & profesional. DILARANG menyertakan blok \`\`\`json_design_state\`\`\`! State & versi TIDAK BISA berubah!
-- CATALOG_SEARCH: Mencari produk jadi katalog (misal: "carikan meja makan").
-- CUSTOM_DESIGN: Inisiatif awal membuat rancangan custom baru (misal: "saya mau meja makan 6 orang"). Tanyakan maksimal 1-2 pertanyaan klarifikasi penting secara bertahap jika informasi belum lengkap.
-- DESIGN_MODIFICATION: Perubahan eksplisit terhadap spesifikasi aktif (misal: "panjangnya 240 cm", "ganti warna walnut", "ubah kaki jadi hitam").
-  * WAJIB MEMPERTAHANKAN seluruh spesifikasi lama yang tidak diubah!
-  * NAIKKAN \`version\` (+1) dan set \`visualization.status = "stale"\`.
-- DESIGN_REVIEW: Tanggapan / opini terhadap desain aktif (misal: "kayaknya terlalu besar", "warnanya kurang cocok"). Tanyakan bagian spesifik mana yang ingin disesuaikan SEBELUM mengubah state. DILARANG memutasikan state tanpa permintaan spesifik!
-- APPROVAL: Customer menyukai/menyetujui draf (misal: "saya suka yang ini", "sudah cocok", "setuju dengan desain ini").
-  * PERTAHANKAN seluruh spesifikasi dan ubah \`status = "approved"\`. DILARANG menaikkan nomor \`version\`!
-- ORDER_INTENT: Customer menyatakan ingin memesan/mengajukan draf (misal: "saya mau pesan", "ajukan ke admin").
-  * Respons secara profesional: "Desain Anda sudah siap diajukan ke Admin AGM. Silakan tekan tombol 'Ajukan ke Admin' pada kartu spesifikasi di atas."
-  * DILARANG mengubah spesifikasi furniture!
+-   **Input Awal / Pertanyaan Umum**: Jika user memulai percakapan atau pertanyaan umum (misal: "halo", "2+2", "apakah kayu walnut tahan lama?"), berikan jawaban singkat dan profesional. JANGAN menyertakan blok \`\`\`json_design_state\`\`\`.
 
-CANONICAL CATEGORY ENUM:
-- "dining_table" (meja makan)
-- "wardrobe" (lemari pakaian)
-- "sofa" (sofa / kursi santai)
-- "tv_cabinet" (meja TV / credenza)
-- "kitchen_set" (kitchen set)
-- "chair" (kursi)
-- "table" (meja kerja/umum)
-- "other" (lainnya)
-Gunakan \`subcategory\` untuk penamaan Bahasa Indonesia alami (misal: subcategory: "Meja Makan Minimalis").
+-   **Rancang Custom Furniture (CUSTOM_DESIGN)**: Jika user ingin membuat rancangan custom (misal: "saya mau meja makan 6 orang"), tanyakan maksimal 1-2 pertanyaan klarifikasi penting secara bertahap jika informasi belum lengkap.
 
-DIMENSION SEMANTICS MANDATE:
-- "panjang" / "panjangnya" → map ke \`dimensions.length\` (TIDAK BOLEH ke width!).
-- "lebar" → map ke \`dimensions.width\`.
-- "kedalaman" / "dalam" → map ke \`dimensions.depth\`.
-- "tinggi" → map ke \`dimensions.height\`.
+-   **Modifikasi Desain Aktif (DESIGN_MODIFICATION)**: Jika user mengubah spesifikasi aktif (misal: "panjangnya 240 cm", "ganti warna walnut"), WAJIB PERTAHANKAN semua spesifikasi lama yang tidak diubah, NAIKKAN \`version\` (+1), dan set \`visualization.status = "stale"\`.
 
-CAPACITY NORMALIZATION:
-- \`capacity\` WAJIB berupa angka integer murni (misal: 6 untuk 6 orang/seats, BUKAN string "6 orang").
+-   **Persetujuan Desain (APPROVAL)**: Jika user menyetujui draf (misal: "saya suka yang ini", "sudah cocok"), PERTAHANKAN seluruh spesifikasi dan ubah \`status = "approved"\`. JANGAN menaikkan \`version\`.
 
-STRUKTUR OUTPUT DELIMITER WAJIB:
-Di akhir jawaban Anda, HANYA jika intent adalah CUSTOM_DESIGN, DESIGN_MODIFICATION, atau APPROVAL yang valid, sertakan JSON state di dalam delimiter berikut:
+-   **Mencari Produk Katalog (CATALOG_SEARCH)**: Jika user mencari produk jadi dari katalog (misal: "carikan meja makan"), berikan respon singkat dan profesional tanpa mutasi state.
+
+-   **Format Output JSON State (WAJIB)**:
+    HANYA jika intent adalah CUSTOM_DESIGN, DESIGN_MODIFICATION, atau APPROVAL yang valid, sertakan JSON state di akhir jawaban Anda dalam delimiter berikut:
 
 \`\`\`json_design_state
 {
@@ -85,6 +58,14 @@ Di akhir jawaban Anda, HANYA jika intent adalah CUSTOM_DESIGN, DESIGN_MODIFICATI
   }
 }
 \`\`\`
+
+**Detail Semantik Kategori & Dimensi (MANDATORY)**:
+-   Gunakan `subcategory` untuk penamaan Bahasa Indonesia alami (misal: subcategory: "Meja Makan Minimalis").
+-   "panjang" / "panjangnya" → map ke \`dimensions.length\` (TIDAK BOLEH ke width!).
+-   "lebar" → map ke \`dimensions.width\`.
+-   "kedalaman" / "dalam" → map ke \`dimensions.depth\`.
+-   "tinggi" → map ke \`dimensions.height\`.
+-   `capacity` WAJIB berupa angka integer murni (misal: 6, BUKAN string "6 orang").
 `;
 
 function parseAndNormalizeDesignState(aiResponseText: string, incomingDesignState: any) {
@@ -172,39 +153,80 @@ async function callGeminiApi(apiKey: string, prompt: string): Promise<string | n
   const cleanKey = apiKey.trim().replace(/^["']|["']$/g, '');
   if (!cleanKey) return null;
 
-  const models = ['gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite'];
+  // Global execution budget: 9s max to stay under Vercel's 10s limit
+  const globalStart = Date.now();
+  const GLOBAL_BUDGET_MS = 9000;
+
+  const models = [
+    'gemini-2.0-flash-lite',   // Lightweight, fast, most likely available
+    'gemini-1.5-flash',        // Stable, well-established model
+    'gemini-3.5-flash',        // Previously working but often 503
+    'gemini-2.5-flash-lite',   // Alternative lite model
+  ];
+
   for (const model of models) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-    try {
-      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${cleanKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 2048
+    // Check if we still have time budget
+    const elapsed = Date.now() - globalStart;
+    if (elapsed >= GLOBAL_BUDGET_MS - 500) {
+      console.warn(`Gemini API global budget exhausted (${elapsed}ms elapsed), stopping.`);
+      break;
+    }
+
+    // Try each model up to 2 times (retry once on 503)
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const remainingBudget = GLOBAL_BUDGET_MS - (Date.now() - globalStart);
+      if (remainingBudget < 1000) break; // Not enough time for another attempt
+
+      const perCallTimeout = Math.min(8000, remainingBudget - 200);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), perCallTimeout);
+
+      try {
+        const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${cleanKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 1024
+            }
+          }),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (resp.ok) {
+          const data = await resp.json();
+          const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text && text.trim()) {
+            console.log(`Gemini API success with model ${model} (attempt ${attempt + 1})`);
+            return text.trim();
           }
-        }),
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-      if (resp.ok) {
-        const data = await resp.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text && text.trim()) return text.trim();
-      } else {
-        const errText = await resp.text();
-        console.warn(`Gemini API model ${model} HTTP ${resp.status}:`, errText);
+        } else if (resp.status === 503) {
+          // High demand - retry after short delay
+          console.warn(`Gemini API model ${model} HTTP 503 (attempt ${attempt + 1}), ${attempt === 0 ? 'retrying in 1s...' : 'moving to next model.'}`);
+          if (attempt === 0) {
+            await new Promise(r => setTimeout(r, 1000));
+            continue;
+          }
+        } else if (resp.status === 404) {
+          // Model not found - skip immediately, no retry
+          console.warn(`Gemini API model ${model} HTTP 404: model not found, skipping.`);
+          break;
+        } else {
+          const errText = await resp.text();
+          console.warn(`Gemini API model ${model} HTTP ${resp.status} (attempt ${attempt + 1}):`, errText);
+        }
+      } catch (e: any) {
+        clearTimeout(timeoutId);
+        if (e.name === 'AbortError') {
+          console.warn(`Gemini API call (${model}) timed out after ${Math.round(perCallTimeout / 1000)}s (attempt ${attempt + 1}), moving on.`);
+        } else {
+          console.warn(`Gemini API call (${model}) failed (attempt ${attempt + 1}):`, e);
+        }
       }
-    } catch (e: any) {
-      clearTimeout(timeoutId);
-      if (e.name === 'AbortError') {
-        console.warn(`Gemini API call (${model}) timed out after 5s, trying next model...`);
-      } else {
-        console.warn(`Gemini API call (${model}) failed:`, e);
-      }
+      break; // Only retry on 503, break for other errors
     }
   }
   return null;
