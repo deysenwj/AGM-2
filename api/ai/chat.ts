@@ -149,43 +149,78 @@ function parseAndNormalizeDesignState(aiResponseText: string, incomingDesignStat
   return { cleanText: aiResponseText, designState: incomingDesignState };
 }
 
+function normalizeCatalogText(value: unknown): string {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\b(tolng|tolong|brg|barang|produk2|barang2)\b/g, ' produk ')
+    .replace(/\b(meja tv|mejatv|tv meja)\b/g, ' meja tv ')
+    .replace(/\b(lemari baju|lemari pakaian|wardrop|wardrobe)\b/g, ' lemari pakaian wardrobe ')
+    .replace(/\b(bopet|buffet|bufet)\b/g, ' bopet buffet ')
+    .replace(/\b(harga|hrg|price)\b/g, ' harga ')
+    .replace(/\b(stok|stock|tersedia|available)\b/g, ' stok tersedia ')
+    .trim();
+}
+
+function catalogTokenScore(query: string, product: any): number {
+  const normalizedQuery = normalizeCatalogText(query);
+  const searchable = normalizeCatalogText([
+    product.name, product.category, product.subcategory, product.description,
+    product.material, product.color, product.unit
+  ].join(' '));
+  const queryTokens = normalizedQuery.split(/\s+/).filter(token => token.length >= 2);
+  let score = 0;
+  for (const token of queryTokens) {
+    if (searchable.includes(token)) score += 3;
+    else if (token.length >= 4 && searchable.split(' ').some((word: string) => word.startsWith(token.slice(0, -1)))) score += 1;
+  }
+  if (normalizeCatalogText(product.name) && normalizedQuery.includes(normalizeCatalogText(product.name))) score += 8;
+  return score;
+}
+
 async function fetchCatalogContext(userMessage: string): Promise<string> {
   try {
-    const terms = userMessage.toLowerCase().split(/[^a-z0-9À-ÿ]+/i).filter(term => term.length >= 3).slice(0, 8);
-    const query = supabase
+    const { data, error } = await supabase
       .from('products')
-      .select('id,name,category,subcategory,description,price,discount,stock,unit,image_url')
+      .select('id,name,category,subcategory,description,price,discount,stock,unit,image_url,images,arrival_type,created_at')
       .order('created_at', { ascending: false })
-      .limit(30);
+      .limit(100);
 
-    const { data, error } = await query;
     if (error || !data) {
       console.warn('Catalog retrieval warning:', error?.message || 'empty result');
-      return '[KATALOG SUPABASE]\nTidak dapat mengambil katalog saat ini. Jangan mengarang detail produk.\n[/KATALOG SUPABASE]';
+      return '[KATALOG SUPABASE]\nKatalog tidak tersedia sementara. Jangan mengarang produk, harga, atau stok.\n[/KATALOG SUPABASE]';
     }
 
     const ranked = data
-      .map((product: any) => {
-        const searchable = `${product.name || ''} ${product.category || ''} ${product.subcategory || ''} ${product.description || ''}`.toLowerCase();
-        const score = terms.reduce((sum, term) => sum + (searchable.includes(term) ? 1 : 0), 0);
-        return { product, score };
-      })
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 8)
-      .map(({ product }) => ({
-        id: product.id,
-        name: product.name,
-        category: product.category,
-        subcategory: product.subcategory,
-        description: product.description,
-        price: Number(product.price) || 0,
-        discount: Number(product.discount) || 0,
-        stock: Number(product.stock) || 0,
-        unit: product.unit || 'Pcs',
-        image_url: product.image_url || null
-      }));
+      .map((product: any) => ({ product, score: catalogTokenScore(userMessage, product) }))
+      .sort((a, b) => b.score - a.score || Number(b.product.stock || 0) - Number(a.product.stock || 0));
 
-    return `[KATALOG SUPABASE - DATA REAL-TIME]\n${JSON.stringify(ranked, null, 2)}\nGunakan hanya produk, harga, stok, dan atribut yang tercantum. Jika tidak ada kecocokan, katakan data tidak ditemukan dan jangan mengarang.\n[/KATALOG SUPABASE]`;
+    const hasSpecificMatch = ranked.some(item => item.score > 0);
+    const selected = (hasSpecificMatch ? ranked.filter(item => item.score > 0) : ranked).slice(0, 12);
+    const compactProducts = selected.map(({ product, score }) => ({
+      id: product.id,
+      name: product.name || '',
+      category: product.category || '',
+      subcategory: product.subcategory || '',
+      description: product.description || '',
+      price: Number(product.price) || 0,
+      discount: Number(product.discount) || 0,
+      final_price: Math.max(0, (Number(product.price) || 0) - (Number(product.discount) || 0)),
+      stock: Number(product.stock) || 0,
+      availability: Number(product.stock) > 0 ? 'tersedia' : 'habis',
+      unit: product.unit || 'Pcs',
+      arrival_type: product.arrival_type || '',
+      image_url: product.image_url || null,
+      relevance_score: score
+    }));
+
+    return `[KATALOG SUPABASE - DATA REAL-TIME]\n${JSON.stringify(compactProducts, null, 2)}\n\n[ATURAN KATALOG]\n- Ini adalah data produk aktual dari tabel products.
+- Gunakan nama, kategori, subkategori, harga, diskon, final_price, stok, dan availability persis dari data.
+- Jika customer meminta daftar barang, tampilkan daftar dari data ini; jangan hanya menjawab satu produk.
+- Jika tidak ada kecocokan spesifik, katakan hasil spesifik tidak ditemukan dan boleh tawarkan kategori yang tersedia.
+- Jangan mengarang SKU, harga, stok, ukuran, material, atau fitur yang tidak ada.\n[/KATALOG SUPABASE]\n\n[PEMAHAMAN WEBSITE]\nAGM-2 adalah katalog furniture/electronics dengan data produk Supabase, pencarian, filter kategori, detail gambar, stok, harga, transaksi kasir, dan chat konsultasi custom. Untuk pertanyaan tentang tampilan atau fitur website, jelaskan alur tersebut berdasarkan konteks ini dan data aktual.\n[/PEMAHAMAN WEBSITE]`;
   } catch (error: any) {
     console.warn('Catalog retrieval exception:', error?.message || error);
     return '[KATALOG SUPABASE]\nKatalog sementara tidak tersedia. Jangan mengarang detail produk.\n[/KATALOG SUPABASE]';
