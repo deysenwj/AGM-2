@@ -2947,18 +2947,18 @@ export default function App() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
                 <div className="p-4 bg-white border border-slate-200 rounded-xl flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">Stok Habis (0 Unit)</span>
-                    <strong className="text-xl font-mono font-black text-rose-600 mt-0.5 block">{outOfStock.length} SKU</strong>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-950 block">Stok Habis (0 Unit)</span>
+                    <strong className="text-xl font-mono font-black text-slate-950 mt-0.5 block">{outOfStock.length} SKU</strong>
                   </div>
-                  <span className="text-[10px] font-mono font-extrabold text-rose-600 tracking-wider">RESTOCK</span>
+                  <span className="text-[10px] font-mono font-extrabold text-slate-950 tracking-wider">RESTOCK</span>
                 </div>
 
                 <div className="p-4 bg-white border border-slate-200 rounded-xl flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">Stok Menipis (1 Unit)</span>
-                    <strong className="text-xl font-mono font-black text-amber-600 mt-0.5 block">{lowStock.length} SKU</strong>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-950 block">Stok Menipis (1 Unit)</span>
+                    <strong className="text-xl font-mono font-black text-slate-950 mt-0.5 block">{lowStock.length} SKU</strong>
                   </div>
-                  <span className="text-[10px] font-mono font-extrabold text-amber-600 tracking-wider">LOW</span>
+                  <span className="text-[10px] font-mono font-extrabold text-slate-950 tracking-wider">LOW</span>
                 </div>
 
                 <div className="p-4 bg-white border border-slate-200 rounded-xl flex items-center justify-between">
@@ -3209,14 +3209,14 @@ export default function App() {
                 {/* Status Ringkasan Perhatian */}
                 <div className="p-6 bg-white border border-slate-200/80 rounded-2xl shadow-xs flex flex-col justify-between">
                   <div>
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700 block mb-2">Stok Perlu Perhatian</span>
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-950 block mb-2">Stok Perlu Perhatian</span>
                     <div className="text-2xl sm:text-3xl font-black text-rose-800 truncate">
                       {lowStockProducts.length + outOfStockProducts.length} <span className="text-sm font-bold text-slate-600">SKU</span>
                     </div>
                   </div>
-                  <button 
+                  <button
                     onClick={() => setCurrentView('stock-alerts')}
-                    className="text-xs font-bold text-rose-700 hover:text-rose-900 flex items-center gap-1 mt-4 transition-colors cursor-pointer"
+                    className="text-xs font-bold text-slate-950 hover:text-slate-700 flex items-center gap-1 mt-4 transition-colors cursor-pointer"
                   >
                     <span>Buka Bar Peringatan Stok &rarr;</span>
                   </button>
