@@ -2947,7 +2947,7 @@ export default function App() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
                 <div className="p-4 bg-white border border-slate-200 rounded-xl flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-950 block">Stok Habis (0 Unit)</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 block">Stok Habis (0 Unit)</span>
                     <strong className="text-xl font-mono font-black text-slate-950 mt-0.5 block">{outOfStock.length} SKU</strong>
                   </div>
                   <span className="text-[10px] font-mono font-extrabold text-slate-950 tracking-wider">RESTOCK</span>
@@ -2955,7 +2955,7 @@ export default function App() {
 
                 <div className="p-4 bg-white border border-slate-200 rounded-xl flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-950 block">Stok Menipis (1 Unit)</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 block">Stok Menipis (1 Unit)</span>
                     <strong className="text-xl font-mono font-black text-slate-950 mt-0.5 block">{lowStock.length} SKU</strong>
                   </div>
                   <span className="text-[10px] font-mono font-extrabold text-slate-950 tracking-wider">LOW</span>
@@ -3209,7 +3209,7 @@ export default function App() {
                 {/* Status Ringkasan Perhatian */}
                 <div className="p-6 bg-white border border-slate-200/80 rounded-2xl shadow-xs flex flex-col justify-between">
                   <div>
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-950 block mb-2">Stok Perlu Perhatian</span>
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Stok Perlu Perhatian</span>
                     <div className="text-2xl sm:text-3xl font-black text-slate-950 truncate">
                       {lowStockProducts.length + outOfStockProducts.length} <span className="text-sm font-bold text-slate-600">SKU</span>
                     </div>
