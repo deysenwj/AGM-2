@@ -462,7 +462,7 @@ const AIChatWidget: React.FC = () => {
       let data: any = {};
       try {
         data = responseText ? JSON.parse(responseText) : {};
-      } catch (parseError) {
+      } catch {
         throw new Error(`Server response error (HTTP ${response.status})`);
       }
 
@@ -576,7 +576,7 @@ const AIChatWidget: React.FC = () => {
       let data: any = {};
       try {
         data = responseText ? JSON.parse(responseText) : {};
-      } catch (parseError) {
+      } catch {
         throw new Error(`Server response error (HTTP ${response.status})`);
       }
 

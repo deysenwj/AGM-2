@@ -301,7 +301,7 @@ export default function App() {
           const filtered = parsed.filter(p => !['1','2','3','4','5','6'].includes(String(p.id)));
           return filtered;
         }
-      } catch (e) {}
+      } catch {}
     }
     return [];
   });
@@ -313,7 +313,7 @@ export default function App() {
   const [currentAdminUser, setCurrentAdminUser] = useState<{ name: string; email: string } | null>(() => {
     const saved = localStorage.getItem('agm2_admin_user');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+      try { return JSON.parse(saved); } catch {}
     }
     const isOldMode = localStorage.getItem('agm2_admin_mode') === 'true';
     return isOldMode ? { name: 'Ardian', email: 'deysen10@gmail.com' } : null;
@@ -329,7 +329,7 @@ export default function App() {
       return saved 
         ? JSON.parse(saved).map(mapDbToTransaction) 
         : [];
-    } catch (e) {
+    } catch {
       return [];
     }
   });
@@ -356,7 +356,7 @@ export default function App() {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) return parsed;
-      } catch (e) {}
+      } catch {}
     }
     return [];
   });
@@ -370,7 +370,7 @@ export default function App() {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) return parsed;
-      } catch (e) {}
+      } catch {}
     }
     return [];
   });
@@ -510,7 +510,7 @@ export default function App() {
 
     let parsedItems = item.items;
     if (typeof parsedItems === 'string') {
-      try { parsedItems = JSON.parse(parsedItems); } catch (e) {}
+      try { parsedItems = JSON.parse(parsedItems); } catch {}
     }
 
     if (Array.isArray(parsedItems)) {
@@ -547,8 +547,7 @@ export default function App() {
     };
   }, []);
 
-  // @ts-ignore
-  const filteredTransactions = React.useMemo(() => {
+  const visibleTransactions = React.useMemo(() => {
     let filtered = transactions;
 
     if (txStartDate || txEndDate) {
@@ -644,7 +643,7 @@ export default function App() {
     } else if (typeof item.images === 'string' && item.images.trim()) {
       try {
         imagesList = JSON.parse(item.images);
-      } catch (e) {
+      } catch {
         imagesList = [item.images];
       }
     }
@@ -732,7 +731,7 @@ export default function App() {
           setProducts(dbProducts);
           try {
             localStorage.setItem('agm2_inventory', JSON.stringify(dbProducts));
-          } catch (e) {}
+          } catch {}
           success = true;
           setFetchError(null);
         }
@@ -801,7 +800,7 @@ export default function App() {
           const dbMapped: Transaction[] = data.map(mapDbToTransaction);
           
           setTransactions(dbMapped);
-          try { localStorage.setItem('agm2_transactions', JSON.stringify(dbMapped)); } catch (e) {}
+          try { localStorage.setItem('agm2_transactions', JSON.stringify(dbMapped)); } catch {}
           success = true;
         }
       } catch (err: any) {
@@ -833,7 +832,7 @@ export default function App() {
           changedBy: (item.changed_by && item.changed_by !== 'Admin' && item.changed_by !== 'Unknown/System') ? item.changed_by : 'Ardian'
         }));
         setDeletedProductsHistory(mapped);
-        try { localStorage.setItem('agm2_deleted_products_history', JSON.stringify(mapped)); } catch (e) {}
+        try { localStorage.setItem('agm2_deleted_products_history', JSON.stringify(mapped)); } catch {}
       }
     } catch (e) {
       console.warn('Fetch deleted_logs exception (fallback to local):', e);
@@ -862,7 +861,7 @@ export default function App() {
           notes: item.notes || ''
         }));
         setStockHistory(mapped);
-        try { localStorage.setItem('agm2_stock_history', JSON.stringify(mapped)); } catch (e) {}
+        try { localStorage.setItem('agm2_stock_history', JSON.stringify(mapped)); } catch {}
       } else if (error) {
         console.warn('Fetch stock_history error:', error.message);
       }
@@ -1081,14 +1080,14 @@ export default function App() {
             setTransactions(prev => {
               if (prev.some(tx => tx.id === newTx.id)) return prev;
               const updated = [newTx, ...prev];
-              try { localStorage.setItem('agm2_transactions', JSON.stringify(updated)); } catch (e) {}
+              try { localStorage.setItem('agm2_transactions', JSON.stringify(updated)); } catch {}
               return updated;
             });
           } else if (payload.eventType === 'UPDATE') {
             const updatedTx = mapDbToTransaction(payload.new);
             setTransactions(prev => {
               const updated = prev.map(tx => tx.id === updatedTx.id ? { ...tx, ...updatedTx } : tx);
-              try { localStorage.setItem('agm2_transactions', JSON.stringify(updated)); } catch (e) {}
+              try { localStorage.setItem('agm2_transactions', JSON.stringify(updated)); } catch {}
               return updated;
             });
             setSelectedTxDetail(prev => {
@@ -1101,7 +1100,7 @@ export default function App() {
             const deletedId = String(payload.old.id);
             setTransactions(prev => {
               const updated = prev.filter(tx => tx.id !== deletedId);
-              try { localStorage.setItem('agm2_transactions', JSON.stringify(updated)); } catch (e) {}
+              try { localStorage.setItem('agm2_transactions', JSON.stringify(updated)); } catch {}
               return updated;
             });
           }
@@ -1130,7 +1129,7 @@ export default function App() {
             setDeletedProductsHistory(prev => {
               if (prev.some(item => item.id === newItem.id)) return prev;
               const updated = [newItem, ...prev];
-              try { localStorage.setItem('agm2_deleted_products_history', JSON.stringify(updated)); } catch (e) {}
+              try { localStorage.setItem('agm2_deleted_products_history', JSON.stringify(updated)); } catch {}
               return updated;
             });
           }
@@ -1160,7 +1159,7 @@ export default function App() {
             setStockHistory(prev => {
               if (prev.some(item => item.id === newItem.id)) return prev;
               const updated = [newItem, ...prev];
-              try { localStorage.setItem('agm2_stock_history', JSON.stringify(updated)); } catch (e) {}
+              try { localStorage.setItem('agm2_stock_history', JSON.stringify(updated)); } catch {}
               return updated;
             });
           }
@@ -1219,7 +1218,7 @@ export default function App() {
     if (auth === 'true') {
       const savedUser = localStorage.getItem('agm2_admin_user');
       if (savedUser) {
-        try { setCurrentAdminUser(JSON.parse(savedUser)); } catch (e) {}
+        try { setCurrentAdminUser(JSON.parse(savedUser)); } catch {}
       } else {
         setCurrentAdminUser({ name: 'Ardian', email: 'deysen10@gmail.com' });
       }
@@ -1378,7 +1377,7 @@ export default function App() {
       let data: any = {};
       try {
         data = JSON.parse(responseText);
-      } catch (parseErr) {
+      } catch {
         if (response.status === 413) {
           throw new Error('Ukuran payload terlalu besar untuk server.');
         }
@@ -1437,7 +1436,7 @@ export default function App() {
         setFormSubcategory(ELECTRONICS_SUBCATEGORIES[0]);
       }
     }
-  }, [formCategory]);
+  }, [formCategory, formSubcategory]);
 
   // Auth Handling for Admin Users (Ardian & Widya)
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -1552,7 +1551,7 @@ export default function App() {
       try {
         await presenceChannelRef.current.untrack();
         presenceChannelRef.current.unsubscribe();
-      } catch (e) {}
+      } catch {}
       presenceChannelRef.current = null;
     }
 
@@ -1616,7 +1615,7 @@ export default function App() {
     // 1. Update state immediately for instant UI response
     setProducts(prev => {
       const updatedList = prev.map(p => p.id === productId ? { ...p, stock: newStock } : p);
-      try { localStorage.setItem('agm2_inventory', JSON.stringify(updatedList)); } catch (e) {}
+      try { localStorage.setItem('agm2_inventory', JSON.stringify(updatedList)); } catch {}
       return updatedList;
     });
 
@@ -1635,7 +1634,7 @@ export default function App() {
 
     setStockHistory(prev => {
       const updated = [newLogItem, ...prev];
-      try { localStorage.setItem('agm2_stock_history', JSON.stringify(updated)); } catch (e) {}
+      try { localStorage.setItem('agm2_stock_history', JSON.stringify(updated)); } catch {}
       return updated;
     });
 
@@ -1692,7 +1691,7 @@ export default function App() {
 
       try {
         localStorage.setItem('agm2_inventory', JSON.stringify(updatedList));
-      } catch (e) {}
+      } catch {}
 
       return updatedList;
     });
@@ -1916,14 +1915,14 @@ export default function App() {
     // Save to deletedProductsHistory state & localStorage
     setDeletedProductsHistory(prev => {
       const updated = [logItem, ...prev.filter(item => item.id !== id)];
-      try { localStorage.setItem('agm2_deleted_products_history', JSON.stringify(updated)); } catch (e) {}
+      try { localStorage.setItem('agm2_deleted_products_history', JSON.stringify(updated)); } catch {}
       return updated;
     });
 
     // Remove from active products
     const updatedActive = products.filter(p => p.id !== id);
     setProducts(updatedActive);
-    try { localStorage.setItem('agm2_inventory', JSON.stringify(updatedActive)); } catch (e) {}
+    try { localStorage.setItem('agm2_inventory', JSON.stringify(updatedActive)); } catch {}
     setDeleteConfirmId(null);
     triggerToast(`Produk "${productToDelete.name}" dipindahkan ke Riwayat SKU Dihapus.`);
 
@@ -3128,22 +3127,6 @@ export default function App() {
           const healthyStockCount = products.filter(p => (Number(p.stock) || 0) >= 2).length;
 
 
-          // Filter transactions based on date inputs
-          const filteredTransactions = transactions.filter(tx => {
-            if (!txStartDate && !txEndDate) return true;
-            try {
-              const parts = tx.date.split(',')[0].trim().split('/');
-              if (parts.length === 3) {
-                // dd/mm/yyyy format -> YYYY-MM-DD
-                const txDateStr = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-                if (txStartDate && txDateStr < txStartDate) return false;
-                if (txEndDate && txDateStr > txEndDate) return false;
-              }
-            } catch (e) {
-              return true;
-            }
-            return true;
-          });
 
           // ── TREN PENJUALAN KEUANGAN (7 HARI TERAKHIR) ──
           const salesByDate: { [date: string]: number } = {};
@@ -3169,7 +3152,7 @@ export default function App() {
                   }
                 }
               }
-            } catch (e) {}
+            } catch {}
           });
 
           const chartData = last7Days.map(day => ({
@@ -3353,14 +3336,14 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {filteredTransactions.length === 0 ? (
+                      {visibleTransactions.length === 0 ? (
                         <tr>
                           <td colSpan={5} className="p-8 text-center text-slate-400 text-xs font-medium">
                             {txStartDate || txEndDate ? 'Tidak ada transaksi ditemukan pada rentang tanggal ini.' : 'Belum ada transaksi tersimpan.'}
                           </td>
                         </tr>
                       ) : (
-                        filteredTransactions.map((tx) => {
+                        visibleTransactions.map((tx) => {
                           const isPending = tx.remainingAmount !== undefined && tx.remainingAmount > 0;
                           return (
                             <tr 
@@ -3440,7 +3423,7 @@ export default function App() {
                         }
                       });
                     }
-                  } catch (e) {}
+                  } catch {}
                 });
 
                 const safetyStockCalculations = products.map(p => {

@@ -354,11 +354,15 @@ function generateDynamicConsultantFallback(userMessage: string, currentDesignSta
     return 'Halo! Selamat datang di AGM Furniture. Saya Personal Furniture Consultant AGM. Ada spesifikasi atau model furniture tertentu yang ingin Anda rancang atau tanyakan hari ini?';
   }
 
-  if (/^\d+\s*[\+\-\*\/]\s*\d+$/.test(userMessage.trim())) {
+  if (/^\d+\s*[-+*/]\s*\d+$/.test(userMessage.trim())) {
     try {
-      const result = eval(userMessage.trim());
-      return `Hasil perhitungan ${userMessage.trim()} adalah ${result}. Ada kebutuhan ukuran atau spesifikasi furniture lain yang bisa saya bantu?`;
-    } catch (e) {
+      const expression = userMessage.trim();
+      const [, left, operator, right] = expression.match(/^(\d+)\s*([-+*/])\s*(\d+)$/) || [];
+      const a = Number(left);
+      const b = Number(right);
+      const result = operator === '+' ? a + b : operator === '-' ? a - b : operator === '*' ? a * b : a / b;
+      return `Hasil perhitungan ${expression} adalah ${result}. Ada kebutuhan ukuran atau spesifikasi furniture lain yang bisa saya bantu?`;
+    } catch {
       // pass
     }
   }
@@ -491,7 +495,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (aiResponseText) {
             // Cloud AI key executed successfully! Parse and complete job.
-            const { cleanText, designState: updatedDesignState } = parseAndNormalizeDesignState(aiResponseText, currentDesignState);
+            const { designState: updatedDesignState } = parseAndNormalizeDesignState(aiResponseText, currentDesignState);
 
             const updatePayload: any = {
                 status: 'completed',
