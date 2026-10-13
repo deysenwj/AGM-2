@@ -34,7 +34,10 @@ export const DesignSummaryCard: React.FC<DesignSummaryCardProps> = ({
   onCustomerQuotationResponse
 }) => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
   const [customerNotes, setCustomerNotes] = useState('');
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -49,7 +52,26 @@ export const DesignSummaryCard: React.FC<DesignSummaryCardProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmitToAdmin({ customerNotes });
+    const normalizedPhone = customerPhone.trim().replace(/\s+/g, '');
+    if (!customerName.trim()) {
+      setSubmitError('Nama pelanggan wajib diisi sebelum pengajuan dikirim ke Admin AGM.');
+      return;
+    }
+    if (!normalizedPhone) {
+      setSubmitError('Nomor HP pelanggan wajib diisi sebelum pengajuan dikirim ke Admin AGM.');
+      return;
+    }
+    if (!/^[+0-9][0-9-]{7,18}$/.test(normalizedPhone)) {
+      setSubmitError('Nomor HP tidak valid. Gunakan angka, boleh diawali +62.');
+      return;
+    }
+
+    setSubmitError(null);
+    onSubmitToAdmin({
+      customerName: customerName.trim(),
+      customerPhone: normalizedPhone,
+      customerNotes: customerNotes.trim()
+    });
     setShowConfirmModal(false);
   };
 
@@ -447,6 +469,43 @@ export const DesignSummaryCard: React.FC<DesignSummaryCardProps> = ({
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-3">
+              {submitError && (
+                <div className="rounded border border-rose-800 bg-rose-950/70 px-3 py-2 text-[11px] font-medium text-rose-200">
+                  {submitError}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                  Nama Pelanggan <span className="text-amber-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Contoh: Bapak/Ibu Andi"
+                  required
+                  maxLength={120}
+                  className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                  Nomor HP / WhatsApp <span className="text-amber-400">*</span>
+                </label>
+                <input
+                  type="tel"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  placeholder="Contoh: 081234567890 atau +6281234567890"
+                  required
+                  maxLength={20}
+                  className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-amber-500"
+                />
+                <p className="mt-1 text-[10px] text-slate-500">Wajib diisi agar Admin AGM dapat menghubungi pelanggan.</p>
+              </div>
+
               <div>
                 <label className="block text-[11px] font-medium text-slate-300 mb-1">Catatan untuk Admin (Opsional)</label>
                 <textarea

@@ -8,8 +8,8 @@ export interface FurnitureDimensions {
 
 export interface FurnitureLegSpec {
   style?: string;   // e.g. "minimalis", "tapered", "hairpin", "kotak"
-  material?: string;// e.g. "kayu jati", "besi hollo", "stainless"
-  color?: string;   // e.g. "black", "natural", "gold"
+  material?: string;// e.g. "aluminium hollow", "profile aluminium", "stainless", "rangka aluminium"
+  color?: string;   // e.g. "black powder coating", "silver", "champagne", "gold"
 }
 
 export interface FurnitureVisualizationHistoryItem {
@@ -38,8 +38,8 @@ export interface FurnitureDesignState {
   dimensions?: FurnitureDimensions;
   capacity?: number;     // Canonical integer e.g. 6
 
-  material?: string;     // e.g. "kayu jati", "walnut"
-  color?: string;        // e.g. "natural", "walnut", "hitam matte"
+  material?: string;     // e.g. "kaca tempered", "ACP", "aluminium", "kaca + rangka aluminium"
+  color?: string;        // e.g. "clear glass", "bronze glass", "grey glass", "aluminium silver", "ACP hitam"
   finish?: string;       // e.g. "matte", "glossy", "satin"
 
   style?: string;        // e.g. "minimalis", "modern", "industrial"

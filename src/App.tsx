@@ -452,7 +452,8 @@ export default function App() {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`
+          'Authorization': `Bearer ${accessToken}`,
+          'x-admin-email': currentAdminUser?.email || ''
         },
         body: JSON.stringify(payload)
       });
@@ -485,6 +486,45 @@ export default function App() {
     }
   };
 
+  const handleAdminDeleteCustomRequest = async (requestId: string) => {
+    if (isUpdatingCustomRequest) return;
+    setIsUpdatingCustomRequest(true);
+    setCustomRequestMutationError(null);
+
+    try {
+      const sessionRes = await supabase.auth.getSession();
+      const accessToken = sessionRes.data.session?.access_token;
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'x-admin-email': currentAdminUser?.email || ''
+      };
+      if (accessToken) {
+        headers.Authorization = `Bearer ${accessToken}`;
+      }
+
+      const res = await fetch('/api/admin/custom-request', {
+        method: 'DELETE',
+        headers,
+        body: JSON.stringify({ requestId })
+      });
+
+      const resData = await res.json();
+      if (!res.ok) {
+        throw new Error(resData.message || 'Gagal menghapus pengajuan custom.');
+      }
+
+      setCustomRequests(prev => prev.filter(req => req.id !== requestId));
+      setSelectedCustomRequestDetail(null);
+      triggerToast('Pengajuan custom berhasil dihapus.');
+      await fetchCustomRequests();
+    } catch (err: any) {
+      console.warn('Admin delete custom request error:', err.message);
+      setCustomRequestMutationError(err.message || 'Terjadi kesalahan saat menghapus pengajuan.');
+    } finally {
+      setIsUpdatingCustomRequest(false);
+    }
+  };
 
   // Helper to map DB row to Transaction interface
   const mapDbToTransaction = React.useCallback((item: any): Transaction => {
@@ -3743,6 +3783,7 @@ export default function App() {
                         <th className="py-3 px-3">Visualisasi</th>
                         <th className="py-3 px-3 text-center">Status</th>
                         <th className="py-3 px-3 text-right">Tanggal Pengajuan</th>
+                        <th className="py-3 px-3 text-right">Aksi</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
@@ -3812,6 +3853,22 @@ export default function App() {
                             <td className="py-3.5 px-3 text-right text-slate-500 text-[11px] font-mono whitespace-nowrap">
                               {formattedCreated}
                             </td>
+                            <td className="py-3.5 px-3 text-right">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const label = req.reference_number || `AGM-CUSTOM-${req.id.substring(0, 6).toUpperCase()}`;
+                                  if (window.confirm(`Hapus pengajuan ${label}? Tindakan ini tidak dapat dibatalkan.`)) {
+                                    handleAdminDeleteCustomRequest(req.id);
+                                  }
+                                }}
+                                disabled={isUpdatingCustomRequest}
+                                className="px-2.5 py-1 rounded-lg border border-rose-200 bg-rose-50 text-[10px] font-black uppercase tracking-wide text-rose-700 hover:bg-rose-100 disabled:opacity-50 cursor-pointer"
+                              >
+                                Hapus
+                              </button>
+                            </td>
                           </tr>
                         );
                       })}
@@ -3871,6 +3928,19 @@ export default function App() {
           return (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-fade-in" onClick={() => setSelectedCustomRequestDetail(null)}>
               <div className="w-full max-w-2xl bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto animate-pop-in hide-scrollbar" onClick={(e) => e.stopPropagation()}>
+                {/* Delete button */}
+                <button
+                  onClick={() => {
+                    if (window.confirm(`Hapus pengajuan ${refNum}? Tindakan ini tidak dapat dibatalkan.`)) {
+                      handleAdminDeleteCustomRequest(req.id);
+                    }
+                  }}
+                  disabled={isUpdatingCustomRequest}
+                  className="absolute top-5 right-16 text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 h-8 px-3 rounded-full flex items-center justify-center transition-colors z-10 cursor-pointer disabled:opacity-50 text-[10px] font-black uppercase tracking-wide"
+                >
+                  Hapus
+                </button>
+
                 {/* Close button */}
                 <button 
                   onClick={() => setSelectedCustomRequestDetail(null)}

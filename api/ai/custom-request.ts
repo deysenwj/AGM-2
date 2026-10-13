@@ -3,9 +3,13 @@ import { createClient } from '@supabase/supabase-js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+const supabaseServerKey =
+  process.env.SUPABASE_WORKER_KEY ||
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.VITE_SUPABASE_ANON_KEY ||
+  process.env.SUPABASE_ANON_KEY;
 
-const supabase = (supabaseUrl && supabaseAnonKey) ? createClient(supabaseUrl, supabaseAnonKey) : null;
+const supabase = (supabaseUrl && supabaseServerKey) ? createClient(supabaseUrl, supabaseServerKey) : null;
 
 const generateUuid = () => {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -57,6 +61,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ success: false, message: 'Data spesifikasi desain tidak lengkap atau kategori belum ditentukan.' });
     }
 
+    const normalizedCustomerName = typeof customerName === 'string' ? customerName.trim() : '';
+    const normalizedCustomerPhone = typeof customerPhone === 'string' ? customerPhone.trim().replace(/\s+/g, '') : '';
+    const normalizedCustomerNotes = typeof customerNotes === 'string' ? customerNotes.trim() : null;
+
+    if (!normalizedCustomerName) {
+      return res.status(400).json({ success: false, message: 'Nama pelanggan wajib diisi untuk mengajukan custom request.' });
+    }
+
+    if (!normalizedCustomerPhone) {
+      return res.status(400).json({ success: false, message: 'Nomor HP pelanggan wajib diisi untuk mengajukan custom request.' });
+    }
+
+    if (!/^[+0-9][0-9-]{7,18}$/.test(normalizedCustomerPhone)) {
+      return res.status(400).json({ success: false, message: 'Nomor HP pelanggan tidak valid.' });
+    }
+
     const versionNum = designState.version || 1;
     const visualizationUrl = designState.visualization?.imageUrl || null;
     const immutableSnapshot = JSON.parse(JSON.stringify(designState));
@@ -95,50 +115,74 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const designId = designState.id || generateUuid();
     const refNumber = generateReferenceNumber();
 
-    // Insert or update immutable design request
-    if (supabase) {
-      try {
-        await supabase.from('ai_furniture_designs').upsert({
-          id: designId,
-          conversation_id: conversationId,
-          user_id: finalUserId,
-          category: designState.category || 'furniture',
-          style: designState.style || null,
-          width: designState.dimensions?.width ?? designState.width ?? null,
-          depth: designState.dimensions?.depth ?? designState.depth ?? null,
-          height: designState.dimensions?.height ?? designState.height ?? null,
-          material: designState.material || null,
-          color: designState.color || null,
-          finish: designState.finish || null,
-          quantity: designState.quantity || 1,
-          notes: designState.notes || null,
-          status: 'submitted',
-          updated_at: new Date().toISOString()
-        });
+    // Insert immutable design request into Supabase inbox.
+    if (!supabase) {
+      return res.status(500).json({
+        success: false,
+        message: 'Konfigurasi Supabase server belum tersedia. Custom request tidak dapat disimpan ke inbox admin.'
+      });
+    }
 
-        const { error: insertErr } = await supabase.from('custom_design_requests').insert({
-          id: requestId,
-          design_id: designId,
-          conversation_id: conversationId,
-          user_id: finalUserId,
-          customer_name: customerName || 'Customer AGM',
-          customer_phone: customerPhone || null,
-          customer_notes: customerNotes || null,
-          design_snapshot: immutableSnapshot,
-          reference_number: refNumber,
-          visualization_url: visualizationUrl,
-          reference_attachments: attachmentSnapshot || [],
-          status: 'submitted',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        });
+    try {
+      const { error: designErr } = await supabase.from('ai_furniture_designs').upsert({
+        id: designId,
+        conversation_id: conversationId,
+        user_id: finalUserId,
+        category: designState.category || 'furniture',
+        style: designState.style || null,
+        width: designState.dimensions?.width ?? designState.width ?? null,
+        depth: designState.dimensions?.depth ?? designState.depth ?? null,
+        height: designState.dimensions?.height ?? designState.height ?? null,
+        material: designState.material || null,
+        color: designState.color || null,
+        finish: designState.finish || null,
+        quantity: designState.quantity || 1,
+        notes: designState.notes || null,
+        status: 'submitted',
+        updated_at: new Date().toISOString()
+      });
 
-        if (insertErr) {
-          console.warn('Optional Supabase storage for custom_design_requests:', insertErr.message);
-        }
-      } catch (dbErr: any) {
-        console.warn('Optional Supabase storage exception for custom request:', dbErr.message);
+      if (designErr) {
+        console.error('Supabase ai_furniture_designs upsert error:', designErr.message);
+        return res.status(500).json({
+          success: false,
+          message: 'Gagal menyimpan data desain custom ke Supabase.',
+          error: designErr.message
+        });
       }
+
+      const { error: insertErr } = await supabase.from('custom_design_requests').insert({
+        id: requestId,
+        design_id: designId,
+        conversation_id: conversationId,
+        user_id: finalUserId,
+        customer_name: normalizedCustomerName,
+        customer_phone: normalizedCustomerPhone,
+        customer_notes: normalizedCustomerNotes,
+        design_snapshot: immutableSnapshot,
+        reference_number: refNumber,
+        visualization_url: visualizationUrl,
+        reference_attachments: attachmentSnapshot || [],
+        status: 'submitted',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+
+      if (insertErr) {
+        console.error('Supabase custom_design_requests insert error:', insertErr.message);
+        return res.status(500).json({
+          success: false,
+          message: 'Gagal menyimpan pengajuan ke inbox admin custom request.',
+          error: insertErr.message
+        });
+      }
+    } catch (dbErr: any) {
+      console.error('Supabase storage exception for custom request:', dbErr.message);
+      return res.status(500).json({
+        success: false,
+        message: 'Terjadi kesalahan saat menyimpan custom request ke Supabase.',
+        error: dbErr.message
+      });
     }
 
     return res.status(200).json({

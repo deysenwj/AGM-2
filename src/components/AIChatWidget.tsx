@@ -635,6 +635,16 @@ const AIChatWidget: React.FC = () => {
 
       const refNum = data.reference_number || 'AGM-CUSTOM-REQUEST';
       setSubmittedRefNum(refNum);
+      setCustomRequestRecord({
+        id: data.request_id,
+        reference_number: refNum,
+        status: data.status || 'submitted',
+        visualization_url: data.visualization_url || activeDesignState?.visualization?.imageUrl || null,
+        design_snapshot: activeDesignState,
+        customer_name: formData?.customerName,
+        customer_phone: formData?.customerPhone,
+        customer_notes: formData?.customerNotes
+      });
       setIsSubmittedCustomReq(true);
 
       setHistory(prev => [
