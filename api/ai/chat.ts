@@ -14,9 +14,16 @@ const generateUuid = () => {
 };
 
 const SYSTEM_CONSULTANT_INSTRUCTION = `
-Anda adalah AGM Assistant, Personal Furniture Consultant & Ahli Desain Custom resmi dari toko AGM. Anda memahami bisnis AGM-2: produk utama adalah furniture custom berbahan kaca, ACP (Aluminium Composite Panel), aluminium, dan kombinasi rangka aluminium/kaca. Anda akan selalu merespons dengan gaya konsultan showroom premium: ramah, sopan, singkat, profesional, dan alami. Hindari gaya AI generik (DILARANG pakai emoji, "Sebagai AI...").
+Anda adalah AGM Assistant, konsultan digital resmi AGM yang berperan luas: konsultasi produk, rekomendasi pembelian, analisis kebutuhan ruang, perbandingan material, edukasi perawatan, pencarian katalog, bantuan stok/harga, penjelasan alur transaksi, serta perancangan custom furniture bila customer memang meminta desain custom. Anda memahami bisnis AGM-2: produk utama adalah furniture custom berbahan kaca, ACP (Aluminium Composite Panel), aluminium, dan kombinasi rangka aluminium/kaca. Anda akan selalu merespons dengan gaya konsultan showroom premium: ramah, sopan, singkat, profesional, dan alami. Hindari gaya AI generik (DILARANG pakai emoji, "Sebagai AI...").
 
 **Instruksi Utama Pemrosesan Desain & Mutasi State:**
+
+**Peran Utama AGM Assistant (WAJIB):**
+- Jangan menganggap semua percakapan sebagai permintaan custom furniture.
+- Layani pertanyaan umum, konsultasi, rekomendasi produk, analisis kebutuhan, perbandingan material, estimasi pertimbangan, ide penempatan, edukasi perawatan, dan bantuan memahami katalog/fitur aplikasi.
+- Untuk konsultasi/rekomendasi/analisis biasa, jawab dengan teks natural tanpa JSON design state.
+- Hanya buat \`json_design_state\` jika customer jelas meminta rancangan custom, mengubah desain aktif, atau menyetujui desain aktif.
+- Jika user bertanya tentang produk katalog, harga, stok, atau rekomendasi barang jadi, prioritaskan data katalog Supabase dan jangan membuat desain custom baru.
 
 **Konteks Bisnis AGM (WAJIB DIPATUHI):**
 - AGM menjual dan menerima custom furniture berbahan utama kaca, ACP, dan aluminium.
@@ -27,7 +34,7 @@ Anda adalah AGM Assistant, Personal Furniture Consultant & Ahli Desain Custom re
 
 
 
--   **Input Awal / Pertanyaan Umum**: Jika user memulai percakapan atau pertanyaan umum (misal: "halo", "2+2", "apakah kaca tempered aman untuk lemari pajang?"), berikan jawaban singkat dan profesional. JANGAN menyertakan blok \`\`\`json_design_state\`\`\`.
+-   **Input Awal / Pertanyaan Umum / Konsultasi / Analisis**: Jika user memulai percakapan, bertanya umum, meminta konsultasi, rekomendasi, analisis kebutuhan, perbandingan material, atau saran pemakaian (misal: "halo", "2+2", "apakah kaca tempered aman untuk lemari pajang?"), berikan jawaban singkat dan profesional. JANGAN menyertakan blok \`\`\`json_design_state\`\`\`.
 
 -   **Rancang Custom Furniture (CUSTOM_DESIGN)**: Jika user ingin membuat rancangan custom (misal: "saya mau meja makan 6 orang"), tanyakan maksimal 1-2 pertanyaan klarifikasi penting secara bertahap jika informasi belum lengkap.
 
@@ -35,10 +42,10 @@ Anda adalah AGM Assistant, Personal Furniture Consultant & Ahli Desain Custom re
 
 -   **Persetujuan Desain (APPROVAL)**: Jika user menyetujui draf (misal: "saya suka yang ini", "sudah cocok"), PERTAHANKAN seluruh spesifikasi dan ubah \`status = "approved"\`. JANGAN menaikkan \`version\`.
 
--   **Mencari Produk Katalog (CATALOG_SEARCH)**: Jika user mencari produk jadi dari katalog (misal: "carikan meja makan"), berikan respon singkat dan profesional tanpa mutasi state.
+-   **Mencari Produk Katalog / Rekomendasi Barang Jadi (CATALOG_SEARCH)**: Jika user mencari produk jadi dari katalog, menanyakan stok/harga, atau meminta rekomendasi barang siap jual, gunakan data katalog Supabase. Berikan respon singkat dan profesional tanpa mutasi state.
 
 -   **Format Output JSON State (WAJIB)**:
-    HANYA jika intent adalah CUSTOM_DESIGN, DESIGN_MODIFICATION, atau APPROVAL yang valid, sertakan JSON state di akhir jawaban Anda dalam delimiter berikut:
+    HANYA jika intent benar-benar CUSTOM_DESIGN, DESIGN_MODIFICATION, atau APPROVAL yang valid, sertakan JSON state di akhir jawaban Anda dalam delimiter berikut:
 
 \`\`\`json_design_state
 {
@@ -356,67 +363,120 @@ async function callOpenRouterApi(apiKey: string, prompt: string): Promise<string
   return null;
 }
 
-function generateDynamicConsultantFallback(userMessage: string, currentDesignState: any): string {
-  const msgLower = userMessage.toLowerCase();
+async function generateDynamicConsultantFallback(userMessage: string, currentDesignState: any): Promise<string> {
+  const msgLower = userMessage.toLowerCase().trim();
 
-  if (msgLower.includes('halo') || msgLower.includes('hi') || msgLower.includes('selamat')) {
-    return 'Halo! Selamat datang di AGM Furniture. Saya Personal Furniture Consultant AGM. Ada spesifikasi atau model furniture tertentu yang ingin Anda rancang atau tanyakan hari ini?';
-  }
-
-  if (/^\d+\s*[-+*/]\s*\d+$/.test(userMessage.trim())) {
+  // 1. Math calculator shortcut
+  if (/^\d+\s*[-+*/]\s*\d+$/.test(msgLower)) {
     try {
-      const expression = userMessage.trim();
-      const [, left, operator, right] = expression.match(/^(\d+)\s*([-+*/])\s*(\d+)$/) || [];
+      const [, left, operator, right] = msgLower.match(/^(\d+)\s*([-+*/])\s*(\d+)$/) || [];
       const a = Number(left);
       const b = Number(right);
       const result = operator === '+' ? a + b : operator === '-' ? a - b : operator === '*' ? a * b : a / b;
-      return `Hasil perhitungan ${expression} adalah ${result}. Ada kebutuhan ukuran atau spesifikasi furniture lain yang bisa saya bantu?`;
+      return `Hasil perhitungan ${msgLower} adalah ${result}. Ada kebutuhan ukuran lemari, etalase, atau furniture lain yang ingin Anda konsultasikan?`;
     } catch {
       // pass
     }
   }
 
-  if (msgLower.includes('custom') || msgLower.includes('desain') || msgLower.includes('meja') || msgLower.includes('lemari') || msgLower.includes('sofa') || msgLower.includes('kursi') || msgLower.includes('rak')) {
+  // 2. Fetch live products from Supabase to provide real answers
+  let liveProducts: any[] = [];
+  try {
+    const { data } = await supabase
+      .from('products')
+      .select('id,name,category,subcategory,description,price,discount,stock,unit')
+      .limit(100);
+    if (data && Array.isArray(data)) {
+      liveProducts = data;
+    }
+  } catch (err) {
+    console.warn('Fallback products read error:', err);
+  }
+
+  // Rank products by relevance
+  const scoredProducts = liveProducts
+    .map(p => ({ p, score: catalogTokenScore(userMessage, p) }))
+    .sort((a, b) => b.score - a.score || Number(b.p.stock || 0) - Number(a.p.stock || 0));
+
+  const matchedProducts = scoredProducts.filter(item => item.score > 0).map(item => item.p);
+
+  // 3. Greeting intent
+  if (msgLower === 'halo' || msgLower === 'hai' || msgLower === 'hi' || msgLower.startsWith('selamat') || msgLower.startsWith('halo ') || msgLower.startsWith('hai ')) {
+    return 'Halo! Selamat datang di Toko AGM. Saya AGM Assistant siap membantu Anda: konsultasi produk, rekomendasi barang di katalog, cek harga & stok, perbandingan bahan kaca/ACP/aluminium, maupun rancangan custom furniture. Ada yang bisa saya bantu hari ini?';
+  }
+
+  // 4. Catalog query / Recommendation / Price / Stock intent
+  const isCatalogQuery =
+    matchedProducts.length > 0 ||
+    msgLower.includes('katalog') ||
+    msgLower.includes('produk') ||
+    msgLower.includes('barang') ||
+    msgLower.includes('harga') ||
+    msgLower.includes('stok') ||
+    msgLower.includes('rekomendasi') ||
+    msgLower.includes('ada apa saja') ||
+    msgLower.includes('cari') ||
+    msgLower.includes('lemari') ||
+    msgLower.includes('meja') ||
+    msgLower.includes('etalase') ||
+    msgLower.includes('piring') ||
+    msgLower.includes('sepatu') ||
+    msgLower.includes('kompor') ||
+    msgLower.includes('tv');
+
+  if (isCatalogQuery && !msgLower.includes('rancang custom') && !msgLower.includes('buatkan desain baru')) {
+    const displayList = (matchedProducts.length > 0 ? matchedProducts : liveProducts).slice(0, 5);
+
+    if (displayList.length > 0) {
+      const itemsText = displayList.map((item, idx) => {
+        const priceNum = Number(item.price) || 0;
+        const discountNum = Number(item.discount) || 0;
+        const finalPrice = Math.max(0, priceNum - discountNum);
+        const stockNum = Number(item.stock) || 0;
+        const stockStatus = stockNum > 0 ? `Tersedia (${stockNum} ${item.unit || 'unit'})` : 'Stok habis';
+        const priceText = discountNum > 0
+          ? `Rp ${finalPrice.toLocaleString('id-ID')} (Diskon dari Rp ${priceNum.toLocaleString('id-ID')})`
+          : `Rp ${finalPrice.toLocaleString('id-ID')}`;
+
+        return `${idx + 1}. **${item.name}**\n   - Kategori: ${item.subcategory || item.category || 'Furniture'}\n   - Harga: ${priceText}\n   - Status: ${stockStatus}`;
+      }).join('\n\n');
+
+      return `Berikut beberapa rekomendasi produk dari katalog AGM yang sesuai dengan kebutuhan Anda:\n\n${itemsText}\n\nSemua produk furniture AGM mengutamakan material kaca tempered/bening, ACP, dan rangka aluminium berkualitas. Apakah Anda ingin info detail spesifikasi produk di atas, atau ingin membuat rancangan ukuran custom?`;
+    }
+  }
+
+  // 5. Custom design intent
+  if (msgLower.includes('custom') || msgLower.includes('rancang') || msgLower.includes('buatkan') || msgLower.includes('pesan ukuran')) {
     let cat = 'dining_table';
-    let subcat = 'Meja Makan Custom';
+    let subcat = 'Meja Makan Minimalis Aluminium Kaca';
     let len = 180;
     let wid = 90;
     let hei = 75;
 
-    if (msgLower.includes('lemari')) { cat = 'wardrobe'; subcat = 'Lemari Pakaian Custom'; len = 200; wid = 60; hei = 220; }
-    else if (msgLower.includes('sofa')) { cat = 'sofa'; subcat = 'Sofa Modern Custom'; len = 210; wid = 90; hei = 85; }
-    else if (msgLower.includes('tv')) { cat = 'tv_cabinet'; subcat = 'Meja TV Custom'; len = 160; wid = 45; hei = 50; }
-    else if (msgLower.includes('kursi')) { cat = 'chair'; subcat = 'Kursi Minimalis Custom'; len = 50; wid = 50; hei = 85; }
+    if (msgLower.includes('lemari') || msgLower.includes('pakaian')) {
+      cat = 'wardrobe'; subcat = 'Lemari Pakaian ACP 2 Pintu'; len = 120; wid = 55; hei = 190;
+    } else if (msgLower.includes('piring') || msgLower.includes('dapur')) {
+      cat = 'kitchen_set'; subcat = 'Rak Piring Kaca Rangka Aluminium'; len = 100; wid = 45; hei = 160;
+    } else if (msgLower.includes('sepatu')) {
+      cat = 'wardrobe'; subcat = 'Lemari Sepatu Kaca ACP'; len = 80; wid = 35; hei = 120;
+    } else if (msgLower.includes('tv') || msgLower.includes('bopet') || msgLower.includes('backdrop')) {
+      cat = 'tv_cabinet'; subcat = 'Meja TV / Bopet Kaca Minimalis'; len = 160; wid = 45; hei = 60;
+    } else if (msgLower.includes('etalase')) {
+      cat = 'other'; subcat = 'Etalase Kaca Rangka Aluminium'; len = 150; wid = 50; hei = 100;
+    }
 
     const nextVer = (currentDesignState?.version || 0) + 1;
 
-    return `Tentu! Saya telah menyiapkan rancangan awal ${subcat} sesuai keinginan Anda. Silakan periksa kartu spesifikasi di bawah dan sampaikan jika ada ukuran, bahan, atau warna yang ingin Anda sesuaikan.
-
-\`\`\`json_design_state
-{
-  "version": ${nextVer},
-  "category": "${cat}",
-  "subcategory": "${subcat}",
-  "dimensions": {
-    "length": ${len},
-    "width": ${wid},
-    "height": ${hei},
-    "unit": "cm"
-  },
-  "capacity": 6,
-  "material": "kaca tempered + rangka aluminium",
-  "color": "clear glass / aluminium silver",
-  "finish": "doff / matte",
-  "style": "minimalis modern",
-  "status": "draft",
-  "visualization": {
-    "status": "not_configured"
-  }
-}
-\`\`\``;
+    return `Tentu! Saya telah menyiapkan rancangan custom untuk **${subcat}** berbasis material khas AGM (kaca, ACP, dan aluminium). Silakan periksa kartu spesifikasi di bawah. Anda bisa menyesuaikan ukuran, warna rangka, atau langsung mengajukannya ke Admin AGM.\n\n\`\`\`json_design_state\n{\n  "version": ${nextVer},\n  "category": "${cat}",\n  "subcategory": "${subcat}",\n  "dimensions": {\n    "length": ${len},\n    "width": ${wid},\n    "height": ${hei},\n    "unit": "cm"\n  },\n  "capacity": 1,\n  "material": "kaca tempered + ACP + rangka aluminium",\n  "color": "clear glass / aluminium silver",\n  "finish": "powder coating / glossy",\n  "style": "minimalis modern",\n  "status": "draft",\n  "visualization": {\n    "status": "not_configured"\n  }\n}\n\`\`\``;
   }
 
-  return `Terima kasih telah menghubungi AGM Assistant. Saya Personal Furniture Consultant AGM siap membantu rancangan custom, rekomendasi bahan, dan spesifikasi produk Anda. Silakan jelaskan kebutuhan furniture yang Anda cari!`;
+  // 6. Material consultation / maintenance / general advice
+  if (msgLower.includes('acp') || msgLower.includes('kaca') || msgLower.includes('aluminium') || msgLower.includes('bahan') || msgLower.includes('awet') || msgLower.includes('rayap') || msgLower.includes('air')) {
+    return 'Di AGM, keunggulan utama furniture berbahan kaca, ACP (Aluminium Composite Panel), dan aluminium adalah:\n\n1. **100% Anti Rayap & Tahan Air**: Tidak akan keropos atau lapuk seperti kayu olahan saat terkena lembap.\n2. **Kuat & Ringan**: Rangka aluminium presisi kokoh dan tahan karat.\n3. **Mudah Dibersihkan**: Permukaan kaca dan ACP cukup dilap bersih dengan pembersih kaca atau kain microfiber.\n4. **Tampilan Modern**: Memberikan kesan showroom yang rapi, bersih, dan elegan.\n\nAda model lemari, meja, atau etalase tertentu yang ingin Anda bandingkan spesifikasinya?';
+  }
+
+  // 7. General professional consultant response
+  return 'Saya siap membantu Anda dengan konsultasi produk toko AGM. Anda bisa menanyakan:\n- Rekomendasi barang di katalog (contoh: "ada lemari sepatu apa saja?", "harga meja kompor berapa?")\n- Cek ketersediaan stok & harga barang jadi\n- Konsultasi bahan kaca, ACP, dan aluminium\n- Perancangan custom furniture sesuai ukuran ruangan Anda\n\nSilakan beri tahu produk atau kebutuhan apa yang sedang Anda cari!';
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -555,7 +615,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // 5. Emergency Fallback Guard: If worker is offline AND Cloud API failed/missing,
         // generate a valid consultant response so the frontend NEVER gets stuck on "Menyiapkan rekomendasi..."!
-        const fallbackText = generateDynamicConsultantFallback(message, currentDesignState);
+        const fallbackText = await generateDynamicConsultantFallback(message, currentDesignState);
         const { designState: fallbackDesignState } = parseAndNormalizeDesignState(fallbackText, currentDesignState);
 
         const fallbackUpdatePayload: any = {
