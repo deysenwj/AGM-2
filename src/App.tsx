@@ -2207,31 +2207,32 @@ export default function App() {
             </div>
             
             {isAdmin ? (
-              <div className="flex items-center gap-2 sm:gap-6 text-xs leading-none shrink-0">
-                {/* 1. Status indicator: clean text + green dot */}
+              <div className="flex items-center gap-3 sm:gap-5 text-xs leading-none shrink-0">
+                {/* User profile with integrated online indicator */}
                 <button
                   onClick={() => setIsOnlineAdminsModalOpen(true)}
-                  className="hidden sm:inline-flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors cursor-pointer select-none"
-                  title="Petugas Admin Online"
+                  className="inline-flex items-center gap-2 font-semibold text-slate-900 hover:text-slate-700 transition-colors cursor-pointer select-none group"
+                  title={`${currentAdminUser?.name || 'Admin'} (${activeOnlineAdmins.length || 1} Online - Klik untuk melihat)`}
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
-                  <span className="font-normal text-slate-500 text-xs tracking-normal">{activeOnlineAdmins.length || 1} Online</span>
-                </button>
-
-                {/* 2. User profile: Initial avatar + prominent name + subtle chevron */}
-                <button
-                  onClick={() => setIsOnlineAdminsModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 font-semibold text-slate-900 hover:text-slate-700 transition-colors cursor-pointer select-none group"
-                  title={currentAdminUser?.name || 'Admin'}
-                >
-                  <span className="w-6 h-6 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-bold uppercase shrink-0 group-hover:bg-slate-800 transition-colors">
-                    {(currentAdminUser?.name || 'A').charAt(0)}
-                  </span>
+                  <div className="relative shrink-0">
+                    <span className="w-6 h-6 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-bold uppercase group-hover:bg-slate-800 transition-colors">
+                      {(currentAdminUser?.name || 'A').charAt(0)}
+                    </span>
+                    <span 
+                      className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 ring-1.5 ring-white" 
+                      title={`${activeOnlineAdmins.length || 1} Online`}
+                    />
+                  </div>
                   <span className="text-slate-900 font-semibold text-xs tracking-tight hidden sm:inline">{currentAdminUser?.name || 'Admin'}</span>
+                  {activeOnlineAdmins.length > 1 && (
+                    <span className="hidden sm:inline-flex items-center text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200/60">
+                      {activeOnlineAdmins.length}
+                    </span>
+                  )}
                   <ChevronDown className="w-3 h-3 text-slate-400 group-hover:text-slate-600 transition-colors shrink-0 hidden sm:inline" />
                 </button>
 
-                {/* 3. Logout action: subtle text button with small icon */}
+                {/* Logout action */}
                 <button 
                   onClick={handleLogout}
                   className="inline-flex items-center gap-1 font-normal text-slate-500 hover:text-slate-900 transition-colors cursor-pointer select-none text-xs p-1 sm:p-0 rounded-md hover:bg-slate-100 sm:hover:bg-transparent"
@@ -2244,11 +2245,11 @@ export default function App() {
             ) : (
               <button 
                 onClick={() => setIsLoginOpen(true)}
-                className="flex items-center gap-1.5 text-xs font-bold text-slate-900 hover:text-slate-600 transition-colors cursor-pointer"
+                className="p-1.5 sm:p-2 text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
                 title="Login Admin"
+                aria-label="Login Admin"
               >
-                <User className="w-4 h-4 text-slate-700" />
-                <span className="hidden md:inline uppercase tracking-wider">LOGIN ADMIN</span>
+                <User className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-slate-700" />
               </button>
             )}
           </div>
