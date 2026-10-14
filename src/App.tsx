@@ -2055,15 +2055,15 @@ export default function App() {
 
   const getStockLabel = (stock: number) => {
     const s = isNaN(stock) ? 0 : Math.max(0, Number(stock) || 0);
-    if (s === 0) return <span className="font-mono text-[10px] font-black tracking-wider text-rose-600 uppercase">HABIS</span>;
-    if (s === 1) return <span className="font-mono text-[10px] font-black tracking-wider text-amber-600 uppercase">MENIPIS</span>;
-    return <span className="font-mono text-[10px] font-extrabold tracking-wider text-slate-400 uppercase">TERSEDIA</span>;
+    if (s === 0) return <span className="font-bold text-[10px] tracking-wider text-rose-600 uppercase">HABIS</span>;
+    if (s === 1) return <span className="font-bold text-[10px] tracking-wider text-amber-600 uppercase">MENIPIS</span>;
+    return <span className="font-bold text-[10px] tracking-wider text-slate-400 uppercase">TERSEDIA</span>;
   };
 
 
 
   return (
-    <div className="bg-surface text-on-surface selection:bg-primary-fixed selection:text-primary min-h-screen flex flex-col font-body-md">
+    <div className="bg-surface text-on-surface selection:bg-primary-fixed selection:text-primary min-h-screen flex flex-col font-sans">
       
       {/* ── TOP NAV BAR ── */}
       <nav className="fixed top-0 left-0 w-full z-50 px-4 md:px-8 h-16 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs flex items-center">
@@ -2082,7 +2082,7 @@ export default function App() {
               onClick={() => setCurrentView('catalog')}
             >
               <img src="/logo.png" alt="AGM 2 Logo" className="h-7 w-auto object-contain" />
-              <span className="text-[10px] font-mono font-extrabold text-slate-400 uppercase tracking-widest hidden sm:inline border-l border-slate-200 pl-2">PADANG</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden sm:inline border-l border-slate-200 pl-2">PADANG</span>
             </div>
 
             {/* Clean Enterprise Navigation (Typography-driven) */}
@@ -2992,26 +2992,38 @@ export default function App() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
                 <div className="p-4 bg-white border border-slate-200 rounded-xl flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 block">Stok Habis (0 Unit)</span>
-                    <strong className="text-xl font-mono font-black text-slate-950 mt-0.5 block">{outOfStock.length} SKU</strong>
+                    <span className="text-xs font-semibold text-slate-500 block">Stok Habis (0 Unit)</span>
+                    <strong className="text-2xl font-bold text-slate-900 mt-1 block">
+                      <span className="font-mono">{outOfStock.length}</span> <span className="text-xs font-semibold text-slate-400">SKU</span>
+                    </strong>
                   </div>
-                  <span className="text-[10px] font-mono font-extrabold text-slate-950 tracking-wider">RESTOCK</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600">
+                    RESTOCK
+                  </span>
                 </div>
 
                 <div className="p-4 bg-white border border-slate-200 rounded-xl flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 block">Stok Menipis (1 Unit)</span>
-                    <strong className="text-xl font-mono font-black text-slate-950 mt-0.5 block">{lowStock.length} SKU</strong>
+                    <span className="text-xs font-semibold text-slate-500 block">Stok Menipis (1 Unit)</span>
+                    <strong className="text-2xl font-bold text-slate-900 mt-1 block">
+                      <span className="font-mono">{lowStock.length}</span> <span className="text-xs font-semibold text-slate-400">SKU</span>
+                    </strong>
                   </div>
-                  <span className="text-[10px] font-mono font-extrabold text-slate-950 tracking-wider">LOW</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600">
+                    MENIPIS
+                  </span>
                 </div>
 
                 <div className="p-4 bg-white border border-slate-200 rounded-xl flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">Stok Aman (≥2 Unit)</span>
-                    <strong className="text-xl font-mono font-black text-slate-900 mt-0.5 block">{healthyStock.length} SKU</strong>
+                    <span className="text-xs font-semibold text-slate-500 block">Stok Aman (≥2 Unit)</span>
+                    <strong className="text-2xl font-bold text-slate-900 mt-1 block">
+                      <span className="font-mono">{healthyStock.length}</span> <span className="text-xs font-semibold text-slate-400">SKU</span>
+                    </strong>
                   </div>
-                  <span className="text-[10px] font-mono font-extrabold text-slate-400 tracking-wider">SEHAT</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">
+                    AMAN
+                  </span>
                 </div>
               </div>
 
@@ -3019,8 +3031,8 @@ export default function App() {
               <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
                 <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                   <div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-0.5">Inventory Operational Alert</span>
-                    <h3 className="font-extrabold text-base text-slate-900">Peringatan Stok Minimal</h3>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-0.5">Inventory Operational Alert</span>
+                    <h3 className="font-bold text-base text-slate-900">Peringatan Stok Minimal</h3>
                   </div>
                   <button
                     onClick={() => setCurrentView('stock')}
@@ -3041,7 +3053,6 @@ export default function App() {
                     </div>
                   ) : (
                     [...outOfStock, ...lowStock].map(p => {
-                      const isZero = p.stock === 0;
                       return (
                         <div key={'mob-alert-row-' + p.id} className="p-3.5 flex flex-col gap-2">
                           <div className="flex items-start justify-between gap-3">
@@ -3056,18 +3067,14 @@ export default function App() {
                                 <span className="text-slate-400 text-[10px] font-mono block">SKU-{p.id.substring(0, 6)} • {p.category}</span>
                               </div>
                             </div>
-                            <span className="font-mono font-extrabold text-[10px] tracking-wider shrink-0">
-                              {isZero ? (
-                                <span className="text-rose-600">HABIS</span>
-                              ) : (
-                                <span className="text-amber-600">MENIPIS</span>
-                              )}
-                            </span>
+                            <div className="shrink-0">
+                              {getStockLabel(p.stock)}
+                            </div>
                           </div>
 
                           <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
                             <div className="flex items-center gap-2">
-                              <span className="text-[10px] text-slate-400 font-mono uppercase">Sisa Stok:</span>
+                              <span className="text-xs text-slate-400">Sisa Stok:</span>
                               <strong className="font-mono font-bold text-xs text-slate-900">{p.stock} {p.unit}</strong>
                             </div>
 
@@ -3106,7 +3113,6 @@ export default function App() {
                       ) : (
 
                         [...outOfStock, ...lowStock].map(p => {
-                          const isZero = p.stock === 0;
                           return (
                             <tr key={'alert-row-' + p.id} className="hover:bg-slate-50/80 transition-colors">
                               <td className="py-3 px-4">
@@ -3128,16 +3134,8 @@ export default function App() {
                               <td className="py-3 px-4 font-mono font-bold text-xs text-slate-900">
                                 {p.stock} {p.unit}
                               </td>
-                              <td className="py-3 px-4 font-mono font-extrabold text-[11px] tracking-wider">
-                                {isZero ? (
-                                  <span className="text-rose-600">
-                                    HABIS
-                                  </span>
-                                ) : (
-                                  <span className="text-amber-600">
-                                    MENIPIS
-                                  </span>
-                                )}
+                              <td className="py-3 px-4">
+                                {getStockLabel(p.stock)}
                               </td>
                               <td className="py-3 px-4 text-right">
                                 <button
