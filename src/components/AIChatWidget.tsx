@@ -767,6 +767,31 @@ const AIChatWidget: React.FC = () => {
                     <span>&rarr;</span>
                   </button>
                 </div>
+
+                {/* Quick Suggestion Chips */}
+                <div className="w-full pt-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">Pertanyaan Populer:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      onClick={() => sendMessage('Rekomendasi lemari pakaian minimalis')}
+                      className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-md text-[11px] font-medium transition-colors cursor-pointer"
+                    >
+                      Lemari pakaian
+                    </button>
+                    <button
+                      onClick={() => sendMessage('Ada meja makan kayu 4 sampai 6 kursi?')}
+                      className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-md text-[11px] font-medium transition-colors cursor-pointer"
+                    >
+                      Meja makan kayu
+                    </button>
+                    <button
+                      onClick={() => sendMessage('Berapa estimasi pengiriman ke Padang kota?')}
+                      className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-md text-[11px] font-medium transition-colors cursor-pointer"
+                    >
+                      Info ongkir Padang
+                    </button>
+                  </div>
+                </div>
               </div>
             ) : (
               history.map((msg, index) => (

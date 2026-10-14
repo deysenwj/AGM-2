@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
-import NotaView from './NotaView'; // Import NotaView
+const NotaView = React.lazy(() => import('./NotaView'));
 import AIChatWidget from './components/AIChatWidget';
 import { 
   Search, X, Menu, LayoutGrid, Package, 
@@ -2642,7 +2642,12 @@ export default function App() {
                     onClick={() => setSelectedProductDetail(p)}
                     className="product-card group relative flex flex-col bg-white rounded-lg border border-slate-200/80 hover:border-slate-300 transition-colors duration-200 cursor-pointer overflow-hidden"
                   >
-                    <div className="aspect-[4/3] sm:aspect-square overflow-hidden bg-slate-50 relative border-b border-slate-200/60">
+                    <div className="aspect-[4/3] sm:aspect-square overflow-hidden bg-slate-100 relative border-b border-slate-200/60">
+                      {p.arrivalType && (
+                        <div className="absolute top-2.5 left-2.5 z-10 bg-slate-900/90 text-white backdrop-blur-xs px-2 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-widest shadow-xs">
+                          {p.arrivalType}
+                        </div>
+                      )}
                       {p.image_url ? (
                         <img 
                           className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105" 
@@ -3724,7 +3729,14 @@ export default function App() {
 
         {/* ── NOTA PRINTING VIEW ── */}
         {currentView === 'nota' && isAdmin && (
-          <NotaView products={products} triggerToast={triggerToast} isAdmin={isAdmin} adjustStock={adjustStock} deductBulkStock={deductBulkStock} addTransaction={addTransaction} />
+          <React.Suspense fallback={
+            <div className="flex flex-col items-center justify-center p-16 text-slate-400 gap-3">
+              <div className="w-8 h-8 border-2 border-slate-200 border-t-slate-800 rounded-full animate-spin" />
+              <span className="text-xs font-medium">Memuat Kasir &amp; Cetak Nota...</span>
+            </div>
+          }>
+            <NotaView products={products} triggerToast={triggerToast} isAdmin={isAdmin} adjustStock={adjustStock} deductBulkStock={deductBulkStock} addTransaction={addTransaction} />
+          </React.Suspense>
         )}
 
         {/* ── CUSTOM DESIGN REQUESTS VIEW (EDITORIAL TABLE) ── */}
