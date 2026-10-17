@@ -578,7 +578,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
   };
 
   return (
-    <section className="px-margin-mobile lg:px-margin-desktop py-6 max-w-[1300px] mx-auto w-full flex-grow">
+    <section className="px-margin-mobile lg:px-margin-desktop py-6 max-w-[1300px] mx-auto w-full grow">
       {isAdmin ? (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           
@@ -776,7 +776,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
             </div>
 
             {/* Item List Table */}
-            <div className="flex-grow overflow-x-auto max-h-44 overflow-y-auto mb-4 border border-slate-200 rounded-xl">
+            <div className="grow overflow-x-auto max-h-44 overflow-y-auto mb-4 border border-slate-200 rounded-xl">
               <table className="min-w-full divide-y divide-slate-200">
                 <thead className="bg-slate-50 sticky top-0 z-10">
                   <tr>
@@ -832,7 +832,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
             </div>
 
             {/* Simple Clean Payment Summary Box */}
-            <div className="mt-auto pt-3 border-t border-slate-200 space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <div className="mt-auto space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
               <div className="flex justify-between items-center text-xs">
                 <span className="font-semibold text-slate-600">Subtotal:</span>
                 <span className="font-bold text-slate-900 text-sm">{formatCurrency(subtotal)}</span>
@@ -874,7 +874,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
           </div>
         </div>
       ) : (
-        <div className="text-center py-16 text-slate-500 bg-white rounded-2xl border border-slate-200 p-8 max-w-md mx-auto">
+        <div className="text-center py-16 px-8 text-slate-500 bg-white rounded-2xl border border-slate-200 max-w-md mx-auto">
           <svg className="w-10 h-10 text-slate-400 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
             <path d="M7 11V7a5 5 0 0 1 10 0v4" />
@@ -952,7 +952,7 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
               <button 
                 onClick={() => executePrintAndSync('pdf')} 
                 disabled={isProcessingPrint}
-                className="flex-grow py-2.5 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-all disabled:opacity-50 cursor-pointer shadow-xs"
+                className="grow py-2.5 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-all disabled:opacity-50 cursor-pointer shadow-xs"
               >
                 {isProcessingPrint ? 'Memproses...' : 'Ya, Cetak Nota'}
               </button>

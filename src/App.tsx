@@ -205,7 +205,7 @@ const ProductPhotoGallery = ({
     <div className="space-y-3 mb-5">
       {/* Main Preview Frame */}
       <div 
-        className="aspect-[4/3] w-full rounded-2xl overflow-hidden bg-slate-100 relative border border-slate-200/80 group cursor-pointer"
+        className="aspect-4/3 w-full rounded-2xl overflow-hidden bg-slate-100 relative border border-slate-200/80 group cursor-pointer"
         onClick={() => activeImage && onOpenFullscreen?.(allImages, activeIndex)}
         title="Klik untuk melihat foto penuh (full screen)"
       >
@@ -2481,7 +2481,7 @@ export default function App() {
 
         {/* ── CATALOG VIEW ── */}
         {currentView === 'catalog' && (
-          <section className="px-4 md:px-8 pt-4 md:pt-6 pb-12 max-w-container-max mx-auto w-full flex-grow">
+          <section className="px-4 md:px-8 pt-4 md:pt-6 pb-12 max-w-container-max mx-auto w-full grow">
             
             {/* Guest Welcome Banner */}
             {!isAdmin && (
@@ -2577,7 +2577,7 @@ export default function App() {
 
             {/* Warning banner if running on cached data due to network error */}
             {fetchError && products.length > 0 && (
-              <div className="mb-6 p-3 px-4 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg flex items-center justify-between gap-3 shadow-xs">
+              <div className="mb-6 py-3 px-4 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg flex items-center justify-between gap-3 shadow-xs">
                 <div className="flex items-center gap-2">
                   <svg className="w-4 h-4 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 5.636a9 9 0 0 1 0 12.728m-2.828-9.9a6 6 0 0 1 0 8.485m-2.829-5.657a2 2 0 0 1 0 2.829m-4.243 2.829a9 9 0 0 1 0-12.728m2.828 9.9a6 6 0 0 1 0-8.485m2.829 5.657a2 2 0 0 1 0-2.829" />
@@ -2642,7 +2642,7 @@ export default function App() {
                     onClick={() => setSelectedProductDetail(p)}
                     className="product-card group relative flex flex-col bg-white rounded-lg border border-slate-200/80 hover:border-slate-300 transition-colors duration-200 cursor-pointer overflow-hidden"
                   >
-                    <div className="aspect-[4/3] sm:aspect-square overflow-hidden bg-slate-100 relative border-b border-slate-200/60">
+                    <div className="aspect-4/3 sm:aspect-square overflow-hidden bg-slate-100 relative border-b border-slate-200/60">
                       {p.arrivalType && (
                         <div className="absolute top-2.5 left-2.5 z-10 bg-slate-900/90 text-white backdrop-blur-xs px-2 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-widest shadow-xs">
                           {p.arrivalType}
@@ -2666,7 +2666,7 @@ export default function App() {
                       )}
                     </div>
                     
-                    <div className="p-4 flex flex-col justify-between flex-grow bg-white">
+                    <div className="p-4 flex flex-col justify-between grow bg-white">
                       <div className="space-y-1 min-w-0">
                         {/* 1. Subtle Natural Category */}
                         <span className="text-[11px] font-medium text-slate-400 capitalize block truncate">
@@ -2769,7 +2769,7 @@ export default function App() {
 
         {/* ── STOCK CONTROL TABLE VIEW ── */}
         {currentView === 'stock' && isAdmin && (
-          <section className="px-4 md:px-8 py-6 md:py-8 max-w-container-max mx-auto w-full flex-grow">
+          <section className="px-4 md:px-8 py-6 md:py-8 max-w-container-max mx-auto w-full grow">
             {/* Minimal Action Toolbar */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
               <div className="relative w-full sm:max-w-xs">
@@ -2986,7 +2986,7 @@ export default function App() {
           const healthyStock = products.filter(p => (Number(p.stock) || 0) >= 2);
 
           return (
-            <section className="px-4 md:px-8 py-6 md:py-8 max-w-container-max mx-auto w-full flex-grow">
+            <section className="px-4 md:px-8 py-6 md:py-8 max-w-container-max mx-auto w-full grow">
               
               {/* Clean Metric Summary Bar */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
@@ -3207,7 +3207,7 @@ export default function App() {
           const maxSalesValue = Math.max(...chartData.map(d => d.value), 100000);
 
           return (
-            <section className="px-4 md:px-8 py-6 md:py-8 max-w-container-max mx-auto w-full flex-grow">
+            <section className="px-4 md:px-8 py-6 md:py-8 max-w-container-max mx-auto w-full grow">
               
               {/* ── 1. RINGKASAN METRIK UTAMA ── */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
@@ -3739,7 +3739,7 @@ export default function App() {
 
         {/* ── CUSTOM DESIGN REQUESTS VIEW (EDITORIAL TABLE) ── */}
         {currentView === 'custom-requests' && isAdmin && (
-          <section className="px-4 md:px-8 py-6 md:py-8 max-w-container-max mx-auto w-full flex-grow">
+          <section className="px-4 md:px-8 py-6 md:py-8 max-w-container-max mx-auto w-full grow">
             <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-xs">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-slate-100">
                 <div>
@@ -4877,7 +4877,7 @@ export default function App() {
             </div>
 
             {/* Modal Form Content */}
-            <form onSubmit={handleFormSubmit} className="p-6 space-y-4 overflow-y-auto flex-grow">
+            <form onSubmit={handleFormSubmit} className="p-6 space-y-4 overflow-y-auto grow">
               {/* Nama Produk */}
               <div>
                 <label className="block text-xs font-bold text-slate-800 mb-1">Nama Produk</label>
@@ -5223,7 +5223,7 @@ export default function App() {
             </div>
 
             {/* Items List (Read-Only Log Rows) */}
-            <div className="overflow-y-auto flex-grow divide-y divide-slate-100 max-h-[50vh]">
+            <div className="overflow-y-auto grow divide-y divide-slate-100 max-h-[50vh]">
               {(() => {
                 const filteredList = deletedProductsHistory.filter(item => {
                   if (!deletedLogSearchQuery.trim()) return true;
@@ -5426,7 +5426,7 @@ export default function App() {
             </div>
 
             {/* Log Rows List */}
-            <div className="overflow-y-auto flex-grow divide-y divide-slate-100 max-h-[50vh]">
+            <div className="overflow-y-auto grow divide-y divide-slate-100 max-h-[50vh]">
               {(() => {
                 const filteredList = stockHistory.filter(item => {
                   if (!stockLogSearchQuery.trim()) return true;
