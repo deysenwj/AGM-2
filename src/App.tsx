@@ -135,6 +135,34 @@ const getOptimizedImageUrl = (url?: string, width = 600) => {
   return url;
 };
 
+const getProductImages = (p: Product): string[] => {
+  const list: string[] = [];
+  if (p.image_url && typeof p.image_url === 'string') {
+    const clean = p.image_url.trim();
+    if (clean) list.push(clean);
+  }
+  const rawImgs: unknown = p.images;
+  let parsedImgs: string[] = [];
+  if (Array.isArray(rawImgs)) {
+    parsedImgs = rawImgs;
+  } else if (typeof rawImgs === 'string' && (rawImgs as string).trim()) {
+    try {
+      const parsed = JSON.parse(rawImgs as string);
+      if (Array.isArray(parsed)) parsedImgs = parsed;
+      else parsedImgs = [rawImgs as string];
+    } catch {
+      parsedImgs = [rawImgs as string];
+    }
+  }
+  parsedImgs.forEach(img => {
+    if (img && typeof img === 'string') {
+      const clean = img.trim();
+      if (clean && !list.includes(clean)) list.push(clean);
+    }
+  });
+  return list;
+};
+
 
 
 const StockControlInput = ({ 
@@ -188,16 +216,7 @@ const ProductPhotoGallery = ({
   product: Product; 
   onOpenFullscreen?: (urls: string[], index: number) => void;
 }) => {
-  const allImages = React.useMemo(() => {
-    const list: string[] = [];
-    if (product.image_url) list.push(product.image_url);
-    if (Array.isArray(product.images)) {
-      product.images.forEach(img => {
-        if (img && !list.includes(img)) list.push(img);
-      });
-    }
-    return list;
-  }, [product]);
+  const allImages = React.useMemo(() => getProductImages(product), [product]);
 
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -205,14 +224,22 @@ const ProductPhotoGallery = ({
     setActiveIndex(0);
   }, [product.id]);
 
-  const activeImage = allImages[activeIndex] || allImages[0] || '';
+  const activeImage = allImages[activeIndex] || allImages[0] || product.image_url || '';
+
+  const handleOpenFullscreen = () => {
+    const listToOpen = allImages.length > 0 ? allImages : (activeImage ? [activeImage] : []);
+    if (listToOpen.length > 0) {
+      const targetIdx = listToOpen.indexOf(activeImage) >= 0 ? listToOpen.indexOf(activeImage) : 0;
+      onOpenFullscreen?.(listToOpen, targetIdx);
+    }
+  };
 
   return (
     <div className="space-y-3 mb-5">
       {/* Main Preview Frame */}
       <div 
-        className="aspect-4/3 w-full rounded-2xl overflow-hidden bg-slate-100 relative border border-slate-200/80 group cursor-pointer"
-        onClick={() => activeImage && onOpenFullscreen?.(allImages, activeIndex)}
+        className="aspect-4/3 w-full rounded-2xl overflow-hidden bg-slate-100 relative border border-slate-200/80 group cursor-pointer select-none"
+        onClick={handleOpenFullscreen}
         title="Klik untuk melihat foto penuh (full screen)"
       >
         {activeImage ? (
@@ -220,6 +247,7 @@ const ProductPhotoGallery = ({
             src={getOptimizedImageUrl(activeImage, 800)} 
             alt={product.name} 
             className="w-full h-full object-cover transition-all duration-300 group-hover:scale-105"
+            loading="eager"
           />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
@@ -237,13 +265,31 @@ const ProductPhotoGallery = ({
           </div>
         )}
 
-        {/* Next / Previous Sleek Monoline SVG Arrows (Fades in on Hover) */}
+        {/* Explicit Zoom / Fullscreen Button Badge (Always visible on mobile & desktop) */}
+        {activeImage && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleOpenFullscreen();
+            }}
+            className="absolute bottom-3 left-3 bg-slate-900/85 hover:bg-slate-900 text-white px-2.5 py-1.5 rounded-lg text-[11px] font-bold backdrop-blur-md flex items-center gap-1.5 shadow-md transition-all active:scale-95 cursor-pointer z-10"
+            title="Buka Foto Layar Penuh"
+          >
+            <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+            </svg>
+            <span>Perbesar Foto</span>
+          </button>
+        )}
+
+        {/* Next / Previous Sleek Monoline SVG Arrows */}
         {allImages.length > 1 && (
           <>
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setActiveIndex(prev => (prev === 0 ? allImages.length - 1 : prev - 1)); }}
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-slate-900/60 hover:bg-slate-900 text-white flex items-center justify-center backdrop-blur-md transition-all duration-200 active:scale-90 opacity-0 group-hover:opacity-100 shadow-sm z-10 cursor-pointer"
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-slate-900/70 hover:bg-slate-900 text-white flex items-center justify-center backdrop-blur-md transition-all duration-200 active:scale-90 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 shadow-sm z-10 cursor-pointer"
               title="Foto Sebelumnya"
             >
               <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -253,14 +299,14 @@ const ProductPhotoGallery = ({
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setActiveIndex(prev => (prev === allImages.length - 1 ? 0 : prev + 1)); }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-slate-900/60 hover:bg-slate-900 text-white flex items-center justify-center backdrop-blur-md transition-all duration-200 active:scale-90 opacity-0 group-hover:opacity-100 shadow-sm z-10 cursor-pointer"
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-slate-900/70 hover:bg-slate-900 text-white flex items-center justify-center backdrop-blur-md transition-all duration-200 active:scale-90 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 shadow-sm z-10 cursor-pointer"
               title="Foto Selanjutnya"
             >
               <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="9 18 15 12 9 6" />
               </svg>
             </button>
-            <div className="absolute bottom-3 right-3 bg-slate-900/80 text-white px-2.5 py-0.5 rounded-full text-[10px] font-extrabold backdrop-blur-xs tracking-wider z-10 opacity-80 group-hover:opacity-100 transition-opacity">
+            <div className="absolute bottom-3 right-3 bg-slate-900/80 text-white px-2.5 py-0.5 rounded-full text-[10px] font-extrabold backdrop-blur-xs tracking-wider z-10 opacity-90 sm:opacity-80 sm:group-hover:opacity-100 transition-opacity">
               {activeIndex + 1} / {allImages.length}
             </div>
           </>
@@ -354,6 +400,34 @@ export default function App() {
   const [activeCardMenuId, setActiveCardMenuId] = useState<string | null>(null);
   const [fullscreenImage, setFullscreenImage] = useState<{ urls: string[]; index: number } | null>(null);
   const [activeFooterFaq, setActiveFooterFaq] = useState<number | null>(null);
+
+  // Keyboard navigation & body scroll lock for Fullscreen Image Lightbox
+  useEffect(() => {
+    if (!fullscreenImage) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setFullscreenImage(null);
+      } else if (e.key === 'ArrowLeft' && fullscreenImage.urls.length > 1) {
+        setFullscreenImage(prev => prev ? {
+          ...prev,
+          index: prev.index === 0 ? prev.urls.length - 1 : prev.index - 1
+        } : null);
+      } else if (e.key === 'ArrowRight' && fullscreenImage.urls.length > 1) {
+        setFullscreenImage(prev => prev ? {
+          ...prev,
+          index: prev.index === prev.urls.length - 1 ? 0 : prev.index + 1
+        } : null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [fullscreenImage]);
 
   // Riwayat SKU Produk yang Dihapus State
   const [deletedProductsHistory, setDeletedProductsHistory] = useState<DeletedProductLog[]>(() => {
@@ -2855,6 +2929,24 @@ export default function App() {
                           {p.arrivalType}
                         </div>
                       )}
+                      {p.image_url && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const imgs = getProductImages(p);
+                            if (imgs.length > 0) {
+                              setFullscreenImage({ urls: imgs, index: 0 });
+                            }
+                          }}
+                          className="absolute top-2.5 right-2.5 z-10 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-slate-900/75 hover:bg-slate-900 text-white flex items-center justify-center backdrop-blur-md transition-all active:scale-90 shadow-sm cursor-pointer opacity-90 sm:opacity-0 sm:group-hover:opacity-100"
+                          title="Lihat Foto Penuh"
+                        >
+                          <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
+                          </svg>
+                        </button>
+                      )}
                       {p.image_url ? (
                         <img 
                           className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105" 
@@ -3058,7 +3150,20 @@ export default function App() {
                   <div key={'mob-stock-' + p.id} className="p-3.5 bg-white border border-slate-200 rounded-xl flex flex-col gap-3">
                     <div className="flex gap-3 items-start">
                       {p.image_url ? (
-                        <img src={getOptimizedImageUrl(p.image_url, 150)} className="w-12 h-12 object-cover border border-slate-200 rounded-lg shrink-0" alt={p.name} loading="lazy" decoding="async" />
+                        <img 
+                          src={getOptimizedImageUrl(p.image_url, 150)} 
+                          className="w-12 h-12 object-cover border border-slate-200 rounded-lg shrink-0 cursor-pointer hover:opacity-80 transition-opacity" 
+                          alt={p.name} 
+                          loading="lazy" 
+                          decoding="async" 
+                          onClick={() => {
+                            const imgs = getProductImages(p);
+                            if (imgs.length > 0) {
+                              setFullscreenImage({ urls: imgs, index: 0 });
+                            }
+                          }}
+                          title="Klik untuk perbesar foto"
+                        />
                       ) : (
                         <div className="w-12 h-12 bg-slate-100 flex items-center justify-center border border-slate-200 text-slate-400 text-[9px] rounded-lg shrink-0 font-bold">NO PHOTO</div>
                       )}
@@ -3137,7 +3242,20 @@ export default function App() {
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-3">
                             {p.image_url ? (
-                              <img src={getOptimizedImageUrl(p.image_url, 150)} className="w-10 h-10 object-cover border border-slate-200 rounded-md shrink-0" alt={p.name} loading="lazy" decoding="async" />
+                              <img 
+                                src={getOptimizedImageUrl(p.image_url, 150)} 
+                                className="w-10 h-10 object-cover border border-slate-200 rounded-md shrink-0 cursor-pointer hover:opacity-80 transition-opacity" 
+                                alt={p.name} 
+                                loading="lazy" 
+                                decoding="async" 
+                                onClick={() => {
+                                  const imgs = getProductImages(p);
+                                  if (imgs.length > 0) {
+                                    setFullscreenImage({ urls: imgs, index: 0 });
+                                  }
+                                }}
+                                title="Klik untuk perbesar foto"
+                              />
                             ) : (
                               <div className="w-10 h-10 bg-slate-100 flex items-center justify-center border border-slate-200 text-slate-400 text-[8px] font-bold rounded-md shrink-0">NO PHOTO</div>
                             )}
@@ -4879,19 +4997,36 @@ export default function App() {
                 {selectedProductDetail.description || 'Tidak ada deskripsi tambahan.'}
               </p>
 
-              {/* Material & Durability Value Highlights */}
-              <div className="grid grid-cols-3 gap-2 pt-1 pb-1">
-                <div className="p-2 rounded-lg bg-emerald-50/60 border border-emerald-100 text-center">
-                  <span className="block text-[10px] font-extrabold text-emerald-800 uppercase tracking-tight">100% Anti Rayap</span>
-                  <span className="text-[9px] text-emerald-600 font-medium">Bebas karat & air</span>
+              {/* Material & Build Specifications */}
+              <div className="grid grid-cols-3 gap-2 pt-0.5 pb-1">
+                <div className="bg-slate-50/80 border border-slate-200/70 rounded-xl p-2.5 flex flex-col justify-between">
+                  <div className="w-6 h-6 rounded-md bg-white border border-slate-200/80 flex items-center justify-center mb-1.5 shadow-2xs text-slate-700">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                  </div>
+                  <div className="text-[11px] font-bold text-slate-900 leading-tight">Anti Rayap & Karat</div>
+                  <div className="text-[10px] text-slate-500 font-medium leading-tight mt-0.5">Tahan air total</div>
                 </div>
-                <div className="p-2 rounded-lg bg-sky-50/60 border border-sky-100 text-center">
-                  <span className="block text-[10px] font-extrabold text-sky-800 uppercase tracking-tight">Aluminium / ACP</span>
-                  <span className="text-[9px] text-sky-600 font-medium">Kuat & presisi</span>
+
+                <div className="bg-slate-50/80 border border-slate-200/70 rounded-xl p-2.5 flex flex-col justify-between">
+                  <div className="w-6 h-6 rounded-md bg-white border border-slate-200/80 flex items-center justify-center mb-1.5 shadow-2xs text-slate-700">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                  </div>
+                  <div className="text-[11px] font-bold text-slate-900 leading-tight">Aluminium / ACP</div>
+                  <div className="text-[10px] text-slate-500 font-medium leading-tight mt-0.5">Rangka presisi</div>
                 </div>
-                <div className="p-2 rounded-lg bg-amber-50/60 border border-amber-100 text-center">
-                  <span className="block text-[10px] font-extrabold text-amber-800 uppercase tracking-tight">Bisa Custom</span>
-                  <span className="text-[9px] text-amber-600 font-medium">Sesuai ruangan</span>
+
+                <div className="bg-slate-50/80 border border-slate-200/70 rounded-xl p-2.5 flex flex-col justify-between">
+                  <div className="w-6 h-6 rounded-md bg-white border border-slate-200/80 flex items-center justify-center mb-1.5 shadow-2xs text-slate-700">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                    </svg>
+                  </div>
+                  <div className="text-[11px] font-bold text-slate-900 leading-tight">Custom Ukuran</div>
+                  <div className="text-[10px] text-slate-500 font-medium leading-tight mt-0.5">Sesuai ruangan</div>
                 </div>
               </div>
 
@@ -4958,24 +5093,42 @@ export default function App() {
       {/* ── FULLSCREEN IMAGE LIGHTBOX MODAL ── */}
       {fullscreenImage && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-fade-in"
+          className="fixed inset-0 z-[100002] flex items-center justify-center p-2 sm:p-4 bg-black/95 backdrop-blur-md animate-fade-in touch-none select-none"
           onClick={() => setFullscreenImage(null)}
         >
-          {/* Close Button */}
-          <button 
-            type="button"
-            onClick={() => setFullscreenImage(null)}
-            className="absolute top-5 right-5 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all z-20 cursor-pointer"
-            title="Tutup Foto"
-          >
-            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          {/* Action Bar (Top) */}
+          <div className="absolute top-4 sm:top-5 right-4 sm:right-5 flex items-center gap-2 z-30" onClick={(e) => e.stopPropagation()}>
+            {fullscreenImage.urls[fullscreenImage.index] && (
+              <a
+                href={fullscreenImage.urls[fullscreenImage.index]}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-white/80 hover:text-white bg-white/10 hover:bg-white/20 h-10 px-3.5 rounded-full flex items-center gap-1.5 backdrop-blur-md transition-all text-xs font-semibold cursor-pointer"
+                title="Buka File Foto Asli di Tab Baru"
+              >
+                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                <span className="hidden sm:inline">Foto Asli</span>
+              </a>
+            )}
+            {/* Close Button */}
+            <button 
+              type="button"
+              onClick={() => setFullscreenImage(null)}
+              className="text-white/80 hover:text-white bg-white/10 hover:bg-white/20 w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all cursor-pointer"
+              title="Tutup Foto (Esc)"
+              aria-label="Tutup Foto"
+            >
+              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
 
           {/* Counter Badge */}
           {fullscreenImage.urls.length > 1 && (
-            <div className="absolute top-5 left-5 text-white/90 bg-white/10 px-3.5 py-1 rounded-full text-xs font-extrabold tracking-widest backdrop-blur-md z-20">
+            <div className="absolute top-4 sm:top-5 left-4 sm:left-5 text-white/90 bg-white/10 px-3.5 py-1.5 rounded-full text-xs font-extrabold tracking-widest backdrop-blur-md z-30">
               {fullscreenImage.index + 1} / {fullscreenImage.urls.length}
             </div>
           )}
@@ -4992,7 +5145,7 @@ export default function App() {
                     index: prev.index === 0 ? prev.urls.length - 1 : prev.index - 1
                   } : null);
                 }}
-                className="absolute left-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/15 hover:bg-white/30 text-white flex items-center justify-center backdrop-blur-md transition-all active:scale-95 z-20 cursor-pointer"
+                className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/15 hover:bg-white/30 text-white flex items-center justify-center backdrop-blur-md transition-all active:scale-95 z-30 cursor-pointer"
                 title="Foto Sebelumnya"
               >
                 <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
@@ -5008,7 +5161,7 @@ export default function App() {
                     index: prev.index === prev.urls.length - 1 ? 0 : prev.index + 1
                   } : null);
                 }}
-                className="absolute right-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/15 hover:bg-white/30 text-white flex items-center justify-center backdrop-blur-md transition-all active:scale-95 z-20 cursor-pointer"
+                className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/15 hover:bg-white/30 text-white flex items-center justify-center backdrop-blur-md transition-all active:scale-95 z-30 cursor-pointer"
                 title="Foto Selanjutnya"
               >
                 <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
@@ -5020,14 +5173,30 @@ export default function App() {
 
           {/* Fullsize Image Frame */}
           <div 
-            className="max-w-5xl max-h-[90vh] p-2 relative flex items-center justify-center"
+            className="w-full max-w-6xl max-h-[92vh] p-2 relative flex flex-col items-center justify-center"
             onClick={(e) => e.stopPropagation()}
           >
-            <img 
-              src={fullscreenImage.urls[fullscreenImage.index]} 
-              alt="Foto Penuh Produk" 
-              className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl animate-pop-in"
-            />
+            {fullscreenImage.urls[fullscreenImage.index] ? (
+              <img 
+                key={fullscreenImage.urls[fullscreenImage.index]}
+                src={getOptimizedImageUrl(fullscreenImage.urls[fullscreenImage.index], 1600)} 
+                alt="Foto Penuh Produk" 
+                className="max-w-full max-h-[82vh] sm:max-h-[86vh] object-contain rounded-2xl shadow-2xl transition-transform select-none cursor-pointer"
+                onClick={() => setFullscreenImage(null)}
+                title="Klik untuk menutup"
+                onError={(e) => {
+                  const rawUrl = fullscreenImage.urls[fullscreenImage.index];
+                  if (rawUrl && e.currentTarget.src !== rawUrl) {
+                    e.currentTarget.src = rawUrl;
+                  }
+                }}
+              />
+            ) : (
+              <div className="text-white/60 text-xs">Foto tidak tersedia</div>
+            )}
+            <p className="text-white/50 text-[11px] mt-2 font-medium hidden sm:block">
+              Klik di luar foto atau tekan Esc untuk menutup
+            </p>
           </div>
         </div>
       )}
