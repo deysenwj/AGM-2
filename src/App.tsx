@@ -4,7 +4,7 @@ const NotaView = React.lazy(() => import('./NotaView'));
 import AIChatWidget from './components/AIChatWidget';
 import { 
   Search, X, Menu, LayoutGrid, Package, 
-  BarChart3, FileText, AlertTriangle, User, LogOut, Trash2, ChevronDown, History, Archive, ClipboardList, MoreHorizontal,
+  BarChart3, FileText, AlertTriangle, User, LogOut, Trash2, History, Archive, ClipboardList, MoreHorizontal,
   ShoppingCart, Download, ArrowUpDown, Plus, Minus
 } from 'lucide-react';
 
@@ -393,7 +393,6 @@ export default function App() {
 
   // Active Online Admins State (Supabase Realtime Presence)
   const [activeOnlineAdmins, setActiveOnlineAdmins] = useState<{ name: string; email: string; onlineAt: string }[]>([]);
-  const [isOnlineAdminsModalOpen, setIsOnlineAdminsModalOpen] = useState(false);
   const presenceChannelRef = React.useRef<any>(null);
 
   // Custom Design Requests Admin Mutation State
@@ -669,7 +668,6 @@ export default function App() {
       }
       return [...prev, { product, quantity: 1 }];
     });
-    triggerToast(`Ditambahkan ke Pesanan: ${product.name}`);
   };
 
   const updateCartQuantity = (productId: string, quantity: number) => {
@@ -2372,13 +2370,12 @@ export default function App() {
             {isAdmin ? (
               <div className="flex items-center gap-3 sm:gap-5 text-xs leading-none shrink-0">
                 {/* User profile with integrated online indicator */}
-                <button
-                  onClick={() => setIsOnlineAdminsModalOpen(true)}
-                  className="inline-flex items-center gap-2 font-semibold text-slate-900 hover:text-slate-700 transition-colors cursor-pointer select-none group"
-                  title={`${currentAdminUser?.name || 'Admin'} (${activeOnlineAdmins.length || 1} Online - Klik untuk melihat)`}
+                <div
+                  className="inline-flex items-center gap-2 font-semibold text-slate-900 select-none"
+                  title={`${currentAdminUser?.name || 'Admin'} (${activeOnlineAdmins.length || 1} Online)`}
                 >
                   <div className="relative shrink-0">
-                    <span className="w-6 h-6 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-bold uppercase group-hover:bg-slate-800 transition-colors">
+                    <span className="w-6 h-6 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-bold uppercase">
                       {(currentAdminUser?.name || 'A').charAt(0)}
                     </span>
                     <span 
@@ -2389,11 +2386,10 @@ export default function App() {
                   <span className="text-slate-900 font-semibold text-xs tracking-tight hidden sm:inline">{currentAdminUser?.name || 'Admin'}</span>
                   {activeOnlineAdmins.length > 1 && (
                     <span className="hidden sm:inline-flex items-center text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200/60">
-                      {activeOnlineAdmins.length}
+                      {activeOnlineAdmins.length} Online
                     </span>
                   )}
-                  <ChevronDown className="w-3 h-3 text-slate-400 group-hover:text-slate-600 transition-colors shrink-0 hidden sm:inline" />
-                </button>
+                </div>
 
                 {/* Logout action */}
                 <button 
@@ -2523,18 +2519,15 @@ export default function App() {
                       </div>
                     </button>
 
-                    <button
-                      onClick={() => { setIsOnlineAdminsModalOpen(true); setIsSidebarOpen(false); }}
-                      className="w-full text-left flex items-center justify-between p-3 rounded-xl text-xs font-bold transition-all text-slate-600 hover:bg-slate-100 hover:text-slate-900 cursor-pointer"
-                    >
-                      <div className="flex items-center gap-3">
+                    <div className="w-full flex items-center justify-between p-3 rounded-xl text-xs font-semibold text-slate-600 bg-slate-50 border border-slate-200/60">
+                      <div className="flex items-center gap-2.5">
                         <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
-                        <span className="whitespace-nowrap">Petugas Online</span>
+                        <span className="whitespace-nowrap font-bold text-slate-800">Petugas Online</span>
                       </div>
-                      <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-lg">
-                        {activeOnlineAdmins.length || 1}
+                      <span className="text-[11px] font-bold text-slate-500">
+                        {currentAdminUser?.name || 'Admin'} ({activeOnlineAdmins.length || 1})
                       </span>
-                    </button>
+                    </div>
                   </>
                 )}
               </div>
@@ -2646,27 +2639,6 @@ export default function App() {
         {currentView === 'catalog' && (
           <section className="px-4 md:px-8 pt-4 md:pt-6 pb-12 max-w-container-max mx-auto w-full grow">
             
-            {/* Guest Welcome Banner */}
-            {!isAdmin && (
-              <div className="mb-6 p-5 sm:p-6 bg-slate-900 text-white rounded-xl border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div>
-                  <h3 className="font-bold text-base sm:text-lg text-white tracking-tight">Katalog Produk AGM 2 Padang</h3>
-                  <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">Pilihan Furniture &amp; Elektronik berkualitas. Klik produk untuk detail atau konsultasi pesanan.</p>
-                </div>
-                <a
-                  href="https://wa.me/6289694127723?text=Halo%20Toko%20AGM%202%20Padang,%20saya%20ingin%20bertanya%20mengenai%20katalog%20produk"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full sm:w-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg transition-colors whitespace-nowrap flex items-center justify-center gap-2 shrink-0"
-                >
-                  <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
-                    <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
-                  </svg>
-                  <span>Hubungi CS Toko</span>
-                </a>
-              </div>
-            )}
-
             {/* Grid Filters Row */}
             <div className="flex flex-col gap-4 mb-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -2963,10 +2935,12 @@ export default function App() {
                       </div>
                       
                       {/* 5. Single-Line Stock Status + Clean "···" Action Menu */}
-                      <div className="flex items-center justify-between pt-3.5 mt-auto">
+                      <div className="flex items-center justify-between pt-3 mt-auto">
                         <div className="flex items-center gap-1.5 text-xs text-slate-500 font-normal">
-                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${p.stock > 3 ? 'bg-emerald-500' : p.stock > 0 ? 'bg-amber-500' : 'bg-rose-500'}`}></span>
-                          <span>{p.stock > 0 ? `${p.stock} pcs tersedia` : 'habis / pre-order'}</span>
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${p.stock > 3 ? 'bg-emerald-500' : p.stock > 0 ? 'bg-amber-500' : 'bg-sky-500'}`}></span>
+                          <span className={p.stock <= 0 ? 'text-sky-700 font-medium' : ''}>
+                            {p.stock > 0 ? `${p.stock} pcs tersedia` : 'Bisa Custom PO'}
+                          </span>
                         </div>
 
                         {isAdmin && (
@@ -5802,62 +5776,6 @@ export default function App() {
           </div>
         </div>
       )}
-
-      {/* ── MODAL PETUGAS ADMIN AKTIF REALTIME (Clean Executive Design) ── */}
-      {isOnlineAdminsModalOpen && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in" 
-          onClick={() => setIsOnlineAdminsModalOpen(false)}
-        >
-          <div 
-            className="w-full max-w-xs bg-white border border-slate-200 rounded-2xl p-5 shadow-xl overflow-hidden animate-pop-in space-y-4" 
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-extrabold text-sm text-slate-900">Petugas Aktif</h3>
-              </div>
-              <button 
-                onClick={() => setIsOnlineAdminsModalOpen(false)} 
-                className="p-1 text-slate-400 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {/* List of Active Admins */}
-            <div className="space-y-2">
-              {activeOnlineAdmins.length === 0 ? (
-                <div className="flex items-center gap-2.5 p-3 bg-slate-50 border border-slate-200/60 rounded-xl text-xs">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
-                  <strong className="font-bold text-slate-900 truncate">{currentAdminUser?.name || 'Admin'} (Anda)</strong>
-                </div>
-              ) : (
-                activeOnlineAdmins.map((admin, idx) => (
-                  <div key={'online-admin-' + idx} className="flex items-center gap-2.5 p-3 bg-slate-50 border border-slate-200/60 rounded-xl text-xs">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
-                    <strong className="font-bold text-slate-900 truncate">
-                      {admin.name} {admin.name === currentAdminUser?.name ? '(Anda)' : ''}
-                    </strong>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Close Button */}
-            <button
-              onClick={() => setIsOnlineAdminsModalOpen(false)}
-              className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition-all cursor-pointer active:scale-95 text-xs"
-            >
-              Tutup
-            </button>
-          </div>
-        </div>
-      )}
-
 
       {/* ── FLOATING CART TRIGGER PILL (Non-intrusive bottom-left) ── */}
       {cartItems.length > 0 && !isCartOpen && (
