@@ -4,7 +4,8 @@ const NotaView = React.lazy(() => import('./NotaView'));
 import AIChatWidget from './components/AIChatWidget';
 import { 
   Search, X, Menu, LayoutGrid, Package, 
-  BarChart3, FileText, AlertTriangle, User, LogOut, Trash2, ChevronDown, History, Archive, ClipboardList, MoreHorizontal
+  BarChart3, FileText, AlertTriangle, User, LogOut, Trash2, ChevronDown, History, Archive, ClipboardList, MoreHorizontal,
+  ShoppingCart, Download, ArrowUpDown, Plus, Minus
 } from 'lucide-react';
 
 
@@ -22,6 +23,11 @@ export interface Product {
   discount: number;
   image_public_id?: string | null;
   arrivalType?: 'BARANG BARU' | 'PRODUK UNGGULAN' | 'EKSKLUSIF' | 'PRE-ORDER' | 'PROMO' | '';
+}
+
+export interface CartItem {
+  product: Product;
+  quantity: number;
 }
 
 export interface Transaction {
@@ -631,6 +637,73 @@ export default function App() {
   const [globalSearch, setGlobalSearch] = useState('');
   const [stockSearchTerm, setStockSearchTerm] = useState<string>('');
 
+  // Catalog sorting & availability filter states
+  const [catalogSortBy, setCatalogSortBy] = useState<'newest' | 'price-low' | 'price-high' | 'discount'>('newest');
+  const [catalogAvailability, setCatalogAvailability] = useState<'all' | 'ready' | 'promo'>('all');
+
+  // WhatsApp Multi-Item Cart state
+  const [cartItems, setCartItems] = useState<CartItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('agm2_cart_items');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [isCartOpen, setIsCartOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('agm2_cart_items', JSON.stringify(cartItems));
+    } catch {}
+  }, [cartItems]);
+
+  const addToCart = (product: Product, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setCartItems(prev => {
+      const existing = prev.find(item => item.product.id === product.id);
+      if (existing) {
+        return prev.map(item =>
+          item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+        );
+      }
+      return [...prev, { product, quantity: 1 }];
+    });
+    triggerToast(`Ditambahkan ke Pesanan: ${product.name}`);
+  };
+
+  const updateCartQuantity = (productId: string, quantity: number) => {
+    if (quantity <= 0) {
+      setCartItems(prev => prev.filter(item => item.product.id !== productId));
+    } else {
+      setCartItems(prev => prev.map(item => item.product.id === productId ? { ...item, quantity } : item));
+    }
+  };
+
+  const removeFromCart = (productId: string) => {
+    setCartItems(prev => prev.filter(item => item.product.id !== productId));
+  };
+
+  const clearCart = () => {
+    setCartItems([]);
+  };
+
+  const getCartWhatsAppUrl = () => {
+    if (cartItems.length === 0) return '';
+    const lines = cartItems.map((item, idx) => {
+      const effPrice = Math.max(0, item.product.price - item.product.discount);
+      const priceStr = effPrice > 0 ? `Rp ${(effPrice * item.quantity).toLocaleString('id-ID')}` : 'Hubungi Admin / Custom';
+      return `${idx + 1}. *${item.product.name}* (${item.quantity} ${item.product.unit || 'unit'}) - ${priceStr}`;
+    });
+    const total = cartItems.reduce((acc, item) => {
+      const effPrice = Math.max(0, item.product.price - item.product.discount);
+      return acc + (effPrice * item.quantity);
+    }, 0);
+
+    const message = `Halo Admin Toko AGM 2 Padang, saya ingin memesan daftar produk berikut:\n\n${lines.join('\n')}\n\n*Estimasi Total: Rp ${total.toLocaleString('id-ID')}*\n\nMohon konfirmasi ketersediaan stok & ongkir ke alamat saya. Terima kasih!`;
+    return `https://wa.me/6289694127723?text=${encodeURIComponent(message)}`;
+  };
+
   // Navigation & Drawer state
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -649,6 +722,69 @@ export default function App() {
   const triggerToast = (msg: string) => {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(''), 3000);
+  };
+
+  const exportStockToCsv = () => {
+    if (filteredProducts.length === 0) {
+      triggerToast('Tidak ada data produk untuk diekspor.');
+      return;
+    }
+    const headers = ['ID', 'Nama Produk', 'Kategori', 'Subkategori', 'Stok', 'Satuan', 'Harga Asli', 'Diskon', 'Harga Akhir', 'Status Stok'];
+    const rows = filteredProducts.map(p => {
+      const eff = Math.max(0, p.price - p.discount);
+      const status = p.stock > 1 ? 'Tersedia' : p.stock === 1 ? 'Menipis' : 'Habis';
+      return [
+        p.id,
+        `"${p.name.replace(/"/g, '""')}"`,
+        `"${(p.category || '').replace(/"/g, '""')}"`,
+        `"${(p.subcategory || '').replace(/"/g, '""')}"`,
+        p.stock,
+        p.unit || 'unit',
+        p.price,
+        p.discount,
+        eff,
+        status
+      ];
+    });
+    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `laporan-stok-agm-${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    triggerToast('Laporan stok berhasil diunduh (CSV).');
+  };
+
+  const exportSalesToCsv = () => {
+    if (!transactions || transactions.length === 0) {
+      triggerToast('Belum ada riwayat transaksi penjualan.');
+      return;
+    }
+    const headers = ['ID Transaksi', 'Tanggal', 'Nama Pelanggan', 'No HP', 'Alamat', 'Metode Bayar', 'Total Tagihan', 'Ongkir'];
+    const rows = transactions.map((t: any) => {
+      const txDate = t.dateRaw ? new Date(t.dateRaw).toLocaleString('id-ID') : (t.date || '-');
+      return [
+        t.id,
+        `"${txDate}"`,
+        `"${(t.customerName || 'Pelanggan Walk-in').replace(/"/g, '""')}"`,
+        `"${(t.customerPhone || '-').replace(/"/g, '""')}"`,
+        `"${(t.customerAddress || '-').replace(/"/g, '""')}"`,
+        `"${(t.paymentMethod || 'Tunai').replace(/"/g, '""')}"`,
+        t.totalPrice || 0,
+        t.deliveryFee || 0
+      ];
+    });
+    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map((e: any[]) => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `laporan-penjualan-agm-${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    triggerToast('Laporan penjualan berhasil diunduh (CSV).');
   };
 
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -2028,7 +2164,7 @@ export default function App() {
   const filteredProducts = React.useMemo(() => {
     const searchTarget = (currentView === 'stock' && stockSearchTerm) ? stockSearchTerm.trim().toLowerCase() : globalSearch.trim().toLowerCase();
     
-    return products.filter(p => {
+    let result = products.filter(p => {
       const matchCategory = filterCategory === 'all' || p.category === filterCategory;
       const matchSubcategory = filterSubcategory === 'all' || p.subcategory === filterSubcategory;
       
@@ -2045,13 +2181,40 @@ export default function App() {
       } else if (showInStock && showBackorder) {
         matchStock = true;
       } else {
-        // Fallback: if user unchecks both boxes, show all products instead of wiping display
         matchStock = true;
       }
 
-      return matchCategory && matchSubcategory && matchSearch && matchStock;
+      let matchAvail = true;
+      if (currentView === 'catalog') {
+        if (catalogAvailability === 'ready') {
+          matchAvail = p.stock > 0;
+        } else if (catalogAvailability === 'promo') {
+          matchAvail = (p.discount || 0) > 0;
+        }
+      }
+
+      return matchCategory && matchSubcategory && matchSearch && matchStock && matchAvail;
     });
-  }, [products, filterCategory, filterSubcategory, globalSearch, stockSearchTerm, showInStock, showBackorder, currentView]);
+
+    if (currentView === 'catalog') {
+      result = [...result].sort((a, b) => {
+        const effA = Math.max(0, a.price - a.discount);
+        const effB = Math.max(0, b.price - b.discount);
+        if (catalogSortBy === 'price-low') {
+          return effA - effB;
+        }
+        if (catalogSortBy === 'price-high') {
+          return effB - effA;
+        }
+        if (catalogSortBy === 'discount') {
+          return (b.discount || 0) - (a.discount || 0);
+        }
+        return 0; // 'newest' maintains original chronological order
+      });
+    }
+
+    return result;
+  }, [products, filterCategory, filterSubcategory, globalSearch, stockSearchTerm, showInStock, showBackorder, currentView, catalogSortBy, catalogAvailability]);
 
   const getStockLabel = (stock: number) => {
     const s = isNaN(stock) ? 0 : Math.max(0, Number(stock) || 0);
@@ -2528,50 +2691,122 @@ export default function App() {
                   </button>
                 </div>
 
-                <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto text-xs text-slate-500 font-medium">
-                  <span>Menampilkan {filteredProducts.length} dari {products.length} barang</span>
+                <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2.5 w-full sm:w-auto text-xs text-slate-500 font-medium">
+                  {/* Sorting Dropdown */}
+                  <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs">
+                    <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <select
+                      value={catalogSortBy}
+                      onChange={(e) => setCatalogSortBy(e.target.value as any)}
+                      className="bg-transparent text-xs font-semibold text-slate-800 outline-none cursor-pointer"
+                    >
+                      <option value="newest">Terbaru</option>
+                      <option value="price-low">Harga: Termurah</option>
+                      <option value="price-high">Harga: Termahal</option>
+                      <option value="discount">Promo Diskon</option>
+                    </select>
+                  </div>
+
+                  {/* Cart Button (if has items) */}
+                  {cartItems.length > 0 && (
+                    <button
+                      onClick={() => setIsCartOpen(true)}
+                      className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+                    >
+                      <ShoppingCart className="w-3.5 h-3.5" />
+                      <span>Pesanan ({cartItems.reduce((acc, it) => acc + it.quantity, 0)})</span>
+                    </button>
+                  )}
+
+                  <span className="text-[11px] text-slate-400">({filteredProducts.length} barang)</span>
                 </div>
               </div>
 
-              {/* Mobile Sub-Category Dropdown */}
-              <div className="block md:hidden pt-1">
-                <select
-                  value={filterSubcategory}
-                  onChange={(e) => setFilterSubcategory(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-xs font-semibold rounded-lg px-3 py-2 text-slate-900 focus:ring-1 focus:ring-slate-900 outline-none cursor-pointer"
-                >
-                  <option value="all">Semua Subkategori</option>
-                  {(filterCategory === 'furniture' ? FURNITURE_SUBCATEGORIES : filterCategory === 'electronics' ? ELECTRONICS_SUBCATEGORIES : Array.from(new Set([...FURNITURE_SUBCATEGORIES, ...ELECTRONICS_SUBCATEGORIES]))).map(sub => (
-                    <option key={sub} value={sub}>{sub}</option>
-                  ))}
-                </select>
+              {/* Mobile Sub-Category & Availability Controls */}
+              <div className="flex flex-col sm:flex-row gap-2 pt-1 md:hidden">
+                <div className="flex-1">
+                  <select
+                    value={filterSubcategory}
+                    onChange={(e) => setFilterSubcategory(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 text-xs font-semibold rounded-lg px-3 py-2 text-slate-900 focus:ring-1 focus:ring-slate-900 outline-none cursor-pointer"
+                  >
+                    <option value="all">Semua Subkategori</option>
+                    {(filterCategory === 'furniture' ? FURNITURE_SUBCATEGORIES : filterCategory === 'electronics' ? ELECTRONICS_SUBCATEGORIES : Array.from(new Set([...FURNITURE_SUBCATEGORIES, ...ELECTRONICS_SUBCATEGORIES]))).map(sub => (
+                      <option key={sub} value={sub}>{sub}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setCatalogAvailability('all')}
+                    className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold transition-colors ${catalogAvailability === 'all' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}
+                  >
+                    Semua
+                  </button>
+                  <button
+                    onClick={() => setCatalogAvailability('ready')}
+                    className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold transition-colors ${catalogAvailability === 'ready' ? 'bg-emerald-700 text-white' : 'bg-slate-100 text-slate-600'}`}
+                  >
+                    Ready Stock
+                  </button>
+                  <button
+                    onClick={() => setCatalogAvailability('promo')}
+                    className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold transition-colors ${catalogAvailability === 'promo' ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-600'}`}
+                  >
+                    Promo
+                  </button>
+                </div>
               </div>
 
-              {/* Desktop Sub-Category Chips */}
-              <div className="hidden md:flex items-center gap-1.5 overflow-x-auto pb-1 pt-1 hide-scrollbar">
-                <button
-                  onClick={() => setFilterSubcategory('all')}
-                  className={`px-3 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition-colors ${
-                    filterSubcategory === 'all'
-                      ? 'bg-slate-900 text-white'
-                      : 'bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200/80 font-medium'
-                  }`}
-                >
-                  Semua Subkategori
-                </button>
-                {(filterCategory === 'furniture' ? FURNITURE_SUBCATEGORIES : filterCategory === 'electronics' ? ELECTRONICS_SUBCATEGORIES : Array.from(new Set([...FURNITURE_SUBCATEGORIES, ...ELECTRONICS_SUBCATEGORIES]))).map(sub => (
+              {/* Desktop Sub-Category Chips & Availability Filters */}
+              <div className="hidden md:flex items-center justify-between gap-3 pt-1">
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 hide-scrollbar">
                   <button
-                    key={sub}
-                    onClick={() => setFilterSubcategory(sub)}
+                    onClick={() => setFilterSubcategory('all')}
                     className={`px-3 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition-colors ${
-                      filterSubcategory === sub
+                      filterSubcategory === 'all'
                         ? 'bg-slate-900 text-white'
                         : 'bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200/80 font-medium'
                     }`}
                   >
-                    {sub}
+                    Semua Subkategori
                   </button>
-                ))}
+                  {(filterCategory === 'furniture' ? FURNITURE_SUBCATEGORIES : filterCategory === 'electronics' ? ELECTRONICS_SUBCATEGORIES : Array.from(new Set([...FURNITURE_SUBCATEGORIES, ...ELECTRONICS_SUBCATEGORIES]))).map(sub => (
+                    <button
+                      key={sub}
+                      onClick={() => setFilterSubcategory(sub)}
+                      className={`px-3 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition-colors ${
+                        filterSubcategory === sub
+                          ? 'bg-slate-900 text-white'
+                          : 'bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200/80 font-medium'
+                      }`}
+                    >
+                      {sub}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Quick Availability Pills (Desktop) */}
+                <div className="flex items-center gap-1 shrink-0 bg-slate-100 p-1 rounded-lg">
+                  <button
+                    onClick={() => setCatalogAvailability('all')}
+                    className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold transition-colors ${catalogAvailability === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'}`}
+                  >
+                    Semua
+                  </button>
+                  <button
+                    onClick={() => setCatalogAvailability('ready')}
+                    className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold transition-colors ${catalogAvailability === 'ready' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-500 hover:text-slate-900'}`}
+                  >
+                    Ready Stock
+                  </button>
+                  <button
+                    onClick={() => setCatalogAvailability('promo')}
+                    className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold transition-colors ${catalogAvailability === 'promo' ? 'bg-amber-600 text-white shadow-xs' : 'text-slate-500 hover:text-slate-900'}`}
+                  >
+                    Promo Diskon
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -2696,19 +2931,32 @@ export default function App() {
                             )}
                           </div>
                         ) : (
-                          <div className="pt-2">
+                          <div className="pt-2 flex items-center gap-1.5">
                             <button
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 window.open(`https://wa.me/6289694127723?text=${encodeURIComponent(`Halo Toko AGM 2 Padang, saya berminat dan ingin bertanya mengenai produk: ${p.name}`)}`, '_blank');
                               }}
-                              className="w-full py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                              className="flex-1 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1 cursor-pointer truncate"
+                              title="Tanyakan langsung via WhatsApp"
                             >
                               <svg className="w-3.5 h-3.5 fill-white shrink-0" viewBox="0 0 24 24">
                                 <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
                               </svg>
-                              <span>Tanyakan Harga</span>
+                              <span className="truncate">Tanya WA</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                addToCart(p);
+                              }}
+                              className="py-1.5 px-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1 cursor-pointer shrink-0 shadow-2xs"
+                              title="Tambah ke Keranjang Pesanan"
+                            >
+                              <ShoppingCart className="w-3.5 h-3.5" />
+                              <span>+ Pesan</span>
                             </button>
                           </div>
                         )}
@@ -2813,6 +3061,14 @@ export default function App() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
                   <span>Riwayat Hapus</span>
+                </button>
+                <button
+                  onClick={exportStockToCsv}
+                  className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 border border-slate-200 whitespace-nowrap"
+                  title="Ekspor Data Stok Lengkap ke CSV / Excel"
+                >
+                  <Download className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                  <span>Ekspor CSV</span>
                 </button>
               </div>
             </div>
@@ -3209,6 +3465,22 @@ export default function App() {
           return (
             <section className="px-4 md:px-8 py-6 md:py-8 max-w-container-max mx-auto w-full grow">
               
+              {/* Dashboard Toolbar with Export Sales CSV */}
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6 pb-2">
+                <div>
+                  <h2 className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight">Analisis Penjualan &amp; Performa</h2>
+                  <p className="text-xs text-slate-500">Monitor omzet kasir harian dan status pergerakan persediaan gudang</p>
+                </div>
+                <button
+                  onClick={exportSalesToCsv}
+                  className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-2 border border-slate-200 shadow-2xs whitespace-nowrap"
+                  title="Ekspor Laporan Transaksi Kasir ke CSV / Excel"
+                >
+                  <Download className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                  <span>Ekspor Data Transaksi (CSV)</span>
+                </button>
+              </div>
+
               {/* ── 1. RINGKASAN METRIK UTAMA ── */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
                 {/* Nilai Aset Gudang */}
@@ -4633,12 +4905,27 @@ export default function App() {
                 {selectedProductDetail.description || 'Tidak ada deskripsi tambahan.'}
               </p>
 
+              {/* Material & Durability Value Highlights */}
+              <div className="grid grid-cols-3 gap-2 pt-1 pb-1">
+                <div className="p-2 rounded-lg bg-emerald-50/60 border border-emerald-100 text-center">
+                  <span className="block text-[10px] font-extrabold text-emerald-800 uppercase tracking-tight">100% Anti Rayap</span>
+                  <span className="text-[9px] text-emerald-600 font-medium">Bebas karat & air</span>
+                </div>
+                <div className="p-2 rounded-lg bg-sky-50/60 border border-sky-100 text-center">
+                  <span className="block text-[10px] font-extrabold text-sky-800 uppercase tracking-tight">Aluminium / ACP</span>
+                  <span className="text-[9px] text-sky-600 font-medium">Kuat & presisi</span>
+                </div>
+                <div className="p-2 rounded-lg bg-amber-50/60 border border-amber-100 text-center">
+                  <span className="block text-[10px] font-extrabold text-amber-800 uppercase tracking-tight">Bisa Custom</span>
+                  <span className="text-[9px] text-amber-600 font-medium">Sesuai ruangan</span>
+                </div>
+              </div>
+
               <div className="flex items-center justify-between pt-2">
                 <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
                   <span className={`w-2.5 h-2.5 rounded-full ${selectedProductDetail.stock >= 2 ? 'bg-slate-400' : selectedProductDetail.stock === 1 ? 'bg-amber-500' : 'bg-rose-500'}`}></span>
                   <span>{selectedProductDetail.stock >= 2 ? `Stok Aman (${selectedProductDetail.stock} ${selectedProductDetail.unit})` : selectedProductDetail.stock === 1 ? `Stok Menipis (1 ${selectedProductDetail.unit})` : 'Stok Habis'}</span>
                 </div>
-
 
                 {isAdmin && (
                   <div className="text-right">
@@ -4652,16 +4939,28 @@ export default function App() {
 
               {/* Action Buttons */}
               <div className="pt-4 border-t border-slate-100 flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    addToCart(selectedProductDetail);
+                    setIsCartOpen(true);
+                  }}
+                  className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer active:scale-[0.98]"
+                >
+                  <ShoppingCart className="w-4 h-4 text-white" />
+                  <span>Tambah ke Keranjang Pesanan</span>
+                </button>
+
                 <a 
                   href={`https://wa.me/6289694127723?text=${encodeURIComponent(`Halo Toko AGM 2 Padang, saya berminat dan ingin menanyakan harga/detail produk:\n- Nama: ${selectedProductDetail.name}\n- Kategori: ${selectedProductDetail.category} ${selectedProductDetail.subcategory}`)}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-2 shadow-md active:scale-[0.98]"
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-2xs active:scale-[0.98]"
                 >
                   <svg className="w-4 h-4 fill-white shrink-0" viewBox="0 0 24 24">
                     <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
                   </svg>
-                  <span>Tanyakan Detail &amp; Pesan via WhatsApp</span>
+                  <span>Konsultasi Cepat via WhatsApp</span>
                 </a>
 
                 {isAdmin && (
@@ -5559,6 +5858,192 @@ export default function App() {
         </div>
       )}
 
+
+      {/* ── FLOATING CART TRIGGER PILL (Non-intrusive bottom-left) ── */}
+      {cartItems.length > 0 && !isCartOpen && (
+        <button
+          onClick={() => setIsCartOpen(true)}
+          className="fixed bottom-6 left-6 z-40 bg-slate-900 hover:bg-slate-800 text-white px-4 py-3 rounded-2xl shadow-xl flex items-center gap-3 transition-all transform hover:scale-105 active:scale-95 border border-slate-700/80 cursor-pointer animate-pop-in"
+          title="Buka Keranjang Pesanan WhatsApp"
+        >
+          <div className="relative">
+            <ShoppingCart className="w-5 h-5 text-emerald-400" />
+            <span className="absolute -top-2 -right-2 bg-emerald-500 text-slate-950 font-black text-[10px] w-4 h-4 rounded-full flex items-center justify-center shadow-xs">
+              {cartItems.reduce((acc, it) => acc + it.quantity, 0)}
+            </span>
+          </div>
+          <div className="text-left text-xs">
+            <span className="font-extrabold block leading-tight">Keranjang Pesanan</span>
+            <span className="text-[11px] text-slate-300 font-medium">
+              {cartItems.reduce((acc, it) => acc + it.quantity, 0)} item terpilih
+            </span>
+          </div>
+        </button>
+      )}
+
+      {/* ── MULTI-ITEM WHATSAPP CART MODAL / DRAWER ── */}
+      {isCartOpen && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-fade-in"
+          onClick={() => setIsCartOpen(false)}
+        >
+          <div 
+            className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl border border-slate-200 overflow-hidden relative max-h-[90vh] flex flex-col animate-pop-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-emerald-50 text-emerald-700 rounded-xl">
+                  <ShoppingCart className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900 leading-tight">Keranjang Pesanan</h3>
+                  <p className="text-xs text-slate-500">Pesan langsung ke WhatsApp Toko AGM 2 Padang</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsCartOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-900 flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Cart Items List */}
+            <div className="py-4 overflow-y-auto space-y-3 grow">
+              {cartItems.length === 0 ? (
+                <div className="text-center py-12 px-4">
+                  <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-3 text-slate-400">
+                    <ShoppingCart className="w-6 h-6" />
+                  </div>
+                  <h4 className="font-bold text-sm text-slate-800">Keranjang Belanja Kosong</h4>
+                  <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">Pilih produk di katalog dan klik "+ Pesan" untuk membuat daftar pesanan.</p>
+                </div>
+              ) : (
+                cartItems.map((item) => {
+                  const effectivePrice = (item.product.price || 0) - (item.product.discount || 0);
+                  const subtotal = effectivePrice * item.quantity;
+                  return (
+                    <div 
+                      key={'cart-item-' + item.product.id}
+                      className="flex items-center gap-3 p-3 bg-slate-50/70 border border-slate-200/80 rounded-2xl"
+                    >
+                      {item.product.image_url ? (
+                        <img 
+                          src={getOptimizedImageUrl(item.product.image_url, 120)} 
+                          alt={item.product.name} 
+                          className="w-14 h-14 object-cover rounded-xl border border-slate-200 shrink-0"
+                        />
+                      ) : (
+                        <div className="w-14 h-14 bg-slate-200 rounded-xl flex items-center justify-center text-[10px] font-bold text-slate-400 shrink-0">
+                          PRODUK
+                        </div>
+                      )}
+
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-xs sm:text-sm text-slate-900 truncate" title={item.product.name}>
+                          {item.product.name}
+                        </h4>
+                        <span className="text-[10px] text-slate-500 block truncate">
+                          {item.product.category} {item.product.subcategory ? `• ${item.product.subcategory}` : ''}
+                        </span>
+                        {effectivePrice > 0 ? (
+                          <span className="text-xs font-bold text-slate-900 block mt-0.5">
+                            Rp {subtotal.toLocaleString('id-ID')}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] font-medium text-emerald-700 block mt-0.5">
+                            Konsultasi Harga WA
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Quantity Controls */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => updateCartQuantity(item.product.id, item.quantity - 1)}
+                          className="w-7 h-7 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-700 cursor-pointer active:scale-95"
+                          title="Kurangi"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="w-6 text-center font-bold text-xs text-slate-900">
+                          {item.quantity}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => updateCartQuantity(item.product.id, item.quantity + 1)}
+                          className="w-7 h-7 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-700 cursor-pointer active:scale-95"
+                          title="Tambah"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeFromCart(item.product.id)}
+                          className="w-7 h-7 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 flex items-center justify-center cursor-pointer ml-1"
+                          title="Hapus dari keranjang"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Footer Summary & Checkout */}
+            {cartItems.length > 0 && (
+              <div className="pt-4 border-t border-slate-100 shrink-0 space-y-3">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-500 font-medium">Total Produk:</span>
+                  <strong className="text-slate-900 font-bold">
+                    {cartItems.reduce((acc, it) => acc + it.quantity, 0)} item
+                  </strong>
+                </div>
+
+                {cartItems.some(it => (it.product.price || 0) > 0) && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500 font-medium">Estimasi Subtotal:</span>
+                    <strong className="text-slate-900 font-extrabold text-sm sm:text-base">
+                      Rp {cartItems.reduce((acc, it) => acc + (((it.product.price || 0) - (it.product.discount || 0)) * it.quantity), 0).toLocaleString('id-ID')}
+                    </strong>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={clearCart}
+                    className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    Kosongkan
+                  </button>
+
+                  <a
+                    href={getCartWhatsAppUrl()}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 shadow-sm active:scale-[0.98]"
+                  >
+                    <svg className="w-4 h-4 fill-white shrink-0" viewBox="0 0 24 24">
+                      <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+                    </svg>
+                    <span>Kirim Pesanan ke WhatsApp</span>
+                  </a>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <AIChatWidget />
 

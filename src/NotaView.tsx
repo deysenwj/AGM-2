@@ -297,6 +297,16 @@ const generateNotaHtml = (
 };
 
 const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, adjustStock, deductBulkStock, addTransaction }) => {
+  const [activeTab, setActiveTab] = useState<'create' | 'history'>('create');
+  const [recentInvoices, setRecentInvoices] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('agm2_recent_invoices');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
   const [selectedProducts, setSelectedProducts] = useState<NotaItem[]>([]);
   const [customerName, setCustomerName] = useState<string>('');
   const [customerPhone, setCustomerPhone] = useState<string>('');
@@ -320,6 +330,57 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
       )
     );
   }, [searchTerm, products]);
+
+  const handleReprint = (tx: any) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      triggerToast('Gagal mencetak. Izinkan pop-up di browser.');
+      return;
+    }
+    const txItems: NotaItem[] = (tx.items || []).map((it: any) => ({
+      product: {
+        id: it.id || it.productId || 'item',
+        name: it.name || it.productName || 'Produk',
+        category: '',
+        subcategory: '',
+        description: '',
+        price: it.price || 0,
+        discount: 0,
+        stock: 99,
+        unit: it.unit || 'pcs',
+        image_url: '',
+        min_stock: 0,
+        date: ''
+      },
+      quantity: it.quantity || 1
+    }));
+    const html = generateNotaHtml(
+      tx.id,
+      tx.date || new Date(tx.dateRaw || Date.now()).toLocaleDateString('id-ID'),
+      tx.customerName || 'Pelanggan',
+      tx.customerPhone || '',
+      tx.customerAddress || '',
+      tx.customerNotes || '',
+      txItems,
+      tx.payAmount || tx.totalPrice,
+      tx.deliveryFee || 0,
+      true
+    );
+    printWindow.document.write(html);
+    printWindow.document.close();
+    triggerToast(`Mencetak ulang nota #${tx.id}`);
+  };
+
+  const handleLoadToCashier = (tx: any) => {
+    setCustomerName(tx.customerName || '');
+    setCustomerPhone(tx.customerPhone || '');
+    setCustomerAddress(tx.customerAddress || '');
+    setCustomerNotes(tx.customerNotes || '');
+    setPayAmount(tx.payAmount ? Number(tx.payAmount).toLocaleString('id-ID') : '');
+    setDeliveryFee(tx.deliveryFee ? Number(tx.deliveryFee).toLocaleString('id-ID') : '');
+    setActiveTab('create');
+    triggerToast(`Data transaksi #${tx.id} dimuat ke form kasir.`);
+  };
 
   const handleAddProduct = (product: Product) => {
     const existingItem = selectedProducts.find(item => item.product.id === product.id);
@@ -438,6 +499,11 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
       };
 
       await addTransaction(newTx);
+      try {
+        const updated = [newTx, ...recentInvoices.filter(tx => tx.id !== newTx.id)].slice(0, 25);
+        setRecentInvoices(updated);
+        localStorage.setItem('agm2_recent_invoices', JSON.stringify(updated));
+      } catch {}
       triggerToast('Stok diperbarui & transaksi disimpan.');
 
       const buttonsToHide = document.querySelectorAll('.print-hidden-button');
@@ -580,7 +646,40 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
   return (
     <section className="px-margin-mobile lg:px-margin-desktop py-6 max-w-[1300px] mx-auto w-full grow">
       {isAdmin ? (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div>
+          {/* Tab Navigation */}
+          <div className="flex items-center gap-2 mb-6 border-b border-slate-200 pb-3">
+            <button
+              onClick={() => setActiveTab('create')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'create'
+                  ? 'bg-slate-900 text-white shadow-2xs'
+                  : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
+              }`}
+            >
+              Buat Nota Transaksi Kasir
+            </button>
+            <button
+              onClick={() => setActiveTab('history')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'history'
+                  ? 'bg-slate-900 text-white shadow-2xs'
+                  : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
+              }`}
+            >
+              <span>Riwayat Nota &amp; Cetak Ulang</span>
+              {recentInvoices.length > 0 && (
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-extrabold ${
+                  activeTab === 'history' ? 'bg-slate-800 text-white' : 'bg-slate-200 text-slate-800'
+                }`}>
+                  {recentInvoices.length}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {activeTab === 'create' ? (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           
           {/* ── LEFT COLUMN: ETALASE PRODUK ── */}
           <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-5 sm:p-6 flex flex-col">
@@ -874,6 +973,83 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
           </div>
         </div>
       ) : (
+        /* ── RECENT INVOICES & REPRINT HISTORY TABLE ── */
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+            <div>
+              <h3 className="font-extrabold text-base text-slate-900">Riwayat Nota &amp; Cetak Ulang</h3>
+              <p className="text-xs text-slate-500">Daftar nota transaksi kasir yang baru saja diproses di perangkat ini</p>
+            </div>
+            <span className="text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-lg border border-slate-200">
+              {recentInvoices.length} Transaksi Tercatat
+            </span>
+          </div>
+
+          {recentInvoices.length === 0 ? (
+            <div className="text-center py-16 text-slate-400 text-xs font-medium">
+              Belum ada riwayat nota yang dicetak pada sesi ini. Buat nota di tab "Buat Nota Transaksi Kasir".
+            </div>
+          ) : (
+            <div className="overflow-x-auto border border-slate-200 rounded-xl">
+              <table className="w-full text-left border-collapse min-w-[700px] text-xs">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-extrabold text-[10px] uppercase tracking-wider">
+                  <tr>
+                    <th className="py-3 px-4">No. Nota &amp; Tanggal</th>
+                    <th className="py-3 px-4">Pelanggan</th>
+                    <th className="py-3 px-4">Rincian Barang</th>
+                    <th className="py-3 px-4 text-right">Total Transaksi</th>
+                    <th className="py-3 px-4 text-right">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {recentInvoices.map((inv: any) => (
+                    <tr key={'recent-inv-' + inv.id} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="py-3 px-4">
+                        <strong className="font-mono font-bold text-slate-900 text-xs block">#{inv.id}</strong>
+                        <span className="text-slate-400 text-[10px] block">{inv.date || 'Hari ini'}</span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="font-bold text-slate-900 block">{inv.customerName}</span>
+                        {inv.customerPhone && (
+                          <span className="text-slate-500 text-[11px] font-mono block">{inv.customerPhone}</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 max-w-xs">
+                        <div className="text-[11px] text-slate-700 line-clamp-2">
+                          {(inv.items || []).map((it: any) => `${it.productName || it.name} (${it.quantity}x)`).join(', ') || '-'}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
+                        {formatCurrency(Number(inv.totalPrice || 0))}
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <div className="inline-flex items-center gap-1.5">
+                          <button
+                            onClick={() => handleReprint(inv)}
+                            className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer"
+                            title="Cetak Ulang Nota"
+                          >
+                            Cetak
+                          </button>
+                          <button
+                            onClick={() => handleLoadToCashier(inv)}
+                            className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors cursor-pointer"
+                            title="Muat data ke form kasir"
+                          >
+                            Muat
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  ) : (
         <div className="text-center py-16 px-8 text-slate-500 bg-white rounded-2xl border border-slate-200 max-w-md mx-auto">
           <svg className="w-10 h-10 text-slate-400 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />

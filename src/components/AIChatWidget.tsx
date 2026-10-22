@@ -89,8 +89,20 @@ const AIChatWidget: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [history, setHistory] = useState<Message[]>([]);
-  const [activeDesignState, setActiveDesignState] = useState<FurnitureDesignState | null>(null);
+  const [history, setHistory] = useState<Message[]>(() => {
+    try {
+      const saved = localStorage.getItem('agm2_ai_chat_history');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
+  const [activeDesignState, setActiveDesignState] = useState<FurnitureDesignState | null>(() => {
+    try {
+      const saved = localStorage.getItem('agm2_ai_active_design');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return null;
+  });
   const [isSubmittingCustomReq, setIsSubmittingCustomReq] = useState(false);
   const [isSubmittedCustomReq, setIsSubmittedCustomReq] = useState(false);
 
@@ -103,7 +115,27 @@ const AIChatWidget: React.FC = () => {
   
   const chatWindowRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const conversationIdRef = useRef<string>(generateUuid());
+  const conversationIdRef = useRef<string>(
+    typeof window !== 'undefined' && localStorage.getItem('agm2_ai_conv_id')
+      ? localStorage.getItem('agm2_ai_conv_id')!
+      : generateUuid()
+  );
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('agm2_ai_chat_history', JSON.stringify(history));
+    } catch {}
+  }, [history]);
+
+  useEffect(() => {
+    try {
+      if (activeDesignState) {
+        localStorage.setItem('agm2_ai_active_design', JSON.stringify(activeDesignState));
+      } else {
+        localStorage.removeItem('agm2_ai_active_design');
+      }
+    } catch {}
+  }, [activeDesignState]);
 
   const handleJobCompleted = (status: string, responseText?: string, errorText?: string, source: 'Realtime' | 'Polling' | 'Direct' = 'Realtime') => {
     console.log(`[AI ${source.toUpperCase()}] response received via ${source}. Status: ${status}`);
@@ -676,10 +708,32 @@ const AIChatWidget: React.FC = () => {
     setActiveDesignState(null);
     setIsSubmittedCustomReq(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
-    conversationIdRef.current = generateUuid();
+    const newId = generateUuid();
+    conversationIdRef.current = newId;
+    try {
+      localStorage.removeItem('agm2_ai_chat_history');
+      localStorage.removeItem('agm2_ai_active_design');
+      localStorage.setItem('agm2_ai_conv_id', newId);
+    } catch {}
     setCurrentJobId(null);
     setIsLoading(false);
     setLoadingStatusText('Sedang memproses...');
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          e.preventDefault();
+          setSelectedFile(file);
+          setAttachmentSource('furniture_reference');
+          break;
+        }
+      }
+    }
   };
 
   return (
@@ -1045,6 +1099,7 @@ const AIChatWidget: React.FC = () => {
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
+                onPaste={handlePaste}
                 onFocus={() => {
                   setTimeout(() => {
                     if (chatWindowRef.current) {
