@@ -651,23 +651,25 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
           <div className="flex items-center gap-2 mb-6 border-b border-slate-200 pb-3">
             <button
               onClick={() => setActiveTab('create')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer text-center ${
                 activeTab === 'create'
                   ? 'bg-slate-900 text-white shadow-2xs'
                   : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
               }`}
             >
-              Buat Nota Transaksi Kasir
+              <span className="sm:hidden">Buat Nota</span>
+              <span className="hidden sm:inline">Buat Nota Transaksi Kasir</span>
             </button>
             <button
               onClick={() => setActiveTab('history')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                 activeTab === 'history'
                   ? 'bg-slate-900 text-white shadow-2xs'
                   : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
               }`}
             >
-              <span>Riwayat Nota &amp; Cetak Ulang</span>
+              <span className="sm:hidden">Riwayat Nota</span>
+              <span className="hidden sm:inline">Riwayat Nota &amp; Cetak Ulang</span>
               {recentInvoices.length > 0 && (
                 <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-extrabold ${
                   activeTab === 'history' ? 'bg-slate-800 text-white' : 'bg-slate-200 text-slate-800'
@@ -990,60 +992,106 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
               Belum ada riwayat nota yang dicetak pada sesi ini. Buat nota di tab "Buat Nota Transaksi Kasir".
             </div>
           ) : (
-            <div className="overflow-x-auto border border-slate-200 rounded-xl">
-              <table className="w-full text-left border-collapse min-w-[700px] text-xs">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-extrabold text-[10px] uppercase tracking-wider">
-                  <tr>
-                    <th className="py-3 px-4">No. Nota &amp; Tanggal</th>
-                    <th className="py-3 px-4">Pelanggan</th>
-                    <th className="py-3 px-4">Rincian Barang</th>
-                    <th className="py-3 px-4 text-right">Total Transaksi</th>
-                    <th className="py-3 px-4 text-right">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {recentInvoices.map((inv: any) => (
-                    <tr key={'recent-inv-' + inv.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="py-3 px-4">
+            <div>
+              {/* Mobile Card List View (< md) */}
+              <div className="md:hidden space-y-3">
+                {recentInvoices.map((inv: any) => (
+                  <div key={'mobile-inv-' + inv.id} className="p-3.5 bg-slate-50/70 border border-slate-200/80 rounded-xl space-y-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
                         <strong className="font-mono font-bold text-slate-900 text-xs block">#{inv.id}</strong>
                         <span className="text-slate-400 text-[10px] block">{inv.date || 'Hari ini'}</span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="font-bold text-slate-900 block">{inv.customerName}</span>
-                        {inv.customerPhone && (
-                          <span className="text-slate-500 text-[11px] font-mono block">{inv.customerPhone}</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 max-w-xs">
-                        <div className="text-[11px] text-slate-700 line-clamp-2">
-                          {(inv.items || []).map((it: any) => `${it.productName || it.name} (${it.quantity}x)`).join(', ') || '-'}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
+                      </div>
+                      <div className="text-right font-mono font-bold text-slate-900 text-xs">
                         {formatCurrency(Number(inv.totalPrice || 0))}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <div className="inline-flex items-center gap-1.5">
-                          <button
-                            onClick={() => handleReprint(inv)}
-                            className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer"
-                            title="Cetak Ulang Nota"
-                          >
-                            Cetak
-                          </button>
-                          <button
-                            onClick={() => handleLoadToCashier(inv)}
-                            className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors cursor-pointer"
-                            title="Muat data ke form kasir"
-                          >
-                            Muat
-                          </button>
-                        </div>
-                      </td>
+                      </div>
+                    </div>
+
+                    <div className="text-xs">
+                      <span className="font-bold text-slate-900 block">{inv.customerName}</span>
+                      {inv.customerPhone && (
+                        <span className="text-slate-500 text-[11px] font-mono block">{inv.customerPhone}</span>
+                      )}
+                    </div>
+
+                    <div className="text-[11px] text-slate-600 bg-white p-2 rounded-lg border border-slate-200/60 line-clamp-2">
+                      {(inv.items || []).map((it: any) => `${it.productName || it.name} (${it.quantity}x)`).join(', ') || '-'}
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                      <button
+                        onClick={() => handleReprint(inv)}
+                        className="flex-1 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer text-center"
+                      >
+                        Cetak Ulang
+                      </button>
+                      <button
+                        onClick={() => handleLoadToCashier(inv)}
+                        className="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors cursor-pointer text-center"
+                      >
+                        Muat ke Kasir
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop Table View (>= md) */}
+              <div className="hidden md:block overflow-x-auto border border-slate-200 rounded-xl">
+                <table className="w-full text-left border-collapse min-w-[700px] text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-extrabold text-[10px] uppercase tracking-wider">
+                    <tr>
+                      <th className="py-3 px-4">No. Nota &amp; Tanggal</th>
+                      <th className="py-3 px-4">Pelanggan</th>
+                      <th className="py-3 px-4">Rincian Barang</th>
+                      <th className="py-3 px-4 text-right">Total Transaksi</th>
+                      <th className="py-3 px-4 text-right">Aksi</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {recentInvoices.map((inv: any) => (
+                      <tr key={'recent-inv-' + inv.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="py-3 px-4">
+                          <strong className="font-mono font-bold text-slate-900 text-xs block">#{inv.id}</strong>
+                          <span className="text-slate-400 text-[10px] block">{inv.date || 'Hari ini'}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="font-bold text-slate-900 block">{inv.customerName}</span>
+                          {inv.customerPhone && (
+                            <span className="text-slate-500 text-[11px] font-mono block">{inv.customerPhone}</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 max-w-xs">
+                          <div className="text-[11px] text-slate-700 line-clamp-2">
+                            {(inv.items || []).map((it: any) => `${it.productName || it.name} (${it.quantity}x)`).join(', ') || '-'}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
+                          {formatCurrency(Number(inv.totalPrice || 0))}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <div className="inline-flex items-center gap-1.5">
+                            <button
+                              onClick={() => handleReprint(inv)}
+                              className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer"
+                              title="Cetak Ulang Nota"
+                            >
+                              Cetak
+                            </button>
+                            <button
+                              onClick={() => handleLoadToCashier(inv)}
+                              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors cursor-pointer"
+                              title="Muat data ke form kasir"
+                            >
+                              Muat
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>

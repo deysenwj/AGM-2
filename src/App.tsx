@@ -2938,7 +2938,7 @@ export default function App() {
                                 e.stopPropagation();
                                 window.open(`https://wa.me/6289694127723?text=${encodeURIComponent(`Halo Toko AGM 2 Padang, saya berminat dan ingin bertanya mengenai produk: ${p.name}`)}`, '_blank');
                               }}
-                              className="flex-1 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1 cursor-pointer truncate"
+                              className="flex-1 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-lg text-[11px] sm:text-xs font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer truncate min-h-[32px]"
                               title="Tanyakan langsung via WhatsApp"
                             >
                               <svg className="w-3.5 h-3.5 fill-white shrink-0" viewBox="0 0 24 24">
@@ -2952,7 +2952,7 @@ export default function App() {
                                 e.stopPropagation();
                                 addToCart(p);
                               }}
-                              className="py-1.5 px-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1 cursor-pointer shrink-0 shadow-2xs"
+                              className="py-1.5 px-2.5 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white rounded-lg text-[11px] sm:text-xs font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer shrink-0 shadow-2xs min-h-[32px]"
                               title="Tambah ke Keranjang Pesanan"
                             >
                               <ShoppingCart className="w-3.5 h-3.5" />
@@ -4861,11 +4861,11 @@ export default function App() {
       {/* ── GUEST / ADMIN PRODUCT DETAIL & INQUIRY MODAL ── */}
       {selectedProductDetail && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
           onClick={() => setSelectedProductDetail(null)}
         >
           <div 
-            className="w-full max-w-[500px] bg-white border border-slate-200 rounded-3xl p-6 shadow-2xl overflow-hidden relative max-h-[90vh] overflow-y-auto animate-pop-in"
+            className="w-full max-w-[500px] bg-white border-t sm:border border-slate-200 rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl overflow-hidden relative max-h-[92vh] sm:max-h-[90vh] overflow-y-auto animate-slide-up sm:animate-pop-in"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close Button */}
@@ -5863,7 +5863,7 @@ export default function App() {
       {cartItems.length > 0 && !isCartOpen && (
         <button
           onClick={() => setIsCartOpen(true)}
-          className="fixed bottom-6 left-6 z-40 bg-slate-900 hover:bg-slate-800 text-white px-4 py-3 rounded-2xl shadow-xl flex items-center gap-3 transition-all transform hover:scale-105 active:scale-95 border border-slate-700/80 cursor-pointer animate-pop-in"
+          className="fixed bottom-4 left-4 sm:bottom-6 sm:left-6 z-40 bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-2xl shadow-xl flex items-center gap-2.5 sm:gap-3 transition-all transform hover:scale-105 active:scale-95 border border-slate-700/80 cursor-pointer animate-pop-in"
           title="Buka Keranjang Pesanan WhatsApp"
         >
           <div className="relative">
@@ -5873,22 +5873,25 @@ export default function App() {
             </span>
           </div>
           <div className="text-left text-xs">
-            <span className="font-extrabold block leading-tight">Keranjang Pesanan</span>
-            <span className="text-[11px] text-slate-300 font-medium">
+            <span className="font-extrabold block leading-tight">
+              <span className="sm:hidden">Keranjang ({cartItems.reduce((acc, it) => acc + it.quantity, 0)})</span>
+              <span className="hidden sm:inline">Keranjang Pesanan</span>
+            </span>
+            <span className="text-[11px] text-slate-300 font-medium hidden sm:block">
               {cartItems.reduce((acc, it) => acc + it.quantity, 0)} item terpilih
             </span>
           </div>
         </button>
       )}
 
-      {/* ── MULTI-ITEM WHATSAPP CART MODAL / DRAWER ── */}
+      {/* ── MULTI-ITEM WHATSAPP CART MODAL / DRAWER (Bottom-sheet on mobile) ── */}
       {isCartOpen && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-fade-in"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/60 backdrop-blur-xs animate-fade-in"
           onClick={() => setIsCartOpen(false)}
         >
           <div 
-            className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl border border-slate-200 overflow-hidden relative max-h-[90vh] flex flex-col animate-pop-in"
+            className="w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl border-t sm:border border-slate-200 overflow-hidden relative max-h-[88vh] sm:max-h-[90vh] flex flex-col animate-slide-up sm:animate-pop-in"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
