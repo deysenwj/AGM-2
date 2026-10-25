@@ -399,11 +399,17 @@ export default function App() {
   const [selectedProductDetail, setSelectedProductDetail] = useState<Product | null>(null);
   const [activeCardMenuId, setActiveCardMenuId] = useState<string | null>(null);
   const [fullscreenImage, setFullscreenImage] = useState<{ urls: string[]; index: number } | null>(null);
+  const [isLightboxZoomed, setIsLightboxZoomed] = useState(false);
+  const lightboxTouchStartRef = useRef<number | null>(null);
   const [activeFooterFaq, setActiveFooterFaq] = useState<number | null>(null);
 
   // Keyboard navigation & body scroll lock for Fullscreen Image Lightbox
   useEffect(() => {
-    if (!fullscreenImage) return;
+    if (!fullscreenImage) {
+      setIsLightboxZoomed(false);
+      return;
+    }
+    setIsLightboxZoomed(false);
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
@@ -427,7 +433,7 @@ export default function App() {
       document.body.style.overflow = originalOverflow;
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [fullscreenImage]);
+  }, [fullscreenImage?.urls, fullscreenImage?.index]);
 
   // Riwayat SKU Produk yang Dihapus State
   const [deletedProductsHistory, setDeletedProductsHistory] = useState<DeletedProductLog[]>(() => {
@@ -4993,40 +4999,40 @@ export default function App() {
                 {selectedProductDetail.name}
               </h2>
 
-              <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3.5 rounded-xl border border-slate-100">
-                {selectedProductDetail.description || 'Tidak ada deskripsi tambahan.'}
+              <p className="text-xs sm:text-[13px] text-slate-600 leading-relaxed">
+                {selectedProductDetail.description || 'Material aluminium pilihan dengan panel ACP berkualitas prima, tahan terhadap air, rayap, dan kelembaban ruangan.'}
               </p>
 
-              {/* Material & Build Specifications */}
-              <div className="grid grid-cols-3 gap-2 pt-0.5 pb-1">
-                <div className="bg-slate-50/80 border border-slate-200/70 rounded-xl p-2.5 flex flex-col justify-between">
-                  <div className="w-6 h-6 rounded-md bg-white border border-slate-200/80 flex items-center justify-center mb-1.5 shadow-2xs text-slate-700">
+              {/* Material & Build Specifications - Architectural Bento Ribbon */}
+              <div className="grid grid-cols-3 divide-x divide-slate-200/80 bg-slate-50/70 border border-slate-200/80 rounded-2xl p-2.5 sm:p-3 text-center shadow-2xs">
+                <div className="px-1.5 flex flex-col items-center justify-center">
+                  <div className="w-7 h-7 rounded-lg bg-white border border-slate-200/80 flex items-center justify-center mb-1.5 shadow-2xs text-slate-800">
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                     </svg>
                   </div>
-                  <div className="text-[11px] font-bold text-slate-900 leading-tight">Anti Rayap & Karat</div>
-                  <div className="text-[10px] text-slate-500 font-medium leading-tight mt-0.5">Tahan air total</div>
+                  <span className="text-[11px] font-bold text-slate-900 leading-tight block">100% Anti Rayap</span>
+                  <span className="text-[9.5px] text-slate-500 font-medium leading-tight block mt-0.5">Tahan air & karat</span>
                 </div>
 
-                <div className="bg-slate-50/80 border border-slate-200/70 rounded-xl p-2.5 flex flex-col justify-between">
-                  <div className="w-6 h-6 rounded-md bg-white border border-slate-200/80 flex items-center justify-center mb-1.5 shadow-2xs text-slate-700">
+                <div className="px-1.5 flex flex-col items-center justify-center">
+                  <div className="w-7 h-7 rounded-lg bg-white border border-slate-200/80 flex items-center justify-center mb-1.5 shadow-2xs text-slate-800">
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                     </svg>
                   </div>
-                  <div className="text-[11px] font-bold text-slate-900 leading-tight">Aluminium / ACP</div>
-                  <div className="text-[10px] text-slate-500 font-medium leading-tight mt-0.5">Rangka presisi</div>
+                  <span className="text-[11px] font-bold text-slate-900 leading-tight block">Aluminium & ACP</span>
+                  <span className="text-[9.5px] text-slate-500 font-medium leading-tight block mt-0.5">Kuat & presisi</span>
                 </div>
 
-                <div className="bg-slate-50/80 border border-slate-200/70 rounded-xl p-2.5 flex flex-col justify-between">
-                  <div className="w-6 h-6 rounded-md bg-white border border-slate-200/80 flex items-center justify-center mb-1.5 shadow-2xs text-slate-700">
+                <div className="px-1.5 flex flex-col items-center justify-center">
+                  <div className="w-7 h-7 rounded-lg bg-white border border-slate-200/80 flex items-center justify-center mb-1.5 shadow-2xs text-slate-800">
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
                     </svg>
                   </div>
-                  <div className="text-[11px] font-bold text-slate-900 leading-tight">Custom Ukuran</div>
-                  <div className="text-[10px] text-slate-500 font-medium leading-tight mt-0.5">Sesuai ruangan</div>
+                  <span className="text-[11px] font-bold text-slate-900 leading-tight block">Bisa Custom</span>
+                  <span className="text-[9.5px] text-slate-500 font-medium leading-tight block mt-0.5">Sesuai ruangan</span>
                 </div>
               </div>
 
@@ -5095,9 +5101,57 @@ export default function App() {
         <div 
           className="fixed inset-0 z-[100002] flex items-center justify-center p-2 sm:p-4 bg-black/95 backdrop-blur-md animate-fade-in touch-none select-none"
           onClick={() => setFullscreenImage(null)}
+          onTouchStart={(e) => {
+            lightboxTouchStartRef.current = e.touches[0].clientX;
+          }}
+          onTouchEnd={(e) => {
+            if (lightboxTouchStartRef.current === null) return;
+            const deltaX = e.changedTouches[0].clientX - lightboxTouchStartRef.current;
+            lightboxTouchStartRef.current = null;
+            if (deltaX > 45 && fullscreenImage.urls.length > 1) {
+              setFullscreenImage(prev => prev ? {
+                ...prev,
+                index: prev.index === 0 ? prev.urls.length - 1 : prev.index - 1
+              } : null);
+            } else if (deltaX < -45 && fullscreenImage.urls.length > 1) {
+              setFullscreenImage(prev => prev ? {
+                ...prev,
+                index: prev.index === prev.urls.length - 1 ? 0 : prev.index + 1
+              } : null);
+            }
+          }}
         >
           {/* Action Bar (Top) */}
           <div className="absolute top-4 sm:top-5 right-4 sm:right-5 flex items-center gap-2 z-30" onClick={(e) => e.stopPropagation()}>
+            {/* Zoom Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setIsLightboxZoomed(z => !z)}
+              className="text-white/80 hover:text-white bg-white/10 hover:bg-white/20 h-10 px-3 rounded-full flex items-center gap-1.5 backdrop-blur-md transition-all text-xs font-semibold cursor-pointer"
+              title={isLightboxZoomed ? "Perkecil (Fit)" : "Perbesar Detail (Zoom)"}
+            >
+              {isLightboxZoomed ? (
+                <>
+                  <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    <line x1="8" y1="11" x2="14" y2="11" />
+                  </svg>
+                  <span className="hidden sm:inline">Fit</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    <line x1="11" y1="8" x2="11" y2="14" />
+                    <line x1="8" y1="11" x2="14" y2="11" />
+                  </svg>
+                  <span className="hidden sm:inline">Zoom</span>
+                </>
+              )}
+            </button>
+
             {fullscreenImage.urls[fullscreenImage.index] && (
               <a
                 href={fullscreenImage.urls[fullscreenImage.index]}
@@ -5128,8 +5182,8 @@ export default function App() {
 
           {/* Counter Badge */}
           {fullscreenImage.urls.length > 1 && (
-            <div className="absolute top-4 sm:top-5 left-4 sm:left-5 text-white/90 bg-white/10 px-3.5 py-1.5 rounded-full text-xs font-extrabold tracking-widest backdrop-blur-md z-30">
-              {fullscreenImage.index + 1} / {fullscreenImage.urls.length}
+            <div className="absolute top-4 sm:top-5 left-4 sm:left-5 text-white/90 bg-white/10 px-3.5 py-1.5 rounded-full text-xs font-extrabold tracking-widest backdrop-blur-md z-30 flex items-center gap-1.5">
+              <span>{fullscreenImage.index + 1} / {fullscreenImage.urls.length}</span>
             </div>
           )}
 
@@ -5145,8 +5199,8 @@ export default function App() {
                     index: prev.index === 0 ? prev.urls.length - 1 : prev.index - 1
                   } : null);
                 }}
-                className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/15 hover:bg-white/30 text-white flex items-center justify-center backdrop-blur-md transition-all active:scale-95 z-30 cursor-pointer"
-                title="Foto Sebelumnya"
+                className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/15 hover:bg-white/30 text-white flex items-center justify-center backdrop-blur-md transition-all active:scale-95 z-30 cursor-pointer shadow-lg"
+                title="Foto Sebelumnya (Panah Kiri)"
               >
                 <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -5161,8 +5215,8 @@ export default function App() {
                     index: prev.index === prev.urls.length - 1 ? 0 : prev.index + 1
                   } : null);
                 }}
-                className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/15 hover:bg-white/30 text-white flex items-center justify-center backdrop-blur-md transition-all active:scale-95 z-30 cursor-pointer"
-                title="Foto Selanjutnya"
+                className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/15 hover:bg-white/30 text-white flex items-center justify-center backdrop-blur-md transition-all active:scale-95 z-30 cursor-pointer shadow-lg"
+                title="Foto Selanjutnya (Panah Kanan)"
               >
                 <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -5173,7 +5227,7 @@ export default function App() {
 
           {/* Fullsize Image Frame */}
           <div 
-            className="w-full max-w-6xl max-h-[92vh] p-2 relative flex flex-col items-center justify-center"
+            className="w-full max-w-6xl max-h-[92vh] p-2 relative flex flex-col items-center justify-center overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {fullscreenImage.urls[fullscreenImage.index] ? (
@@ -5181,9 +5235,13 @@ export default function App() {
                 key={fullscreenImage.urls[fullscreenImage.index]}
                 src={getOptimizedImageUrl(fullscreenImage.urls[fullscreenImage.index], 1600)} 
                 alt="Foto Penuh Produk" 
-                className="max-w-full max-h-[82vh] sm:max-h-[86vh] object-contain rounded-2xl shadow-2xl transition-transform select-none cursor-pointer"
-                onClick={() => setFullscreenImage(null)}
-                title="Klik untuk menutup"
+                className={`max-w-full max-h-[80vh] sm:max-h-[85vh] object-contain rounded-2xl shadow-2xl transition-transform duration-300 ease-out select-none ${
+                  isLightboxZoomed 
+                    ? "scale-140 sm:scale-160 cursor-zoom-out" 
+                    : "scale-100 cursor-zoom-in"
+                }`}
+                onClick={() => setIsLightboxZoomed(z => !z)}
+                title={isLightboxZoomed ? "Klik untuk perkecil" : "Klik untuk zoom detail"}
                 onError={(e) => {
                   const rawUrl = fullscreenImage.urls[fullscreenImage.index];
                   if (rawUrl && e.currentTarget.src !== rawUrl) {
@@ -5194,8 +5252,10 @@ export default function App() {
             ) : (
               <div className="text-white/60 text-xs">Foto tidak tersedia</div>
             )}
-            <p className="text-white/50 text-[11px] mt-2 font-medium hidden sm:block">
-              Klik di luar foto atau tekan Esc untuk menutup
+            <p className="text-white/50 text-[11px] mt-2.5 font-medium select-none flex items-center gap-2">
+              <span>{isLightboxZoomed ? "Klik foto untuk fit layar" : "Klik foto untuk zoom detail"}</span>
+              {fullscreenImage.urls.length > 1 && <span>• Geser layar untuk foto lain</span>}
+              <span className="hidden sm:inline">• Esc untuk tutup</span>
             </p>
           </div>
         </div>
