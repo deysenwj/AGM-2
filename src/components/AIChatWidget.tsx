@@ -839,10 +839,10 @@ const AIChatWidget: React.FC = () => {
                       Meja makan kayu
                     </button>
                     <button
-                      onClick={() => sendMessage('Berapa estimasi pengiriman ke Padang kota?')}
+                      onClick={() => sendMessage('Berapa estimasi pengiriman ke area Ketapang?')}
                       className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-md text-[11px] font-medium transition-colors cursor-pointer"
                     >
-                      Info ongkir Padang
+                      Info ongkir Ketapang
                     </button>
                   </div>
                 </div>

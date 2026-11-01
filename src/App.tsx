@@ -778,7 +778,7 @@ export default function App() {
       return acc + (effPrice * item.quantity);
     }, 0);
 
-    const message = `Halo Admin Toko AGM 2 Padang, saya ingin memesan daftar produk berikut:\n\n${lines.join('\n')}\n\n*Estimasi Total: Rp ${total.toLocaleString('id-ID')}*\n\nMohon konfirmasi ketersediaan stok & ongkir ke alamat saya. Terima kasih!`;
+    const message = `Halo Admin Toko AGM 2 (Ketapang), saya ingin memesan daftar produk berikut:\n\n${lines.join('\n')}\n\n*Estimasi Total: Rp ${total.toLocaleString('id-ID')}*\n\nMohon konfirmasi ketersediaan stok & ongkir ke alamat saya. Terima kasih!`;
     return `https://wa.me/6289694127723?text=${encodeURIComponent(message)}`;
   };
 
@@ -2510,7 +2510,7 @@ export default function App() {
             <div className="flex justify-between items-center pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <img src="/logo.png" alt="AGM 2 Logo" className="h-6.5 w-auto object-contain" />
-                <span className="font-extrabold text-slate-900 text-xs tracking-tight">Katalog Padang</span>
+                <span className="font-extrabold text-slate-900 text-xs tracking-tight">Katalog AGM 2</span>
               </div>
               <button onClick={() => setIsSidebarOpen(false)} className="text-slate-400 hover:text-slate-900 flex items-center justify-center p-1 rounded-lg cursor-pointer">
                 <X className="w-4 h-4" />
@@ -3006,7 +3006,7 @@ export default function App() {
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                window.open(`https://wa.me/6289694127723?text=${encodeURIComponent(`Halo Toko AGM 2 Padang, saya berminat dan ingin bertanya mengenai produk: ${p.name}`)}`, '_blank');
+                                window.open(`https://wa.me/6289694127723?text=${encodeURIComponent(`Halo Toko AGM 2 (Ketapang), saya berminat dan ingin bertanya mengenai produk: ${p.name}`)}`, '_blank');
                               }}
                               className="flex-1 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-lg text-[11px] sm:text-xs font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer truncate min-h-[32px]"
                               title="Tanyakan langsung via WhatsApp"
@@ -4825,7 +4825,7 @@ export default function App() {
                   </span>
                 </div>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Pusat penjualan Furniture &amp; Elektronik berkualitas terbaik di Padang. Melayani kebutuhan rumah tangga, kantor, dan instansi dengan harga kompetitif dan layanan prima.
+                  Pusat penjualan Furniture &amp; Elektronik berkualitas terbaik di Ketapang. Melayani kebutuhan rumah tangga, kantor, dan instansi dengan harga kompetitif dan layanan prima.
                 </p>
                 <div className="pt-1 flex items-center gap-2 text-xs text-slate-400 font-semibold">
                   <svg className="w-4 h-4 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -4836,14 +4836,14 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Column 2: Interactive Footer FAQ (100% Relevant for Toko AGM 2 Padang Showcase Catalog) */}
+              {/* Column 2: Interactive Footer FAQ (100% Relevant for Toko AGM 2 Ketapang Showcase Catalog) */}
               <div className="space-y-3">
                 <h4 className="text-xs font-extrabold uppercase tracking-widest text-white">Informasi &amp; FAQ</h4>
                 <div className="space-y-2 text-xs">
                   {[
                     {
                       q: 'Bagaimana cara kerja web katalog ini?',
-                      a: 'Web ini menampilkan stok persediaan barang dan harga secara real-time. Anda dapat melihat foto produk penuh, lalu menghubungi kasir via WhatsApp atau datang langsung ke toko fisik di Padang.'
+                      a: 'Web ini menampilkan stok persediaan barang dan harga secara real-time. Anda dapat melihat foto produk penuh, lalu menghubungi kasir via WhatsApp atau datang langsung ke toko fisik di Ketapang.'
                     },
                     {
                       q: 'Apakah stok dan harga selalu akurat?',
@@ -4855,7 +4855,7 @@ export default function App() {
                     },
                     {
                       q: 'Apakah toko menyediakan pengantaran ke rumah?',
-                      a: 'Ya, toko kami menyediakan kurir dan armada pengangkut untuk mengantar barang langsung ke alamat rumah Anda di wilayah Padang dan sekitarnya.'
+                      a: 'Ya, toko kami menyediakan kurir dan armada pengangkut untuk mengantar barang langsung ke alamat rumah Anda di wilayah Ketapang dan sekitarnya.'
                     }
                   ].map((faq, idx) => {
                     const isOpen = activeFooterFaq === idx;
@@ -4949,7 +4949,7 @@ export default function App() {
             <div className="pt-8 mt-12 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
               <span>© 2026 CV ADI GUNA MANDIRI. All rights reserved.</span>
               <div className="flex gap-4 text-[11px] text-slate-400 font-semibold">
-                <span>Furniture &amp; Elektronik Padang</span>
+                <span>Furniture &amp; Elektronik Ketapang</span>
               </div>
             </div>
           </div>
@@ -5067,7 +5067,7 @@ export default function App() {
                 </button>
 
                 <a 
-                  href={`https://wa.me/6289694127723?text=${encodeURIComponent(`Halo Toko AGM 2 Padang, saya berminat dan ingin menanyakan harga/detail produk:\n- Nama: ${selectedProductDetail.name}\n- Kategori: ${selectedProductDetail.category} ${selectedProductDetail.subcategory}`)}`}
+                  href={`https://wa.me/6289694127723?text=${encodeURIComponent(`Halo Toko AGM 2 (Ketapang), saya berminat dan ingin menanyakan harga/detail produk:\n- Nama: ${selectedProductDetail.name}\n- Kategori: ${selectedProductDetail.category} ${selectedProductDetail.subcategory}`)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-2xs active:scale-[0.98]"
@@ -5270,7 +5270,7 @@ export default function App() {
                 <img src="/logo.png" alt="AGM 2 Logo" className="h-8 w-auto object-contain" />
                 <div>
                   <h1 className="font-extrabold text-lg text-slate-900 leading-tight">Login Admin</h1>
-                  <p className="text-xs text-slate-500">Panel Manajemen AGM 2 Padang</p>
+                  <p className="text-xs text-slate-500">Panel Manajemen AGM 2 Ketapang</p>
                 </div>
               </div>
               <button onClick={() => setIsLoginOpen(false)} className="text-slate-400 hover:text-slate-900 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer">
@@ -6049,7 +6049,7 @@ export default function App() {
                 </div>
                 <div>
                   <h3 className="font-extrabold text-base text-slate-900 leading-tight">Keranjang Pesanan</h3>
-                  <p className="text-xs text-slate-500">Pesan langsung ke WhatsApp Toko AGM 2 Padang</p>
+                  <p className="text-xs text-slate-500">Pesan langsung ke WhatsApp Toko AGM 2 Ketapang</p>
                 </div>
               </div>
               <button 
