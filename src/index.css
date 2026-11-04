@@ -121,3 +121,29 @@ h1, h2, h3, h4, h5, h6 {
   -webkit-overflow-scrolling: touch;
 }
 
+/* Floating chat launcher */
+@keyframes agm-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+
+@keyframes agm-glow {
+  0%, 100% { box-shadow: 0 8px 24px -6px rgba(15, 23, 42, 0.35), 0 0 0 0 rgba(217, 119, 6, 0.45); }
+  50%      { box-shadow: 0 14px 32px -8px rgba(15, 23, 42, 0.45), 0 0 0 8px rgba(217, 119, 6, 0); }
+}
+
+.animate-agm-float {
+  animation: agm-float 3.6s ease-in-out infinite, agm-glow 3.6s ease-in-out infinite;
+  will-change: transform;
+}
+
+.animate-agm-float:hover {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-agm-float {
+    animation: none;
+  }
+}
+

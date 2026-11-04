@@ -42,17 +42,28 @@ const getFileBadge = (filename: string): string => {
   return 'FILE';
 };
 
+// Rapikan teks balasan AI: buang penanda markdown & normalisasi spasi/baris
+const sanitizeAiText = (text: string): string =>
+  text
+    .replace(/\*\*+/g, '')                                   // buang ** dan ***
+    .replace(/\*/g, '')                                      // buang * sisa
+    .replace(/^\s*[-•]\s+/gm, '• ')                          // bullet seragam
+    .replace(/[ \t]+/g, ' ')                                 // spasi ganda jadi satu
+    .replace(/[ \t]*\n[ \t]*/g, '\n')                        // rapikan tepi baris
+    .replace(/\n{3,}/g, '\n\n')                              // maksimal satu baris kosong
+    .trim();
+
 const parseDesignStateFromAiText = (rawText: string): { cleanText: string; designState?: FurnitureDesignState } => {
   const jsonBlockRegex = /```json_design_state\s*([\s\S]*?)\s*```/;
   const match = rawText.match(jsonBlockRegex);
   
   if (!match) {
-    return { cleanText: rawText };
+    return { cleanText: sanitizeAiText(rawText) };
   }
 
   try {
     const parsedObj = JSON.parse(match[1]);
-    const cleanText = rawText.replace(jsonBlockRegex, '').trim();
+    const cleanText = sanitizeAiText(rawText.replace(jsonBlockRegex, ''));
     
     return {
       cleanText: cleanText || 'Berikut adalah draf spesifikasi furniture sesuai kebutuhan Anda:',
@@ -92,7 +103,12 @@ const AIChatWidget: React.FC = () => {
   const [history, setHistory] = useState<Message[]>(() => {
     try {
       const saved = localStorage.getItem('agm2_ai_chat_history');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        // Bersihkan sisa markdown pada riwayat lama
+        return (JSON.parse(saved) as Message[]).map(m =>
+          m.sender === 'ai' ? { ...m, text: sanitizeAiText(m.text) } : m
+        );
+      }
     } catch {}
     return [];
   });
@@ -738,16 +754,18 @@ const AIChatWidget: React.FC = () => {
 
   return (
     <>
-      {/* 52px Circular Launcher with AGMAssistantMark (Dark Variant) */}
+      {/* Floating launcher with animated AGM mark */}
       {!isOpen && (
         <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50">
           <button
             onClick={() => setIsOpen(true)}
-            aria-label="AGM Assistant"
-            title="AGM Assistant"
-            className="bg-slate-900 text-white rounded-full w-12 h-12 shadow-lg hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center border border-slate-700 focus:outline-none cursor-pointer"
+            aria-label="Buka AGM Assistant"
+            title="Tanya AGM Assistant"
+            className="group relative animate-agm-float bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white rounded-full w-14 h-14 hover:scale-105 active:scale-95 transition-transform duration-200 flex items-center justify-center ring-1 ring-white/15 hover:ring-amber-400/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 cursor-pointer"
           >
-            <AGMAssistantMark variant="dark" className="w-5 h-5" />
+            <span className="absolute inset-0 rounded-full bg-gradient-to-tr from-amber-500/20 via-transparent to-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <AGMAssistantMark variant="dark" className="w-6 h-6 relative" />
+            <span className="sr-only">Tanya AGM Assistant</span>
           </button>
         </div>
       )}
