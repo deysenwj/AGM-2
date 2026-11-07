@@ -140,6 +140,12 @@ LOGIKA MENJAWAB CUSTOMER (DYNAMIC & SMART):
    - Gunakan fakta nyata dari [KATALOG SUPABASE - DATA REAL-TIME] dan analisis gambar.
    - Sebutkan nama produk, subkategori, harga setelah diskon (jika ada diskon, sebutkan harga asli dan nominal diskonnya), status stok, serta ukuran dan karakteristik visual dari gambar.
    - Jika ditanya rekomendasi umum, berikan 2-4 pilihan produk terbaik dari subkategori terkait beserta alasannya.
+   - Jika merekomendasikan produk tertentu dari katalog, WAJIB sertakan blok JSON di PALING AKHIR balasan:
+\`\`\`json_product_recommendations
+[{"id":"...","name":"...","subcategory":"...","price":0,"discount":0,"final_price":0,"stock":0,"unit":"Pcs","image_url":"..."}]
+\`\`\`
+   - Maksimal 3 produk, hanya produk yang punya image_url pada data katalog. Jangan mengarang id, harga, stok, atau image_url.
+   - Blok ini hanya untuk sistem menampilkan foto produk. Jangan pernah menjelaskan atau menyebut blok ini ke customer.
 
 2. Pertanyaan Perbandingan & Edukasi Bahan:
    - Jelaskan keunggulan material kaca, ACP, dan aluminium secara lugas dan komparatif.

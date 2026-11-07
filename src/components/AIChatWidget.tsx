@@ -4,6 +4,8 @@ import { formatFileSize } from '../config/fileConfig';
 import type { FurnitureDesignState } from '../types/furniture';
 import { DesignSummaryCard } from './DesignSummaryCard';
 import { AGMAssistantMark } from './AGMAssistantMark';
+import { AIRichText } from './AIRichText';
+import { AIProductCard, type AIProductRecommendation } from './AIProductCard';
 
 interface AttachmentInfo {
   id?: string;
@@ -20,6 +22,7 @@ interface Message {
   timestamp: string;
   attachment?: AttachmentInfo;
   designState?: FurnitureDesignState;
+  productRecommendations?: AIProductRecommendation[];
   isEdited?: boolean;
 }
 
@@ -42,31 +45,66 @@ const getFileBadge = (filename: string): string => {
   return 'FILE';
 };
 
-// Rapikan teks balasan AI: buang penanda markdown & normalisasi spasi/baris
+// Rapikan teks balasan AI: normalisasi baris & spasi, format dipertahankan untuk AIRichText
 const sanitizeAiText = (text: string): string =>
   text
-    .replace(/\*\*+/g, '')                                   // buang ** dan ***
-    .replace(/\*/g, '')                                      // buang * sisa
-    .replace(/^\s*[-•]\s+/gm, '• ')                          // bullet seragam
-    .replace(/[ \t]+/g, ' ')                                 // spasi ganda jadi satu
-    .replace(/[ \t]*\n[ \t]*/g, '\n')                        // rapikan tepi baris
+    .replace(/\r\n/g, '\n')
+    .replace(/[ \t]+$/gm, '')                                // spasi di ujung baris
+    .replace(/^[ \t]+/gm, '')                                // indentasi berlebih
     .replace(/\n{3,}/g, '\n\n')                              // maksimal satu baris kosong
     .trim();
 
-const parseDesignStateFromAiText = (rawText: string): { cleanText: string; designState?: FurnitureDesignState } => {
+const PRODUCT_BLOCK_REGEX = /```json_product_recommendations\s*([\s\S]*?)\s*```/;
+
+// Ambil rekomendasi produk terstruktur dari balasan AI (hanya field katalog nyata)
+const parseProductRecommendations = (rawText: string): AIProductRecommendation[] => {
+  const match = rawText.match(PRODUCT_BLOCK_REGEX);
+  if (!match) return [];
+
+  try {
+    const parsed = JSON.parse(match[1]);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .filter((item: any) => item && typeof item.name === 'string' && item.name.trim() && item.image_url)
+      .slice(0, 3)
+      .map((item: any) => ({
+        id: typeof item.id === 'string' ? item.id : undefined,
+        name: String(item.name).trim(),
+        subcategory: item.subcategory ? String(item.subcategory) : undefined,
+        price: Number(item.price) || undefined,
+        discount: Number(item.discount) || undefined,
+        final_price: Number(item.final_price) || undefined,
+        stock: Number(item.stock) || 0,
+        unit: item.unit ? String(item.unit) : undefined,
+        image_url: String(item.image_url).trim(),
+      }));
+  } catch (err) {
+    console.warn('Failed parsing json_product_recommendations block from AI:', err);
+    return [];
+  }
+};
+
+const parseDesignStateFromAiText = (rawText: string): { cleanText: string; designState?: FurnitureDesignState; productRecommendations?: AIProductRecommendation[] } => {
+  const productRecommendations = parseProductRecommendations(rawText);
+  const withoutProducts = rawText.replace(PRODUCT_BLOCK_REGEX, '');
   const jsonBlockRegex = /```json_design_state\s*([\s\S]*?)\s*```/;
-  const match = rawText.match(jsonBlockRegex);
+  const match = withoutProducts.match(jsonBlockRegex);
   
   if (!match) {
-    return { cleanText: sanitizeAiText(rawText) };
+    return {
+      cleanText: sanitizeAiText(withoutProducts),
+      productRecommendations: productRecommendations.length ? productRecommendations : undefined
+    };
   }
 
   try {
     const parsedObj = JSON.parse(match[1]);
-    const cleanText = sanitizeAiText(rawText.replace(jsonBlockRegex, ''));
+    const cleanText = sanitizeAiText(withoutProducts.replace(jsonBlockRegex, ''));
     
     return {
       cleanText: cleanText || 'Berikut adalah draf spesifikasi furniture sesuai kebutuhan Anda:',
+      productRecommendations: productRecommendations.length ? productRecommendations : undefined,
       designState: {
         version: parsedObj.version || 1,
         category: parsedObj.category || 'furniture',
@@ -91,7 +129,10 @@ const parseDesignStateFromAiText = (rawText: string): { cleanText: string; desig
     };
   } catch (err) {
     console.warn('Failed parsing json_design_state block from AI:', err);
-    return { cleanText: rawText };
+    return {
+      cleanText: sanitizeAiText(withoutProducts),
+      productRecommendations: productRecommendations.length ? productRecommendations : undefined
+    };
   }
 };
 
@@ -160,7 +201,7 @@ const AIChatWidget: React.FC = () => {
     setLoadingStatusText('Sedang memproses...');
 
     if (status === 'completed' && responseText) {
-      const { cleanText, designState } = parseDesignStateFromAiText(responseText);
+      const { cleanText, designState, productRecommendations } = parseDesignStateFromAiText(responseText);
       
       if (designState) {
         setActiveDesignState(designState);
@@ -173,7 +214,8 @@ const AIChatWidget: React.FC = () => {
               sender: 'ai', 
               text: cleanText, 
               timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              designState: designState
+              designState: designState,
+              productRecommendations
             }
           : msg
       ));
@@ -907,7 +949,7 @@ const AIChatWidget: React.FC = () => {
                               <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                             </svg>
                           </button>
-                          <div className="bg-slate-900 text-white rounded-lg px-3.5 py-2.5 text-xs sm:text-sm font-normal">
+                          <div className="bg-slate-900 text-white rounded-lg px-3.5 py-2.5 text-[13.5px] sm:text-[14px] font-normal">
                             {msg.attachment && (
                               <div className="flex items-center gap-1.5 text-slate-300 border-b border-slate-800 pb-1.5 mb-1.5 text-xs">
                                 <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -936,9 +978,20 @@ const AIChatWidget: React.FC = () => {
                         </div>
                       ) : (
                         <div>
-                          <div className="whitespace-pre-wrap leading-relaxed break-words text-slate-900 text-xs sm:text-sm font-normal">
-                            {msg.text}
+                          <div className="flex items-start gap-2">
+                            <AGMAssistantMark variant="light" className="mt-0.5 h-6 w-6 shrink-0 opacity-90" />
+                            <div className="min-w-0 flex-1 break-words text-slate-900">
+                              <AIRichText text={msg.text} />
+                            </div>
                           </div>
+
+                          {!!msg.productRecommendations?.length && (
+                            <div className="mt-2.5 ml-8 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                              {msg.productRecommendations.map((product, idx) => (
+                                <AIProductCard key={product.id || `${product.name}-${idx}`} product={product} />
+                              ))}
+                            </div>
+                          )}
 
                           {msg.designState && (
                             <DesignSummaryCard
