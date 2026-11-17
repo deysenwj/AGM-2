@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_WORKER_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+const supabaseServiceKey = process.env.SUPABASE_WORKER_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const supabase = (supabaseUrl && supabaseServiceKey) ? createClient(supabaseUrl, supabaseServiceKey) : null;
 
@@ -32,17 +32,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     // 1. JWT Authentication & Admin Authorization Check
     const authHeader = req.headers['authorization'];
-    const fallbackAdminEmail = typeof req.headers['x-admin-email'] === 'string'
-      ? req.headers['x-admin-email'].toLowerCase()
-      : '';
-
     if (!supabase) {
       return res.status(500).json({ success: false, message: 'Konfigurasi Supabase server error.' });
     }
 
-    let userEmail = fallbackAdminEmail;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ success: false, message: 'Unauthorized: Missing Authorization header.' });
+    }
 
-    if (authHeader && authHeader.startsWith('Bearer ')) {
+    let userEmail = '';
+
+    if (authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
       const { data: userData, error: authError } = await supabase.auth.getUser(token);
       if (authError || !userData?.user?.email) {

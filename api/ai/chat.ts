@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://raizwhqfiowyzbhiwbnq.supabase.co';
-const supabaseKey = (process.env.SUPABASE_WORKER_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '') as string;
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+const supabaseKey = (process.env.SUPABASE_WORKER_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '') as string;
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -294,13 +294,13 @@ function catalogTokenScore(query: string, product: any): number {
     product.name, product.subcategory, product.description,
     product.material, product.color, product.unit, product.arrival_type || product.arrivalType
   ].join(' '));
-  
+
   const queryTokens = normalizedQuery
     .split(/\s+/)
     .filter(token => token.length >= 2 && !CATALOG_STOPWORDS.has(token));
 
   if (queryTokens.length === 0) return 0;
-  
+
   let score = 0;
   for (const token of queryTokens) {
     if (searchable.includes(token)) {
@@ -879,7 +879,7 @@ async function generateDynamicConsultantFallback(userMessage: string, currentDes
       const finalPrice = Math.max(0, priceNum - discountNum);
       const stockNum = Number(item.stock) || 0;
       const stockStatus = stockNum > 0 ? `Ready (${stockNum} ${item.unit || 'unit'})` : 'Pre-Order / Habis';
-      
+
       let priceText = 'Rp 0 (Hubungi Admin / Custom)';
       if (priceNum > 0) {
         priceText = discountNum > 0
@@ -1016,7 +1016,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const rawGeminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.VITE_GEMINI_API_KEY;
         const rawOpenRouterKey = process.env.OPENROUTER_API_KEY;
         const rawNineRouterBase = process.env.NINE_ROUTER_BASE_URL || 'http://localhost:20128/v1';
-        const rawNineRouterKey = process.env.NINE_ROUTER_API_KEY || 'sk-c830fbb86ebb3f99-c4kzdx-0e7bace3';
+        const rawNineRouterKey = process.env.NINE_ROUTER_API_KEY || '';
 
         let aiResponseText: string | null = null;
 

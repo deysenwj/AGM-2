@@ -1,45 +1,24 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Fallback default credentials if Vercel environment variables are not configured in Vercel dashboard
-const DEFAULT_SUPABASE_URL = 'https://raizwhqfiowyzbhiwbnq.supabase.co';
-const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_Yv1DNnIWI-PJUbQwdTfttQ_ji6W4Ssj';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://missing-supabase.invalid';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'missing-supabase-anon-key';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
-
-// Cek apakah url valid
 export const isSupabaseConfigured = Boolean(
-  supabaseUrl && 
-  supabaseAnonKey && 
-  !supabaseUrl.includes('ganti-dengan-project-id-anda') && 
+  import.meta.env.VITE_SUPABASE_URL &&
+  import.meta.env.VITE_SUPABASE_ANON_KEY &&
+  !supabaseUrl.includes('ganti-dengan-project-id-anda') &&
   !supabaseAnonKey.includes('ganti-dengan-anon-key-anda')
 );
 
-export const supabase = createClient(
-  supabaseUrl, 
-  supabaseAnonKey,
-  {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: { persistSession: true, autoRefreshToken: true },
+  realtime: { params: { eventsPerSecond: 40 } },
+  global: {
+    fetch: (url, options = {}) => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 45000);
+      return fetch(url, { ...options, signal: options.signal || controller.signal })
+        .finally(() => clearTimeout(timeoutId));
     },
-    // ponytail: disable auto-connect realtime to save mobile bandwidth;
-    // channels are explicitly subscribed in App.tsx
-    realtime: {
-      params: {
-        eventsPerSecond: 40,
-      },
-    },
-    global: {
-      // 45s generous fetch timeout for mobile 4G/cellular connections
-      fetch: (url, options = {}) => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 45000);
-        return fetch(url, {
-          ...options,
-          signal: options.signal || controller.signal,
-        }).finally(() => clearTimeout(timeoutId));
-      },
-    },
-  }
-);
+  },
+});

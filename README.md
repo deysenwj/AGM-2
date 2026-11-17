@@ -30,3 +30,10 @@ If you are developing a production application, we recommend enabling type-aware
 ```
 
 See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+
+## Project Technology Stack
+
+- **Frontend**: React 19, TypeScript, Vite 8
+- **Backend**: Python ai_worker.py
+- **Database & realtime**: Supabase
+- **Image handling**: Cloudinary
