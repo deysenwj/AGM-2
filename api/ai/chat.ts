@@ -1,5 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import {
+  type CatalogProduct,
+  type ConversationTurn,
+  type ConversationContext,
+  type UserIntent,
+  type FilterResult,
+  classifyUserIntent,
+  mergeConversationContext,
+  filterAndRankCatalogProducts,
+  generateGroundedResponse
+} from './intelligence.ts';
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 const supabaseKey = (process.env.SUPABASE_WORKER_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '') as string;
@@ -324,7 +335,19 @@ function catalogTokenScore(query: string, product: any): number {
   return score;
 }
 
-async function fetchCatalogContext(userMessage: string): Promise<{ catalogPrompt: string; topMatchedProduct: any | null }> {
+async function fetchCatalogContext(
+  userMessage: string,
+  sessionContext?: ConversationContext
+): Promise<{
+  catalogPrompt: string;
+  topMatchedProduct: any | null;
+  filterResult: FilterResult;
+  intent: UserIntent;
+  context: ConversationContext;
+}> {
+  const intent = classifyUserIntent(userMessage, sessionContext);
+  const context = mergeConversationContext(sessionContext, userMessage, intent);
+
   try {
     const { data, error } = await supabase
       .from('products')
@@ -334,17 +357,47 @@ async function fetchCatalogContext(userMessage: string): Promise<{ catalogPrompt
 
     if (error || !data || data.length === 0) {
       console.warn('Catalog retrieval warning:', error?.message || 'empty result');
+      const emptyResult: FilterResult = {
+        matchedProducts: [],
+        filteredOutCount: 0,
+        reasoning: 'Katalog kosong atau koneksi Supabase bermasalah',
+        isBudgetConstrained: false,
+        closestAlternatives: [],
+        unmetConstraint: 'none'
+      };
       return {
         catalogPrompt: '[KATALOG SUPABASE]\nKatalog tidak tersedia sementara. Jawab berdasarkan panduan resmi AGM.\n[/KATALOG SUPABASE]',
-        topMatchedProduct: null
+        topMatchedProduct: null,
+        filterResult: emptyResult,
+        intent,
+        context
       };
     }
 
+    const allProducts: CatalogProduct[] = data.map((p: any) => ({
+      id: p.id,
+      name: p.name || '',
+      category: p.category || '',
+      subcategory: p.subcategory || '',
+      description: p.description || '',
+      price: Number(p.price) || 0,
+      discount: Number(p.discount) || 0,
+      final_price: Math.max(0, (Number(p.price) || 0) - (Number(p.discount) || 0)),
+      stock: Number(p.stock) || 0,
+      unit: p.unit || 'Pcs',
+      arrival_type: p.arrival_type || '',
+      image_url: p.image_url || (Array.isArray(p.images) && p.images[0]) || '',
+      images: Array.isArray(p.images) ? p.images : []
+    }));
+
+    const filterResult = filterAndRankCatalogProducts(allProducts, context.constraints);
+    const topMatched = filterResult.matchedProducts[0] || filterResult.closestAlternatives[0] || null;
+
     // Build real-time subcategory overview
     const subcatMap: Record<string, { count: number; minPrice: number; maxPrice: number; sample: string[] }> = {};
-    for (const p of data) {
+    for (const p of allProducts) {
       const sc = p.subcategory || p.category || 'Lainnya';
-      const effPrice = Math.max(0, (Number(p.price) || 0) - (Number(p.discount) || 0));
+      const effPrice = p.final_price || 0;
       if (!subcatMap[sc]) {
         subcatMap[sc] = { count: 0, minPrice: effPrice || 999999999, maxPrice: effPrice, sample: [] };
       }
@@ -364,48 +417,67 @@ async function fetchCatalogContext(userMessage: string): Promise<{ catalogPrompt
       return `- ${catName} (${info.count} produk, ${minText} - ${maxText}): Contoh: ${info.sample.join(', ')}`;
     }).join('\n');
 
-    const ranked = data
-      .map((product: any) => ({ product, score: catalogTokenScore(userMessage, product) }))
-      .sort((a, b) => b.score - a.score || Number(b.product.stock || 0) - Number(a.product.stock || 0));
+    const candidateProducts = filterResult.matchedProducts.length > 0
+      ? filterResult.matchedProducts.slice(0, 10)
+      : filterResult.closestAlternatives.slice(0, 10);
 
-    const hasSpecificMatch = ranked.some(item => item.score > 0);
-    const selected = (hasSpecificMatch ? ranked.filter(item => item.score > 0) : ranked).slice(0, 25);
-    const compactProducts = selected.map(({ product, score }) => ({
-      id: product.id,
-      name: product.name || '',
-      category: product.category || '',
-      subcategory: product.subcategory || '',
-      description: product.description || '',
-      price: Number(product.price) || 0,
-      discount: Number(product.discount) || 0,
-      final_price: Math.max(0, (Number(product.price) || 0) - (Number(product.discount) || 0)),
-      stock: Number(product.stock) || 0,
-      availability: Number(product.stock) > 0 ? 'tersedia' : 'pre-order / habis',
-      unit: product.unit || 'Pcs',
-      arrival_type: product.arrival_type || '',
-      image_url: product.image_url || (Array.isArray(product.images) && product.images[0]) || '',
-      relevance_score: score
+    const compactProducts = candidateProducts.map(p => ({
+      id: p.id,
+      name: p.name,
+      subcategory: p.subcategory || p.category,
+      description: p.description,
+      price: p.price,
+      discount: p.discount,
+      final_price: p.final_price,
+      stock: p.stock,
+      availability: (p.stock || 0) > 0 ? `Ready (${p.stock} ${p.unit})` : 'Pre-order / Custom',
+      unit: p.unit || 'Pcs',
+      image_url: p.image_url
     }));
+
+    let integrityRule = '';
+    if (context.constraints.maxPrice) {
+      if (filterResult.matchedProducts.length === 0) {
+        integrityRule = `\n[PERINGATAN INTEGRITAS ANGGARAN]: Customer mencari produk dengan budget maksimal Rp ${context.constraints.maxPrice.toLocaleString('id-ID')}. TIDAK ADA produk katalog ready stock di bawah harga ini. Anda DILARANG mengarang produk atau mengubah harga. Jelaskan bahwa produk katalog ready stock mulai dari harga terendah di atas, dan tawarkan pembuatan custom ukuran di bengkel Toko AGM Padang agar mendekati budget customer.\n`;
+      } else {
+        integrityRule = `\n[PANDUAN ANGGARAN]: Customer memiliki budget maksimal Rp ${context.constraints.maxPrice.toLocaleString('id-ID')}. Hanya rekomendasikan produk di atas yang harganya SESUAI budget (final_price <= Rp ${context.constraints.maxPrice.toLocaleString('id-ID')}).\n`;
+      }
+    }
 
     const catalogPrompt = `[RINGKASAN SELURUH SUBKATEGORI KATALOG TOKO AGM PADANG]\n${taxonomySummary}\n[/RINGKASAN SELURUH SUBKATEGORI]
 
-[PRODUK KATALOG TERPILIH - DATA REAL-TIME SUPABASE]\n${JSON.stringify(compactProducts, null, 2)}\n
+[PRODUK KATALOG TERPILIH - DATA REAL-TIME SUPABASE]
+${JSON.stringify(compactProducts, null, 2)}
+${integrityRule}
 [ATURAN PENTING PENGGUNAAN KATALOG]:
 - Gunakan data di atas untuk menjawab customer secara akurat mengenai stok, harga, variasi, dan detail gambar produk.
-- Jika customer bertanya tentang tipe produk tertentu (misal lemari, meja kompor, prasmanan), sebutkan variasi yang ada di data.
-- Jangan mengarang produk atau harga yang tidak ada di data Supabase.
-- Jika ada potongan diskon, sebutkan secara menarik ("Harga Rp X didiskon Rp Y menjadi Rp Z").
+- JANGAN PERNAH mengarang stok atau harga yang berbeda dari data Supabase di atas.
+- Jika merekomendasikan produk, cantumkan blok \`\`\`json_product_recommendations di akhir jawaban dengan id, name, price, discount, final_price, stock, unit, dan image_url asli dari data.
 [/PRODUK KATALOG TERPILIH]`;
 
     return {
       catalogPrompt,
-      topMatchedProduct: (hasSpecificMatch && selected[0]) ? selected[0].product : null
+      topMatchedProduct: topMatched,
+      filterResult,
+      intent,
+      context
     };
   } catch (error: any) {
     console.warn('Catalog retrieval exception:', error?.message || error);
+    const fallbackResult: FilterResult = {
+      matchedProducts: [],
+      filteredOutCount: 0,
+      reasoning: 'Gagal membaca katalog',
+      isBudgetConstrained: false,
+      closestAlternatives: [],
+      unmetConstraint: 'none'
+    };
     return {
       catalogPrompt: '[KATALOG SUPABASE]\nKatalog sementara tidak tersedia. Gunakan panduan resmi AGM.\n[/KATALOG SUPABASE]',
-      topMatchedProduct: null
+      topMatchedProduct: null,
+      filterResult: fallbackResult,
+      intent,
+      context
     };
   }
 }
@@ -624,7 +696,16 @@ async function callNineRouterApi(baseUrl: string, apiKey: string, prompt: string
   return null;
 }
 
-async function generateDynamicConsultantFallback(userMessage: string, currentDesignState: any, topProduct?: any): Promise<string> {
+async function generateDynamicConsultantFallback(
+  userMessage: string,
+  currentDesignState: any,
+  topProduct?: any,
+  filterResult?: FilterResult,
+  intent?: UserIntent,
+  sessionContext?: ConversationContext
+): Promise<string> {
+  const activeIntent: UserIntent = intent || classifyUserIntent(userMessage, sessionContext);
+  const activeConstraints = sessionContext?.constraints || { rawKeywords: [] };
   const msgLower = userMessage.toLowerCase().trim();
 
   // 1. Math shortcut
@@ -640,7 +721,31 @@ async function generateDynamicConsultantFallback(userMessage: string, currentDes
     }
   }
 
-  // 2. Fetch live products from Supabase
+  // 2. Deterministic grounded answers (no LLM): policy, showroom, stock, colour, material, etc.
+  const GROUNDED_INTENTS: UserIntent[] = [
+    'showroom_info', 'operating_hours', 'shipping_policy', 'contact_info',
+    'material_comparison', 'out_of_scope', 'stock_inquiry', 'color_inquiry',
+    'category_overview', 'price_inquiry'
+  ];
+  if (GROUNDED_INTENTS.includes(activeIntent)) {
+    return generateGroundedResponse(
+      activeIntent,
+      filterResult || { matchedProducts: [], filteredOutCount: 0, reasoning: '', isBudgetConstrained: false, closestAlternatives: [], unmetConstraint: 'none' },
+      activeConstraints,
+      sessionContext
+    );
+  }
+
+  // 3. Product recommendation with a real, constraint-filtered match set
+  if (
+    filterResult &&
+    (activeIntent === 'product_recommendation' || activeIntent === 'product_search') &&
+    (filterResult.matchedProducts.length > 0 || filterResult.isBudgetConstrained)
+  ) {
+    return generateGroundedResponse('product_recommendation', filterResult, activeConstraints, sessionContext);
+  }
+
+  // 4. Fetch live products from Supabase
   let liveProducts: any[] = [];
   try {
     const { data } = await supabase
@@ -675,9 +780,9 @@ async function generateDynamicConsultantFallback(userMessage: string, currentDes
     return `Toko AGM Padang menyediakan 15 lini furniture modern berbahan aluminium, kaca, dan ACP:\n\n${subcatList}\n\nSemua produk kami 100% anti rayap, anti lapuk, dan tahan air. Anda bisa menanyakan salah satu kategori di atas untuk melihat model, harga, dan ketersediaan stok!`;
   }
 
-  // 5. Store info, shipping, and WhatsApp contact
-  if (msgLower.includes('alamat') || msgLower.includes('lokasi') || msgLower.includes('toko') || msgLower.includes('padang') || msgLower.includes('ongkir') || msgLower.includes('kirim') || msgLower.includes('wa') || msgLower.includes('whatsapp') || msgLower.includes('kontak') || msgLower.includes('telepon')) {
-    return 'Berikut informasi Toko AGM Padang:\n\n- **Lokasi Showroom**: Kota Padang, Sumatera Barat.\n- **Jam Operasional**: 07.30 - 21.00 WIB setiap hari.\n- **Pengiriman**: Melayani pengiriman langsung ke seluruh area Kota Padang dan sekitarnya menggunakan armada toko sendiri agar produk kaca & aluminium terjamin aman dan langsung terpasang.\n- **Kontak WhatsApp**: **0896-9412-7723** (Anda juga bisa langsung klik tombol Tanyakan di katalog untuk chat langsung dengan admin toko).\n\nAda produk tertentu yang ingin dikirimkan ke lokasi Anda?';
+  // 5. Grounded showroom answer if intent matches
+  if (activeIntent === 'showroom_info' || activeIntent === 'operating_hours' || activeIntent === 'shipping_policy') {
+    return generateGroundedResponse(activeIntent, filterResult || { matchedProducts: [], filteredOutCount: 0, reasoning: '', isBudgetConstrained: false, closestAlternatives: [], unmetConstraint: 'none' }, activeConstraints, sessionContext);
   }
 
   // 6. Custom Design Intent (Pemesanan & Perancangan Custom)
@@ -918,7 +1023,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(405).json({ success: false, message: 'Method Not Allowed' });
     }
 
-    const { message, conversationId, attachment, currentDesignState } = req.body || {};
+    const { message, conversationId, attachment, currentDesignState, history: clientHistory } = req.body || {};
     const userId = (req.headers['x-user-id'] as string) || null;
 
     if (!message || typeof message !== 'string') {
@@ -967,12 +1072,51 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const insertedJobId = data[0].id;
 
+        // Reconstruct conversation history (from client payload or Supabase ai_jobs)
+        let conversationHistory: ConversationTurn[] = Array.isArray(clientHistory) ? clientHistory : [];
+        if (conversationHistory.length === 0 && validConversationId) {
+            try {
+                const { data: pastJobs } = await supabase
+                    .from('ai_jobs')
+                    .select('message, response, created_at')
+                    .eq('conversation_id', validConversationId)
+                    .eq('status', 'completed')
+                    .order('created_at', { ascending: false })
+                    .limit(4);
+                if (pastJobs && pastJobs.length > 0) {
+                    const chronological = [...pastJobs].reverse();
+                    for (const pj of chronological) {
+                        let userText = pj.message;
+                        try {
+                            if (userText && userText.startsWith('{')) {
+                                const parsed = JSON.parse(userText);
+                                if (parsed.text) userText = parsed.text;
+                            }
+                        } catch {}
+                        if (userText && typeof userText === 'string') conversationHistory.push({ role: 'user', content: userText });
+                        if (pj.response && typeof pj.response === 'string') conversationHistory.push({ role: 'assistant', content: pj.response });
+                    }
+                }
+            } catch (histErr) {
+                console.warn('Failed to fetch historical session context:', histErr);
+            }
+        }
+
+        // Fold past turns into session context
+        let priorContext: ConversationContext | undefined = undefined;
+        for (const turn of conversationHistory) {
+            if (turn.role === 'user') {
+                const tIntent = classifyUserIntent(turn.content, priorContext);
+                priorContext = mergeConversationContext(priorContext, turn.content, tIntent);
+            }
+        }
+
         // 2. Prepare Context Prompt for Cloud AI Execution
         const stateContext = currentDesignState && typeof currentDesignState === 'object' && currentDesignState.category
             ? `[CURRENT DESIGN STATE IN SESSION]\n\`\`\`json\n${JSON.stringify(currentDesignState, null, 2)}\n\`\`\`\n`
             : `[CURRENT DESIGN STATE IN SESSION]\n(Belum ada draf desain aktif).\n`;
 
-        const { catalogPrompt, topMatchedProduct } = await fetchCatalogContext(message);
+        const { catalogPrompt, topMatchedProduct, filterResult, intent, context: activeContext } = await fetchCatalogContext(message, priorContext);
 
         // Detect relevant image URL (user attachment, active visualization, or top catalog product image)
         let targetImageUrl: string | null = null;
@@ -1010,7 +1154,60 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ? `\n[CATATAN ANALISIS GAMBAR]: Disediakan gambar referensi produk/ruangan (${targetImageUrl}). Periksa gambar secara teliti: baca teks/stiker ukuran jika ada, hitung jumlah pintu/laci/sekat, amati bahan (kaca/ACP/aluminium/keramik), perhatikan proporsi, dan berikan rekomendasi ukuran dinamis yang pas untuk kebutuhan customer.\n`
             : '';
 
-        const fullPrompt = `${SYSTEM_CONSULTANT_INSTRUCTION}\n\n${catalogPrompt}\n\n${imageInstruction}${stateContext}Pertanyaan/Instruksi Customer:\n${message}`;
+        const historySnippet = conversationHistory.length > 0
+            ? `[KONTEKS RIWAYAT PERCAKAPAN SEBELUMNYA]:\n` + conversationHistory.slice(-4).map(h => `${h.role === 'user' ? 'Customer' : 'Assistant'}: ${h.content.slice(0, 300)}`).join('\n') + `\n\n`
+            : '';
+
+        const fullPrompt = `${SYSTEM_CONSULTANT_INSTRUCTION}\n\n${catalogPrompt}\n\n${historySnippet}${imageInstruction}${stateContext}Pertanyaan/Instruksi Customer:\n${message}`;
+
+        // Deterministic grounding gate: whenever the turn carries a hard constraint or a
+        // policy/stock question, answer straight from Supabase rows instead of an LLM.
+        // ponytail: full deterministic bypass for constrained turns; drop the gate if a
+        // future provider is proven not to alter prices/stock.
+        const deterministicIntents: UserIntent[] = [
+            'showroom_info', 'operating_hours', 'shipping_policy', 'contact_info',
+            'material_comparison', 'out_of_scope', 'stock_inquiry', 'color_inquiry',
+            'category_overview', 'price_inquiry'
+        ];
+        const hasHardConstraint =
+            activeContext?.constraints.maxPrice !== undefined ||
+            activeContext?.constraints.minPrice !== undefined ||
+            activeContext?.constraints.doors !== undefined ||
+            activeContext?.constraints.material !== undefined ||
+            activeContext?.constraints.color !== undefined;
+
+        if (
+            deterministicIntents.indexOf(intent) !== -1 ||
+            ((intent === 'product_recommendation' || intent === 'product_search') && hasHardConstraint)
+        ) {
+            const groundedText = generateGroundedResponse(
+                (intent === 'product_search' ? 'product_recommendation' : intent) as UserIntent,
+                filterResult,
+                activeContext.constraints,
+                activeContext
+            );
+            const groundedDesignState = parseAndNormalizeDesignState(groundedText, currentDesignState).designState;
+
+            try {
+                await supabase.from('ai_jobs').update({
+                    status: 'completed',
+                    response: groundedText,
+                    completed_at: new Date().toISOString(),
+                    ...(groundedDesignState ? { design_state: groundedDesignState } : {})
+                }).eq('id', insertedJobId);
+            } catch (dbErr) {
+                console.warn('Supabase ai_jobs grounded update warning:', dbErr);
+            }
+
+            return res.status(200).json({
+                success: true,
+                job_id: insertedJobId,
+                conversation_id: validConversationId,
+                status: 'completed',
+                response: groundedText,
+                design_state: groundedDesignState || null
+            });
+        }
 
         // 3. Attempt direct AI completion via available Cloud APIs or local 9Router LLM
         const rawGeminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.VITE_GEMINI_API_KEY;
@@ -1083,7 +1280,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // 5. Emergency Fallback Guard: If worker is offline AND Cloud AI failed/missing,
         // generate a valid consultant response so the frontend NEVER gets stuck on "Menyiapkan rekomendasi..."!
-        const fallbackText = await generateDynamicConsultantFallback(message, currentDesignState, topMatchedProduct);
+        const fallbackText = await generateDynamicConsultantFallback(message, currentDesignState, topMatchedProduct, filterResult, intent, activeContext);
         const { designState: fallbackDesignState } = parseAndNormalizeDesignState(fallbackText, currentDesignState);
 
         const fallbackUpdatePayload: any = {

@@ -647,6 +647,14 @@ const AIChatWidget: React.FC = () => {
 
       setLoadingStatusText('Menyiapkan rekomendasi...');
 
+      const recentHistory = history
+        .filter(m => (m.sender === 'user' || m.sender === 'ai') && m.text !== 'AGM Assistant sedang memproses...')
+        .slice(-6)
+        .map(m => ({
+          role: m.sender === 'user' ? 'user' : 'assistant',
+          content: m.text
+        }));
+
       const response = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: {
@@ -658,7 +666,8 @@ const AIChatWidget: React.FC = () => {
           conversationId: conversationIdRef.current, 
           userId: userId,
           attachment: uploadedAttachmentInfo,
-          currentDesignState: activeDesignState
+          currentDesignState: activeDesignState,
+          history: recentHistory
         }),
       });
 
