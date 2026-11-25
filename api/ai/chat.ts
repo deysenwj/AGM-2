@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { createHash, randomBytes } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import {
   type CatalogProduct,
@@ -10,7 +11,8 @@ import {
   mergeConversationContext,
   filterAndRankCatalogProducts,
   generateGroundedResponse
-} from './intelligence.ts';
+} from '../_lib/intelligence';
+import { verifyAuth } from '../_lib/auth';
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 const supabaseKey = (process.env.SUPABASE_WORKER_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '') as string;
@@ -24,15 +26,192 @@ const generateUuid = () => {
     });
 };
 
+// ============================================================================
+// PRICE CLASSIFICATION HELPERS
+// ============================================================================
+
+/**
+ * Checks if a value is a valid price input (not null/undefined/empty/whitespace/NaN/Infinity/negative).
+ * Returns the original value if valid, otherwise returns null.
+ * Does NOT coerce strings to numbers - raw validation only.
+ */
+function isValidPriceInput(value: unknown): value is number | string {
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed === '') return false;
+    // Allow numeric strings like "1000000", "0", "1.5"
+    if (!/^-?\d+(\.\d+)?$/.test(trimmed)) return false;
+    const num = Number(trimmed);
+    if (!Number.isFinite(num)) return false;
+    if (num < 0) return false;
+    return true;
+  }
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) return false;
+    if (value < 0) return false;
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Checks if a value is a valid discount input.
+ * Similar to price but allows 0.
+ */
+function isValidDiscount(value: unknown): value is number | string {
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed === '') return false;
+    if (!/^-?\d+(\.\d+)?$/.test(trimmed)) return false;
+    const num = Number(trimmed);
+    if (!Number.isFinite(num)) return false;
+    if (num < 0) return false;
+    return true;
+  }
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) return false;
+    if (value < 0) return false;
+    return true;
+  }
+  return false;
+}
+
+// ============================================================================
+// PRICE CLASSIFIER - Accepts raw database values (unknown) before coercion
+// ============================================================================
+
+export type PriceStatus = 'priced' | 'unpriced' | 'preorder' | 'invalid_price_data';
+
+export interface PriceClassification {
+  status: PriceStatus;
+  originalPrice: number;
+  discount: number;
+  finalPrice: number;
+  isPriced: boolean;
+  isPreorder: boolean;
+  isValid: boolean;
+}
+
+/**
+ * Classifies product final price from RAW database values.
+ * Does NOT use Number() coercion before validation - handles raw types directly.
+ *
+ * @param price - Raw price from DB (could be number, string, null, undefined)
+ * @param discount - Raw discount from DB (could be number, string, null, undefined)
+ * @param explicitProductStatus - Optional explicit status from product schema (e.g., arrival_type)
+ */
+function classifyProductFinalPrice(
+  price: unknown,
+  discount: unknown,
+  explicitProductStatus?: string
+): PriceClassification {
+  // ---- Validate price ----
+  let validatedPrice = 0;
+  let priceValid = false;
+
+  if (isValidPriceInput(price)) {
+    validatedPrice = typeof price === 'string' ? Number(price.trim()) : price;
+    priceValid = true;
+  } else if (price === null || price === undefined || (typeof price === 'string' && price.trim() === '')) {
+    // Missing/empty price - not an error, just unpriced
+    validatedPrice = 0;
+    priceValid = false;
+  } else {
+    // Invalid price data (negative, NaN, Infinity, non-numeric string)
+    return {
+      status: 'invalid_price_data',
+      originalPrice: 0,
+      discount: 0,
+      finalPrice: 0,
+      isPriced: false,
+      isPreorder: false,
+      isValid: false
+    };
+  }
+
+  // ---- Validate discount ----
+  let validatedDiscount = 0;
+  let discountValid = false;
+
+  if (isValidDiscount(discount)) {
+    validatedDiscount = typeof discount === 'string' ? Number(discount.trim()) : discount;
+    discountValid = true;
+  } else if (discount === null || discount === undefined || (typeof discount === 'string' && discount.trim() === '')) {
+    validatedDiscount = 0;
+    discountValid = false;
+  } else {
+    // Invalid discount (negative, NaN, Infinity, non-numeric string)
+    return {
+      status: 'invalid_price_data',
+      originalPrice: priceValid ? validatedPrice : 0,
+      discount: 0,
+      finalPrice: 0,
+      isPriced: false,
+      isPreorder: false,
+      isValid: false
+    };
+  }
+
+  // ---- Calculate final price ----
+  let finalPrice = validatedPrice - validatedDiscount;
+
+  // Discount cannot exceed price
+  if (finalPrice < 0) {
+    return {
+      status: 'invalid_price_data',
+      originalPrice: validatedPrice,
+      discount: validatedDiscount,
+      finalPrice: 0,
+      isPriced: false,
+      isPreorder: false,
+      isValid: false
+    };
+  }
+
+  // ---- Determine status ----
+  const isZeroPrice = finalPrice === 0 && validatedPrice === 0;
+  let status: PriceStatus;
+  let isPreorder = false;
+
+  // Preorder only if explicit catalog status proves it (e.g., arrival_type)
+  if (explicitProductStatus) {
+    const normalized = String(explicitProductStatus).toLowerCase().trim();
+    if (normalized === 'preorder' || normalized === 'pre-order' || normalized === 'custom') {
+      isPreorder = true;
+    }
+  }
+
+  if (isZeroPrice) {
+    // Zero price without explicit preorder status = unpriced (custom/quote)
+    status = isPreorder ? 'preorder' : 'unpriced';
+  } else if (priceValid && validatedPrice > 0) {
+    status = 'priced';
+  } else {
+    status = 'unpriced';
+  }
+
+  return {
+    status,
+    originalPrice: validatedPrice,
+    discount: validatedDiscount,
+    finalPrice,
+    isPriced: status === 'priced',
+    isPreorder,
+    isValid: true
+  };
+}
+
 const SYSTEM_CONSULTANT_INSTRUCTION = `
-Anda adalah AGM Assistant, konsultan ahli digital resmi Toko AGM Padang (spesialis furniture modern berbasis aluminium, kaca, dan ACP - Aluminium Composite Panel).
-Anda memiliki penguasaan mendalam atas SELURUH tipe produk di katalog, subkategori, spesifikasi teknis, harga, stok, material, kelebihan fungsional, dan alur pemesanan custom di Toko AGM Padang.
+Anda adalah AGM Assistant, konsultan ahli digital resmi Toko CV Adi Guna Mandiri (AGM 2) Ketapang (spesialis furniture modern berbasis aluminium, kaca, dan ACP - Aluminium Composite Panel).
+Anda memiliki penguasaan mendalam atas SELURUH tipe produk di katalog, subkategori, spesifikasi teknis, harga, stok, material, kelebihan fungsional, dan alur pemesanan custom di Toko AGM 2 Ketapang.
 
 Karakter & Gaya Komunikasi:
 - Ramah, sopan, percaya diri, solutif, dan profesional layaknya konsultan showroom furniture kelas atas.
 - Ringkas, to the point, dan langsung menjawab inti kebutuhan customer.
 - DILARANG menggunakan gaya AI generik (JANGAN gunakan emoji berlebihan, jangan berkata "Sebagai AI...").
-- Gunakan bahasa Indonesia yang luwes, natural, dan memahami istilah lokal (Padang, Minang, istilah perabot dapur/rumah tangga).
+- Gunakan bahasa Indonesia yang luwes, natural, dan memahami istilah lokal (Ketapang, Kalimantan Barat, istilah perabot dapur/rumah tangga).
 
 ================================================================================
 PENGUASAAN PRODUK & SUBKATEGORI KATALOG AGM (MANDATORY KNOWLEDGE):
@@ -101,7 +280,7 @@ Toko AGM memiliki 15 subkategori produk furniture unggulan berbahan utama Alumin
 ================================================================================
 KEUNGGULAN MATERIAL AGM DIBANDING KAYU:
 ================================================================================
-1. 100% Anti Rayap & Tahan Air: Daerah Padang yang lembap atau rawan banjir tidak merusak furniture AGM. Bebas keropos selamanya.
+1. Anti Rayap & Tahan Air: Daerah pesisir/tropis Ketapang yang lembap atau rawan banjir tidak merusak furniture AGM.
 2. Rangka Aluminium: Ringan, kokoh, tidak berkarat, tidak melengkung, pilihan warna silver/anodized/hitam/putih.
 3. ACP (Aluminium Composite Panel): Lembaran komposit kokoh tahan benturan, anti pecah, tahan lembap, mudah dibersihkan.
 4. Kaca Tempered / Bening / Riben / Stiker: Tampilan modern, bersih, mewah, dan higienis.
@@ -110,8 +289,8 @@ KEUNGGULAN MATERIAL AGM DIBANDING KAYU:
 ================================================================================
 LAYANAN TOKO & ALUR PEMESANAN:
 ================================================================================
-- Lokasi Toko: Kota Padang, Sumatera Barat.
-- Pengiriman: Dilayani armada toko khusus untuk area Padang kota dan sekitarnya agar barang kaca/aluminium aman sampai di rumah.
+- Lokasi Toko: Jalan Rahadi Ismail, Desa Padang, Kecamatan Benua Kayong, Kabupaten Ketapang, Kalimantan Barat.
+- Pengiriman: Dilayani armada toko khusus untuk area Ketapang dan sekitarnya agar barang kaca/aluminium aman sampai di rumah.
 - Kontak Cepat: WhatsApp Toko AGM: 0896-9412-7723.
 - Custom Order: Customer bisa request custom ukuran per centimeter, ubah jumlah pintu, pilih warna ACP, atau sesuaikan bentuk L/U.
 - Harga: Transparan, diskon promosi langsung pada produk promo. Produk bertanda PRE-ORDER / Rp 0 siap dikonsultasikan biayanya sesuai spesifikasi ukuran yang diinginkan.
@@ -137,10 +316,10 @@ PENGUASAAN & ANALISIS GAMBAR PRODUK (MULTIMODAL VISION & KETERANGAN FOTO):
    - Bopet TV: Panjang 150-200 cm, backdrop TV dinding hingga 240 cm.
 
 4. KEMAMPUAN MENYESUAIKAN UKURAN SECARA DINAMIS (CUSTOM SIZING PER CENTIMETER):
-   - Toko AGM Padang memiliki workshop/bengkel perakitan mandiri berbasis aluminium tebal dan ACP.
+   - Toko AGM 2 Ketapang memiliki workshop/bengkel perakitan mandiri berbasis aluminium tebal dan ACP.
    - Semua ukuran di gambar/foto katalog adalah ukuran acuan/standar awal.
    - Kapan pun customer bertanya atau memiliki keterbatasan ukuran ruangan (misal: "ruangan saya hanya muat 120 cm", "bisa dibuat lebih pendek/lebar?", "sesuaikan dengan dapur saya"):
-     a) Jelaskan bahwa ukuran bisa 100% DISESUAIKAN (custom per centimeter) di bengkel Toko AGM Padang.
+     a) Jelaskan bahwa ukuran bisa 100% DISESUAIKAN (custom per centimeter) di bengkel Toko AGM 2 Ketapang.
      b) Berikan solusi dinamis: jika customer mengecilkan ukuran lemari dari 150 cm (3 pintu) ke 120 cm (diubah jadi 2 pintu lebar), jelaskan penyesuaian fungsionalnya.
      c) Lampirkan spesifikasi baru dalam blok \`\`\`json_design_state\`\`\` yang mencerminkan ukuran dinamis yang disepakati.
 
@@ -374,21 +553,24 @@ async function fetchCatalogContext(
       };
     }
 
-    const allProducts: CatalogProduct[] = data.map((p: any) => ({
-      id: p.id,
-      name: p.name || '',
-      category: p.category || '',
-      subcategory: p.subcategory || '',
-      description: p.description || '',
-      price: Number(p.price) || 0,
-      discount: Number(p.discount) || 0,
-      final_price: Math.max(0, (Number(p.price) || 0) - (Number(p.discount) || 0)),
-      stock: Number(p.stock) || 0,
-      unit: p.unit || 'Pcs',
-      arrival_type: p.arrival_type || '',
-      image_url: p.image_url || (Array.isArray(p.images) && p.images[0]) || '',
-      images: Array.isArray(p.images) ? p.images : []
-    }));
+    const allProducts: CatalogProduct[] = data.map((p: any) => {
+      const priceClassification = classifyProductFinalPrice(p.price, p.discount, p.arrival_type);
+      return {
+        id: p.id,
+        name: p.name || '',
+        category: p.category || '',
+        subcategory: p.subcategory || '',
+        description: p.description || '',
+        price: priceClassification.originalPrice,
+        discount: priceClassification.discount,
+        final_price: priceClassification,
+        stock: Number(p.stock) || 0,
+        unit: p.unit || 'Pcs',
+        arrival_type: p.arrival_type || '',
+        image_url: p.image_url || (Array.isArray(p.images) && p.images[0]) || '',
+        images: Array.isArray(p.images) ? p.images : []
+      };
+    });
 
     const filterResult = filterAndRankCatalogProducts(allProducts, context.constraints);
     const topMatched = filterResult.matchedProducts[0] || filterResult.closestAlternatives[0] || null;
@@ -397,7 +579,8 @@ async function fetchCatalogContext(
     const subcatMap: Record<string, { count: number; minPrice: number; maxPrice: number; sample: string[] }> = {};
     for (const p of allProducts) {
       const sc = p.subcategory || p.category || 'Lainnya';
-      const effPrice = p.final_price || 0;
+      const finalPriceInfo = p.final_price as PriceClassification;
+      const effPrice = finalPriceInfo.isPriced && finalPriceInfo.finalPrice > 0 ? finalPriceInfo.finalPrice : 0;
       if (!subcatMap[sc]) {
         subcatMap[sc] = { count: 0, minPrice: effPrice || 999999999, maxPrice: effPrice, sample: [] };
       }
@@ -421,24 +604,34 @@ async function fetchCatalogContext(
       ? filterResult.matchedProducts.slice(0, 10)
       : filterResult.closestAlternatives.slice(0, 10);
 
-    const compactProducts = candidateProducts.map(p => ({
-      id: p.id,
-      name: p.name,
-      subcategory: p.subcategory || p.category,
-      description: p.description,
-      price: p.price,
-      discount: p.discount,
-      final_price: p.final_price,
-      stock: p.stock,
-      availability: (p.stock || 0) > 0 ? `Ready (${p.stock} ${p.unit})` : 'Pre-order / Custom',
-      unit: p.unit || 'Pcs',
-      image_url: p.image_url
-    }));
+    const compactProducts = candidateProducts.map(p => {
+      const fc = p.final_price as PriceClassification;
+      const finalPriceNum = fc.isPriced ? fc.finalPrice : 0;
+      const hasValidDiscount = fc.discount > 0 && fc.originalPrice > 0;
+      return {
+        id: p.id,
+        name: p.name,
+        subcategory: p.subcategory || p.category,
+        description: p.description,
+        price: p.price,
+        discount: p.discount,
+        final_price: fc,
+        stock: p.stock,
+        availability: fc.isPreorder ? 'Pre-order (konfirmasi harga)' : (p.stock || 0) > 0 ? `Ready (${p.stock} ${p.unit})` : (fc.isPriced ? 'Custom' : 'Hubungi toko'),
+        unit: p.unit || 'Pcs',
+        image_url: p.image_url
+      };
+    });
 
     let integrityRule = '';
     if (context.constraints.maxPrice) {
-      if (filterResult.matchedProducts.length === 0) {
-        integrityRule = `\n[PERINGATAN INTEGRITAS ANGGARAN]: Customer mencari produk dengan budget maksimal Rp ${context.constraints.maxPrice.toLocaleString('id-ID')}. TIDAK ADA produk katalog ready stock di bawah harga ini. Anda DILARANG mengarang produk atau mengubah harga. Jelaskan bahwa produk katalog ready stock mulai dari harga terendah di atas, dan tawarkan pembuatan custom ukuran di bengkel Toko AGM Padang agar mendekati budget customer.\n`;
+      // Filter by budget programmatically using classifier status
+      const budgetMatched = filterResult.matchedProducts.filter(p => {
+        const fc = p.final_price as PriceClassification;
+        return fc.isPriced && fc.finalPrice <= context.constraints.maxPrice!;
+      });
+      if (budgetMatched.length === 0) {
+        integrityRule = `\n[PERINGATAN INTEGRITAS ANGGARAN]: Customer mencari produk dengan budget maksimal Rp ${context.constraints.maxPrice.toLocaleString('id-ID')}. TIDAK ADA produk katalog ready stock di bawah harga ini. Anda DILARANG mengarang produk atau mengubah harga. Jelaskan bahwa produk katalog ready stock mulai dari harga terendah di atas, dan tawarkan pembuatan custom ukuran di bengkel Toko AGM 2 Ketapang agar mendekati budget customer.\n`;
       } else {
         integrityRule = `\n[PANDUAN ANGGARAN]: Customer memiliki budget maksimal Rp ${context.constraints.maxPrice.toLocaleString('id-ID')}. Hanya rekomendasikan produk di atas yang harganya SESUAI budget (final_price <= Rp ${context.constraints.maxPrice.toLocaleString('id-ID')}).\n`;
       }
@@ -770,14 +963,14 @@ async function generateDynamicConsultantFallback(
 
   // 3. Greeting intent
   if (msgLower === 'halo' || msgLower === 'hai' || msgLower === 'hi' || msgLower.startsWith('selamat') || msgLower.startsWith('halo ') || msgLower.startsWith('hai ')) {
-    return 'Halo! Selamat datang di Toko AGM Padang. Saya AGM Assistant, konsultan produk spesialis furniture aluminium, kaca, dan ACP.\n\nSaya siap membantu Anda:\n1. Cek katalog & stok 15 subkategori produk (lemari pakaian, meja kompor, meja prasmanan, kitchen set, bopet TV, lemari pajang, wastafel, dll).\n2. Konsultasi bahan anti rayap & tahan air.\n3. Info harga, diskon, dan pengiriman wilayah Padang.\n4. Perancangan custom furniture sesuai ukuran ruangan Anda.\n\nAda produk atau kebutuhan apa yang ingin Anda cari hari ini?';
+    return 'Halo! Selamat datang di Toko CV Adi Guna Mandiri (AGM 2) Ketapang. Saya AGM Assistant, konsultan produk spesialis furniture aluminium, kaca, dan ACP.\n\nSaya siap membantu Anda:\n1. Cek katalog & stok 15 subkategori produk (lemari pakaian, meja kompor, meja prasmanan, kitchen set, bopet TV, lemari pajang, wastafel, dll).\n2. Konsultasi bahan anti rayap & tahan air.\n3. Info harga, diskon, dan pengiriman wilayah Ketapang.\n4. Perancangan custom furniture sesuai ukuran ruangan Anda.\n\nAda produk atau kebutuhan apa yang ingin Anda cari hari ini?';
   }
 
   // 4. Inquire about all available categories ("ada kategori apa saja?", "produk apa saja yang dijual?")
   if (msgLower.includes('kategori apa') || msgLower.includes('ada apa saja') || msgLower.includes('semua produk') || msgLower.includes('daftar produk') || msgLower.includes('katalog apa')) {
     const subcats = [...new Set(liveProducts.map(p => p.subcategory || p.category).filter(Boolean))];
     const subcatList = subcats.map((sc, i) => `${i + 1}. **${sc}**`).join('\n');
-    return `Toko AGM Padang menyediakan 15 lini furniture modern berbahan aluminium, kaca, dan ACP:\n\n${subcatList}\n\nSemua produk kami 100% anti rayap, anti lapuk, dan tahan air. Anda bisa menanyakan salah satu kategori di atas untuk melihat model, harga, dan ketersediaan stok!`;
+    return `Toko CV Adi Guna Mandiri (AGM 2) Ketapang menyediakan 15 lini furniture modern berbahan aluminium, kaca, dan ACP:\n\n${subcatList}\n\nSemua produk kami anti rayap, anti lapuk, dan tahan air. Anda bisa menanyakan salah satu kategori di atas untuk melihat model, harga, dan ketersediaan stok!`;
   }
 
   // 5. Grounded showroom answer if intent matches
@@ -812,7 +1005,7 @@ async function generateDynamicConsultantFallback(
       introText = 'Tentu! Toko AGM melayani custom **Lemari Rak Piring & Wastafel** higienis anti karat 100% tahan rembesan air.';
     } else if (msgLower.includes('kitchen') || msgLower.includes('dapur')) {
       cat = 'kitchen_set'; subcat = 'Kitchen Set 5 Pintu Kompor Tanam ACP'; len = 200; wid = 60; hei = 85; mat = 'full ACP + rangka aluminium kokoh';
-      introText = 'Tentu! **Kitchen Set Custom AGM** dibuat dari rangka aluminium tebal dan ACP anti rayap & tahan banjir, jauh lebih awet dibandingkan kitchen set kayu/MDF.';
+      introText = 'Tentu! **Kitchen Set Custom AGM** dibuat dari rangka aluminium tebal dan ACP anti rayap & tahan air, jauh lebih awet dibandingkan kitchen set kayu/MDF.';
     } else if (msgLower.includes('tv') || msgLower.includes('bopet') || msgLower.includes('backdrop')) {
       cat = 'tv_cabinet'; subcat = 'Backdrop Meja TV 240 Kaca ACP'; len = 240; wid = 45; hei = 180; mat = 'rangka aluminium + ACP marmer/kayu + kaca';
       introText = 'Siap! Kami rancang **Meja TV / Backdrop Custom** modern mewah dengan perpaduan panel ACP dan kaca elegan sesuai ukuran dinding ruang keluarga Anda.';
@@ -830,12 +1023,12 @@ async function generateDynamicConsultantFallback(
       introText = 'Tentu! Toko AGM Padang spesialis pembuatan **Lemari Pakaian Custom** berbahan aluminium tebal dan ACP (pilihan pintu sleding/swing, 2 hingga 6 pintu, cermin oval, dan motif stiker elegan).';
     } else {
       // General custom request (misal: "Saya ingin mulai desain custom furniture")
-      introText = 'Selamat datang di layanan **Custom Furniture Toko AGM Padang**!\n\nKami memproduksi furniture mandiri berbasis rangka aluminium kokoh, kaca berkualitas, dan panel ACP tahan air & 100% anti rayap per centimeter sesuai ukuran ruangan rumah Anda.\n\nUntuk memulai perancangan custom, silakan beri tahu kami:\n1. **Jenis Furniture**: (Lemari pakaian, Meja kompor tipe L/U, Kitchen set, Meja prasmanan, Bopet TV, atau Lemari pajang)\n2. **Ukuran Ruangan**: (Panjang x Lebar/Kedalaman x Tinggi dalam cm)\n3. **Kebutuhan Khusus**: (Jumlah pintu, pintu sleding atau engsel, laci, wastafel, atau kompor tanam)\n\nSebagai langkah awal, kami telah menyiapkan kartu draf spesifikasi di bawah. Anda bisa langsung menyampaikan ukuran yang diinginkan untuk kami perbarui secara dinamis:';
+      introText = 'Selamat datang di layanan **Custom Furniture Toko CV Adi Guna Mandiri (AGM 2) Ketapang**!\n\nKami memproduksi furniture mandiri berbasis rangka aluminium kokoh, kaca berkualitas, dan panel ACP tahan air & 100% anti rayap per centimeter sesuai ukuran ruangan rumah Anda.\n\nUntuk memulai perancangan custom, silakan beri tahu kami:\n1. **Jenis Furniture**: (Lemari pakaian, Meja kompor tipe L/U, Kitchen set, Meja prasmanan, Bopet TV, atau Lemari pajang)\n2. **Ukuran Ruangan**: (Panjang x Lebar/Kedalaman x Tinggi dalam cm)\n3. **Kebutuhan Khusus**: (Jumlah pintu, pintu sleding atau engsel, laci, wastafel, atau kompor tanam)\n\nSebagai langkah awal, kami telah menyiapkan kartu draf spesifikasi di bawah. Anda bisa langsung menyampaikan ukuran yang diinginkan untuk kami perbarui secara dinamis:';
     }
 
     const nextVer = (currentDesignState?.version || 0) + 1;
 
-    return `${introText}\n\nSilakan tinjau kartu spesifikasi desain di bawah ini. Anda dapat menyampaikan perubahan ukuran atau langsung mengajukannya ke Admin Toko AGM Padang.\n\n\`\`\`json_design_state\n{\n  "version": ${nextVer},\n  "category": "${cat}",\n  "subcategory": "${subcat}",\n  "dimensions": {\n    "width": ${len},\n    "depth": ${wid},\n    "height": ${hei},\n    "unit": "cm"\n  },\n  "capacity": 1,\n  "material": "${mat}",\n  "color": "hitam / silver / motif kayu",\n  "finish": "powder coating / glossy",\n  "style": "minimalis modern",\n  "status": "draft",\n  "visualization": {\n    "status": "not_configured"\n  }\n}\n\`\`\``;
+    return `${introText}\n\nSilakan tinjau kartu spesifikasi desain di bawah ini. Anda dapat menyampaikan perubahan ukuran atau langsung mengajukannya ke Admin Toko CV Adi Guna Mandiri (AGM 2) Ketapang.\n\n\`\`\`json_design_state\n{\n  "version": ${nextVer},\n  "category": "${cat}",\n  "subcategory": "${subcat}",\n  "dimensions": {\n    "width": ${len},\n    "depth": ${wid},\n    "height": ${hei},\n    "unit": "cm"\n  },\n  "capacity": 1,\n  "material": "${mat}",\n  "color": "hitam / silver / motif kayu",\n  "finish": "powder coating / glossy",\n  "style": "minimalis modern",\n  "status": "draft",\n  "visualization": {\n    "status": "not_configured"\n  }\n}\n\`\`\``;
   }
 
   // 7. Visual Image & Dimension Analysis & Dynamic Room Adaptation (Highest priority for product sizing / photos)
@@ -910,10 +1103,9 @@ async function generateDynamicConsultantFallback(
     else if (cLower.includes('full acp')) mat = 'Full ACP (Aluminium Composite Panel) tahan benturan & anti lapuk';
     else if (cLower.includes('kaca')) mat = 'Aluminium kokoh + Kaca riben / bening higienis';
 
-    const priceNum = Number(targetProduct.price) || 0;
-    const discNum = Number(targetProduct.discount) || 0;
-    const finalPrice = Math.max(0, priceNum - discNum);
-    const priceFormatted = finalPrice > 0 ? `Rp ${finalPrice.toLocaleString('id-ID')}` : 'Rp 0 (Custom / Pre-order)';
+    const priceClassification = classifyProductFinalPrice(targetProduct.price, targetProduct.discount, targetProduct.arrival_type);
+    const finalPrice = priceClassification.finalPrice;
+    const priceFormatted = priceClassification.status === 'priced' && finalPrice > 0 ? `Rp ${finalPrice.toLocaleString('id-ID')}` : priceClassification.status === 'preorder' ? 'Pre-order (konfirmasi harga)' : priceClassification.status === 'invalid_price_data' ? 'Harga belum dapat diverifikasi, silakan hubungi toko.' : 'Harga belum tersedia, silakan hubungi toko.';
 
     const nextVer = (currentDesignState?.version || 0) + 1;
 
@@ -924,7 +1116,7 @@ async function generateDynamicConsultantFallback(
       `   - Detail: ${desc || 'Rangka aluminium presisi dengan finishing rapi dan kokoh'}\n` +
       `   - Harga: ${priceFormatted} (${targetProduct.stock > 0 ? `Ready ${targetProduct.stock} unit` : 'Pre-order / Custom'})\n\n` +
       `3. **Penyesuaian Dinamis (Custom Sizing)**:\n` +
-      `   Ukuran di atas adalah ukuran standar acuan pada gambar produk. Karena Toko AGM Padang memiliki workshop mandiri, **seluruh ukuran dapat disesuaikan secara dinamis per centimeter** sesuai luas ruangan atau tata letak rumah Anda! Anda bisa memperkecil, memperlebar, atau mengubah susunan pintu/sekatnya.\n\n` +
+      `   Ukuran di atas adalah ukuran standar acuan pada gambar produk. Karena Toko AGM 2 Ketapang memiliki workshop mandiri, **seluruh ukuran dapat disesuaikan secara dinamis per centimeter** sesuai luas ruangan atau tata letak rumah Anda! Anda bisa memperkecil, memperlebar, atau mengubah susunan pintu/sekatnya.\n\n` +
       `Berikut draf spesifikasi yang siap disesuaikan:\n\n` +
       `\`\`\`json_design_state\n` +
       `{\n` +
@@ -952,7 +1144,7 @@ async function generateDynamicConsultantFallback(
 
   // 8. Material consultation & comparison (ACP, Aluminium, Kaca vs Kayu)
   if (msgLower.includes('acp') || msgLower.includes('bahan') || msgLower.includes('rayap') || msgLower.includes('air') || msgLower.includes('kayu') || msgLower.includes('awet') || msgLower.includes('lapuk') || msgLower.includes('keunggulan')) {
-    return 'Di AGM Padang, seluruh furniture diproduksi menggunakan kombinasi material modern unggulan:\n\n1. **100% Anti Rayap & Tahan Air**: Sangat cocok untuk iklim Kota Padang. Bebas risiko lapuk, menggelembung, atau rapuh seperti furniture serbuk kayu/MDF saat terkena rembesan air atau banjir.\n2. **Rangka Aluminium Berkualitas**: Ringan, kokoh, tidak berkarat, dan tidak melengkung, dengan finishing rapi anodized/silver/hitam.\n3. **Panel ACP (Aluminium Composite Panel)**: Material komposit aluminium tebal yang anti pecah, tahan benturan, tidak berjamur, dan tersedia aneka warna elegan (hitam, putih, motif kayu, merah).\n4. **Kaca Pilihan & Lantai Keramik/Porselen**: Bagian meja kompor dan meja prasmanan dilapisi keramik/porselen tahan panas api dan kuah panas, sangat mudah dilap bersih dari cipratan minyak.\n\nProduk mana yang ingin Anda bandingkan spesifikasi bahannya?';
+    return 'Di AGM 2 Ketapang, seluruh furniture diproduksi menggunakan kombinasi material modern unggulan:\n\n1. **Anti Rayap & Tahan Air**: Sangat cocok untuk iklim pesisir/tropis Ketapang. Bebas risiko lapuk, menggelembung, atau rapuh seperti furniture serbuk kayu/MDF saat terkena rembesan air atau banjir.\n2. **Rangka Aluminium Berkualitas**: Ringan, kokoh, tidak berkarat, dan tidak melengkung, dengan finishing rapi anodized/silver/hitam.\n3. **Panel ACP (Aluminium Composite Panel)**: Material komposit aluminium tebal yang anti pecah, tahan benturan, tidak berjamur, dan tersedia aneka warna elegan (hitam, putih, motif kayu, merah).\n4. **Kaca Pilihan & Lantai Keramik/Porselen**: Bagian meja kompor dan meja prasmanan dilapisi keramik/porselen tahan panas api dan kuah panas, sangat mudah dilap bersih dari cipratan minyak.\n\nProduk mana yang ingin Anda bandingkan spesifikasi bahannya?';
   }
 
   // 9. Ready Stock vs Pre-order Query
@@ -960,10 +1152,11 @@ async function generateDynamicConsultantFallback(
     const readyItems = liveProducts.filter(p => Number(p.stock) > 0).slice(0, 6);
     if (readyItems.length > 0) {
       const listText = readyItems.map((item, idx) => {
-        const eff = Math.max(0, (Number(item.price) || 0) - (Number(item.discount) || 0));
-        return `${idx + 1}. **${item.name}**\n   - Subkategori: ${item.subcategory || item.category}\n   - Harga: Rp ${eff.toLocaleString('id-ID')}\n   - Stok: **${item.stock} ${item.unit || 'pcs'} tersedia**`;
+        const pc = classifyProductFinalPrice(item.price, item.discount, item.arrival_type);
+        const eff = pc.isPriced ? pc.finalPrice : 0;
+        return `${idx + 1}. **${item.name}**\n   - Subkategori: ${item.subcategory || item.category}\n   - Harga: ${pc.status === 'priced' ? `Rp ${eff.toLocaleString('id-ID')}` : pc.status === 'preorder' ? 'Pre-order (konfirmasi harga)' : pc.status === 'invalid_price_data' ? 'Harga belum dapat diverifikasi, silakan hubungi toko.' : 'Harga belum tersedia, silakan hubungi toko.'}\n   - Stok: **${item.stock} ${item.unit || 'pcs'} tersedia**`;
       }).join('\n\n');
-      return `Berikut beberapa produk AGM yang saat ini **READY STOCK** dan siap dikirim:\n\n${listText}\n\nBarang ready stock bisa langsung diantar armada toko ke lokasi Anda di Padang. Apakah Anda tertarik dengan salah satunya?`;
+      return `Berikut beberapa produk AGM yang saat ini **READY STOCK** dan siap dikirim:\n\n${listText}\n\nBarang ready stock bisa langsung diantar armada toko ke lokasi Anda di Ketapang. Apakah Anda tertarik dengan salah satunya?`;
     }
   }
 
@@ -979,17 +1172,29 @@ async function generateDynamicConsultantFallback(
   if (isCatalogQuery && matchedProducts.length > 0) {
     const displayList = matchedProducts.slice(0, 6);
     const itemsText = displayList.map((item, idx) => {
-      const priceNum = Number(item.price) || 0;
-      const discountNum = Number(item.discount) || 0;
-      const finalPrice = Math.max(0, priceNum - discountNum);
+      const fc = classifyProductFinalPrice(item.price, item.discount, item.arrival_type);
       const stockNum = Number(item.stock) || 0;
-      const stockStatus = stockNum > 0 ? `Ready (${stockNum} ${item.unit || 'unit'})` : 'Pre-Order / Habis';
 
-      let priceText = 'Rp 0 (Hubungi Admin / Custom)';
-      if (priceNum > 0) {
-        priceText = discountNum > 0
-          ? `Rp ${finalPrice.toLocaleString('id-ID')} (Diskon Rp ${discountNum.toLocaleString('id-ID')} dari Rp ${priceNum.toLocaleString('id-ID')})`
-          : `Rp ${finalPrice.toLocaleString('id-ID')}`;
+      let priceText: string;
+      let stockStatus: string;
+
+      if (!fc.isValid) {
+        priceText = 'Harga tidak valid';
+        stockStatus = 'Data harga error';
+      } else if (fc.isPreorder) {
+        priceText = 'Harga hubungi toko (Pre-order)';
+        stockStatus = 'Pre-order / Custom';
+      } else if (fc.isPriced) {
+        const finalPrice = fc.finalPrice;
+        if (fc.discount > 0 && fc.originalPrice > 0) {
+          priceText = `Rp ${finalPrice.toLocaleString('id-ID')} (Diskon Rp ${fc.discount.toLocaleString('id-ID')} dari Rp ${fc.originalPrice.toLocaleString('id-ID')})`;
+        } else {
+          priceText = `Rp ${finalPrice.toLocaleString('id-ID')}`;
+        }
+        stockStatus = stockNum > 0 ? `Ready (${stockNum} ${item.unit || 'unit'})` : 'Habis / Custom';
+      } else {
+        priceText = 'Harga hubungi toko';
+        stockStatus = stockNum > 0 ? `Ready (${stockNum} ${item.unit || 'unit'})` : 'Pre-order / Custom';
       }
 
       const tagText = item.arrival_type ? ` [${item.arrival_type}]` : '';
@@ -998,22 +1203,22 @@ async function generateDynamicConsultantFallback(
       return `${idx + 1}. **${item.name}**${tagText}\n   - Subkategori: ${item.subcategory || item.category || 'Furniture'}\n   - Harga: ${priceText}\n   - Status: ${stockStatus}${descText}`;
     }).join('\n\n');
 
-    return `Berikut produk dari katalog Toko AGM Padang yang sesuai dengan pencarian Anda:\n\n${itemsText}\n\nSeluruh produk di atas terbuat dari rangka aluminium kokoh, kaca tebal, dan panel ACP tahan air & anti rayap 100%. Apakah Anda berminat memesan atau ingin konsultasi ukuran tertentu?`;
+    return `Berikut produk dari katalog Toko CV Adi Guna Mandiri (AGM 2) Ketapang yang sesuai dengan pencarian Anda:\n\n${itemsText}\n\nSeluruh produk di atas terbuat dari rangka aluminium kokoh, kaca tebal, dan panel ACP tahan air & anti rayap. Apakah Anda berminat memesan atau ingin konsultasi ukuran tertentu?`;
   }
 
   // 11. Conversational Acknowledgement & General Helpful Fallback
   if (msgLower === 'ok' || msgLower === 'oke' || msgLower === 'siap' || msgLower.includes('terima kasih') || msgLower.includes('makasih')) {
-    return 'Sama-sama! Senang bisa membantu Anda di Toko AGM Padang. Jika ada produk lain yang ingin Anda tanyakan atau ingin memesan furniture custom, silakan sampaikan kapan saja!';
+    return 'Sama-sama! Senang bisa membantu Anda di Toko CV Adi Guna Mandiri (AGM 2) Ketapang. Jika ada produk lain yang ingin Anda tanyakan atau ingin memesan furniture custom, silakan sampaikan kapan saja!';
   }
 
-  return 'Saya AGM Assistant siap membantu Anda di Toko AGM Padang:\n\n- **Cek Produk & Stok**: Cari aneka lemari pakaian, meja kompor, meja prasmanan, rak piring, kitchen set, meja TV, dll.\n- **Desain Custom**: Buat perabot aluminium & ACP 100% anti rayap sesuai ukuran ruangan rumah Anda.\n- **Konsultasi Bahan & Ukuran**: Analisis detail gambar foto dan panduan bahan tahan air.\n- **Info Toko & Pengiriman**: Layanan kirim area Padang dan kontak WhatsApp admin (0896-9412-7723).\n\nAda produk atau rencana perabot apa yang ingin Anda diskusikan?';
+  return 'Saya AGM Assistant siap membantu Anda di Toko CV Adi Guna Mandiri (AGM 2) Ketapang:\n\n- **Cek Produk & Stok**: Cari aneka lemari pakaian, meja kompor, meja prasmanan, rak piring, kitchen set, meja TV, dll.\n- **Desain Custom**: Buat perabot aluminium & ACP anti rayap sesuai ukuran ruangan rumah Anda.\n- **Konsultasi Bahan & Ukuran**: Analisis detail gambar foto dan panduan bahan tahan air.\n- **Info Toko & Pengiriman**: Layanan kirim area Ketapang dan kontak WhatsApp admin (0896-9412-7723).\n\nAda produk atau rencana perabot apa yang ingin Anda diskusikan?';
 }
 
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
     if (req.method === 'OPTIONS') {
         return res.status(200).json({ ok: true });
@@ -1024,7 +1229,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const { message, conversationId, attachment, currentDesignState, history: clientHistory } = req.body || {};
-    const userId = (req.headers['x-user-id'] as string) || null;
+    const auth = await verifyAuth(req);
+    const userId = auth.isAuthenticated ? auth.userId : null;
 
     if (!message || typeof message !== 'string') {
         return res.status(400).json({ success: false, message: 'Missing or invalid message in request body.' });
@@ -1051,10 +1257,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
         }
 
+        // Generate a temporary guest-safe capability token.
+        // Only its SHA-256 hash is persisted in the database.
+        const accessToken = randomBytes(32).toString('base64url');
+        const accessTokenHash = createHash('sha256')
+            .update(accessToken)
+            .digest('hex');
+
         // 1. Insert initial job record into Supabase
         const { data, error } = await supabase.from('ai_jobs').insert({
             conversation_id: validConversationId,
             user_id: userId,
+            access_token_hash: accessTokenHash,
             message: messagePayload,
             status: 'pending',
             created_at: new Date().toISOString(),
@@ -1074,15 +1288,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Reconstruct conversation history (from client payload or Supabase ai_jobs)
         let conversationHistory: ConversationTurn[] = Array.isArray(clientHistory) ? clientHistory : [];
-        if (conversationHistory.length === 0 && validConversationId) {
+        if (userId && conversationHistory.length === 0 && validConversationId) {
             try {
-                const { data: pastJobs } = await supabase
+                let historyQuery = supabase
                     .from('ai_jobs')
                     .select('message, response, created_at')
                     .eq('conversation_id', validConversationId)
                     .eq('status', 'completed')
                     .order('created_at', { ascending: false })
                     .limit(4);
+
+                if (userId) {
+                    historyQuery = historyQuery.eq('user_id', userId);
+                }
+
+                const { data: pastJobs } = await historyQuery;
                 if (pastJobs && pastJobs.length > 0) {
                     const chronological = [...pastJobs].reverse();
                     for (const pj of chronological) {
@@ -1164,44 +1384,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // policy/stock question, answer straight from Supabase rows instead of an LLM.
         // ponytail: full deterministic bypass for constrained turns; drop the gate if a
         // future provider is proven not to alter prices/stock.
-        const deterministicIntents: UserIntent[] = [
-            'showroom_info', 'operating_hours', 'shipping_policy', 'contact_info',
-            'material_comparison', 'out_of_scope', 'stock_inquiry', 'color_inquiry',
-            'category_overview', 'price_inquiry'
+        // Deterministic grounding gate: only bypass LLM for purely static, non-conversational
+        // policy/location/hours queries or explicitly out-of-scope requests.
+        // ponytail: Keep fast-path strictly for deterministic factual lookup; all product
+        // recommendation, comparison, exploration, and custom inquiries must use the AI pipeline.
+        const staticDeterministicIntents: UserIntent[] = [
+            'showroom_info', 'operating_hours', 'shipping_policy', 'contact_info', 'out_of_scope'
         ];
-        const hasHardConstraint =
-            activeContext?.constraints.maxPrice !== undefined ||
-            activeContext?.constraints.minPrice !== undefined ||
-            activeContext?.constraints.doors !== undefined ||
-            activeContext?.constraints.material !== undefined ||
-            activeContext?.constraints.color !== undefined;
 
-        if (
-            deterministicIntents.indexOf(intent) !== -1 ||
-            ((intent === 'product_recommendation' || intent === 'product_search') && hasHardConstraint)
-        ) {
+        const isConversationalOrExploratory = /jelaskan|rekomendasi|pilihan|beda|perbedaan|bagus mana|mana yang cocok|saran|model apa saja|apa saja model|buatkan|custom|cari|tahu/i.test(message);
+
+        if (staticDeterministicIntents.indexOf(intent) !== -1 && !isConversationalOrExploratory) {
             const groundedText = generateGroundedResponse(
-                (intent === 'product_search' ? 'product_recommendation' : intent) as UserIntent,
+                intent,
                 filterResult,
                 activeContext.constraints,
                 activeContext
             );
             const groundedDesignState = parseAndNormalizeDesignState(groundedText, currentDesignState).designState;
 
-            try {
-                await supabase.from('ai_jobs').update({
+            const { error: groundedUpdateError } = await supabase
+                .from('ai_jobs')
+                .update({
                     status: 'completed',
                     response: groundedText,
-                    completed_at: new Date().toISOString(),
-                    ...(groundedDesignState ? { design_state: groundedDesignState } : {})
-                }).eq('id', insertedJobId);
-            } catch (dbErr) {
-                console.warn('Supabase ai_jobs grounded update warning:', dbErr);
+                    completed_at: new Date().toISOString()
+                })
+                .eq('id', insertedJobId);
+
+            if (groundedUpdateError) {
+                console.error('Supabase ai_jobs grounded update failed:', groundedUpdateError);
             }
+
+            console.log(`[AI ROUTING] Fast-path deterministic bypass for intent '${intent}' (job ${insertedJobId})`);
 
             return res.status(200).json({
                 success: true,
                 job_id: insertedJobId,
+                access_token: accessToken,
                 conversation_id: validConversationId,
                 status: 'completed',
                 response: groundedText,
@@ -1209,102 +1429,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
         }
 
-        // 3. Attempt direct AI completion via available Cloud APIs or local 9Router LLM
-        const rawGeminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.VITE_GEMINI_API_KEY;
-        const rawOpenRouterKey = process.env.OPENROUTER_API_KEY;
-        const rawNineRouterBase = process.env.NINE_ROUTER_BASE_URL || 'http://localhost:20128/v1';
-        const rawNineRouterKey = process.env.NINE_ROUTER_API_KEY || '';
+        console.log(`[AI ROUTING] Queue-first worker dispatch for intent '${intent}' (job ${insertedJobId})`);
 
-        let aiResponseText: string | null = null;
-
-        if (rawGeminiKey) {
-            aiResponseText = await callGeminiApi(rawGeminiKey, fullPrompt, imagePart);
-        }
-        if (!aiResponseText && rawOpenRouterKey) {
-            aiResponseText = await callOpenRouterApi(rawOpenRouterKey, fullPrompt, targetImageUrl);
-        }
-        if (!aiResponseText && rawNineRouterBase) {
-            aiResponseText = await callNineRouterApi(rawNineRouterBase, rawNineRouterKey, fullPrompt, targetImageUrl);
-        }
-
-        if (aiResponseText) {
-            // LLM provider executed successfully! Parse and complete job.
-            const { designState: updatedDesignState } = parseAndNormalizeDesignState(aiResponseText, currentDesignState);
-
-            const updatePayload: any = {
-                status: 'completed',
-                response: aiResponseText,
-                completed_at: new Date().toISOString()
-            };
-            if (updatedDesignState) {
-                updatePayload.design_state = updatedDesignState;
-            }
-
-            try {
-                await supabase.from('ai_jobs').update(updatePayload).eq('id', insertedJobId);
-            } catch (dbErr) {
-                console.warn('Supabase ai_jobs update warning:', dbErr);
-            }
-
-            return res.status(200).json({
-                success: true,
-                job_id: insertedJobId,
-                conversation_id: validConversationId,
-                status: 'completed',
-                response: aiResponseText,
-                design_state: updatedDesignState || null
-            });
-        }
-
-        // 4. Wait up to 2.0s to see if python ai_worker.py (running locally) picks up and completes the job.
-        const startTime = Date.now();
-        while (Date.now() - startTime < 2000) {
-            await new Promise(r => setTimeout(r, 400));
-            const { data: jobCheck } = await supabase
-                .from('ai_jobs')
-                .select('status, response, design_state')
-                .eq('id', insertedJobId)
-                .single();
-
-            if (jobCheck && (jobCheck.status === 'completed' || jobCheck.status === 'failed')) {
-                return res.status(200).json({
-                    success: true,
-                    job_id: insertedJobId,
-                    conversation_id: validConversationId,
-                    status: jobCheck.status,
-                    response: jobCheck.response || undefined,
-                    design_state: jobCheck.design_state || null
-                });
-            }
-        }
-
-        // 5. Emergency Fallback Guard: If worker is offline AND Cloud AI failed/missing,
-        // generate a valid consultant response so the frontend NEVER gets stuck on "Menyiapkan rekomendasi..."!
-        const fallbackText = await generateDynamicConsultantFallback(message, currentDesignState, topMatchedProduct, filterResult, intent, activeContext);
-        const { designState: fallbackDesignState } = parseAndNormalizeDesignState(fallbackText, currentDesignState);
-
-        const fallbackUpdatePayload: any = {
-            status: 'completed',
-            response: fallbackText,
-            completed_at: new Date().toISOString()
-        };
-        if (fallbackDesignState) {
-            fallbackUpdatePayload.design_state = fallbackDesignState;
-        }
-
-        try {
-            await supabase.from('ai_jobs').update(fallbackUpdatePayload).eq('id', insertedJobId);
-        } catch (dbErr) {
-            console.warn('Supabase ai_jobs fallback update warning:', dbErr);
-        }
-
+                // 3. Queue-first: return pending immediately. Worker claims job via claim_ai_job() RPC.
         return res.status(200).json({
             success: true,
             job_id: insertedJobId,
+            access_token: accessToken,
             conversation_id: validConversationId,
-            status: 'completed',
-            response: fallbackText,
-            design_state: fallbackDesignState || null
+            status: 'pending',
+            response: null,
+            design_state: null
         });
 
     } catch (error: any) {
@@ -1312,5 +1447,3 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(500).json({ success: false, message: 'Internal server error.', error: error.message });
     }
 }
-
-

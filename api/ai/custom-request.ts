@@ -25,7 +25,7 @@ const generateReferenceNumber = () => {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).json({ ok: true });
@@ -112,7 +112,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const requestId = generateUuid();
     const designId = designState.id || generateUuid();
-    const refNumber = generateReferenceNumber();
+    const MAX_REF_ATTEMPTS = 5;
+    let refNumber: string | null = null;
+    for (let attempt = 0; attempt < MAX_REF_ATTEMPTS; attempt++) {
+      const candidate = generateReferenceNumber();
+      const { data: existingRef } = await supabase
+        .from('custom_design_requests')
+        .select('id')
+        .eq('reference_number', candidate)
+        .limit(1);
+      if (!existingRef || existingRef.length === 0) {
+        refNumber = candidate;
+        break;
+      }
+    }
+    if (!refNumber) {
+      // Fallback: use UUID-based reference
+      refNumber = `AGM-CUSTOM-${generateUuid().substring(0, 8).toUpperCase()}`;
+    }
 
     // Insert immutable design request into Supabase inbox.
     if (!supabase) {

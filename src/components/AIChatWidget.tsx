@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { formatFileSize } from '../config/fileConfig';
 import type { FurnitureDesignState } from '../types/furniture';
@@ -74,7 +74,7 @@ const parseProductRecommendations = (rawText: string): AIProductRecommendation[]
         subcategory: item.subcategory ? String(item.subcategory) : undefined,
         price: Number(item.price) || undefined,
         discount: Number(item.discount) || undefined,
-        final_price: Number(item.final_price) || undefined,
+        final_price: (typeof item.final_price === 'object' && item.final_price !== null) ? (item.final_price as any).finalPrice : Number(item.final_price) || undefined,
         stock: Number(item.stock) || 0,
         unit: item.unit ? String(item.unit) : undefined,
         image_url: String(item.image_url).trim(),
@@ -166,12 +166,14 @@ const AIChatWidget: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStatusText, setLoadingStatusText] = useState('Sedang memproses...');
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
+  const [currentJobAccessToken, setCurrentJobAccessToken] = useState<string | null>(null);
 
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState<string>('');
   
   const chatWindowRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pollAbortControllerRef = useRef<AbortController | null>(null);
   const conversationIdRef = useRef<string>(
     typeof window !== 'undefined' && localStorage.getItem('agm2_ai_conv_id')
       ? localStorage.getItem('agm2_ai_conv_id')!
@@ -194,9 +196,10 @@ const AIChatWidget: React.FC = () => {
     } catch {}
   }, [activeDesignState]);
 
-  const handleJobCompleted = (status: string, responseText?: string, errorText?: string, source: 'Realtime' | 'Polling' | 'Direct' = 'Realtime') => {
+  const handleJobCompleted = (status: string, responseText?: string, errorText?: string, source: 'Polling' | 'Direct' = 'Polling') => {
     console.log(`[AI ${source.toUpperCase()}] response received via ${source}. Status: ${status}`);
     setCurrentJobId(null);
+    setCurrentJobAccessToken(null);
     setIsLoading(false);
     setLoadingStatusText('Sedang memproses...');
 
@@ -219,6 +222,12 @@ const AIChatWidget: React.FC = () => {
             }
           : msg
       ));
+    } else if (status === 'cancelled' || errorText === 'Proses dihentikan oleh pengguna.') {
+      setHistory(prev => prev.map(msg =>
+        msg.text === 'AGM Assistant sedang memproses...'
+          ? { id: msg.id || generateUuid(), sender: 'ai', text: 'Proses dihentikan oleh pengguna.', timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
+          : msg
+      ));
     } else if (status === 'failed' && errorText) {
       const errorMessageText = `Terjadi kesalahan: ${errorText}`;
       setHistory(prev => prev.map(msg => 
@@ -228,81 +237,131 @@ const AIChatWidget: React.FC = () => {
       ));
     }
   };
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const channel = supabase.channel('ai_jobs_channel')
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'ai_jobs' },
-        (payload) => {
-          const updatedJob = payload.new as any;
-          if (updatedJob.id === currentJobId && updatedJob.status !== 'pending') {
-            handleJobCompleted(updatedJob.status, updatedJob.response, updatedJob.error, 'Realtime');
-          }
-        }
-      )
-      .subscribe((status) => {
-        console.log(`[REALTIME STATUS] ${status}`);
-      });
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [isOpen, currentJobId]);
-
-  useEffect(() => {
-    if (!isOpen || !isLoading || !currentJobId) return;
+  const handleStopGeneration = useCallback(async () => {
+    if (pollAbortControllerRef.current) {
+      pollAbortControllerRef.current.abort();
+      pollAbortControllerRef.current = null;
+    }
 
     const targetJobId = currentJobId;
-    console.log(`[AI POLLING] started for job ${targetJobId}`);
+    const targetToken = currentJobAccessToken;
 
+    setIsLoading(false);
+    setLoadingStatusText('Sedang memproses...');
+    setCurrentJobId(null);
+    setCurrentJobAccessToken(null);
+
+    setHistory(prev => prev.map(m =>
+      m.text === 'AGM Assistant sedang memproses...'
+        ? {
+            ...m,
+            text: 'Proses dihentikan oleh pengguna.',
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }
+        : m
+    ));
+
+    if (targetJobId && targetToken) {
+      try {
+        await fetch('/api/ai/cancel-job', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            job_id: targetJobId,
+            access_token: targetToken
+          }),
+          keepalive: true
+        });
+        console.log(`[AI CANCEL] Job ${targetJobId} cancellation dispatched.`);
+      } catch (cancelErr) {
+        console.warn(`[AI CANCEL] Job ${targetJobId} cancel request error:`, cancelErr);
+      }
+    }
+  }, [currentJobId, currentJobAccessToken]);
+
+
+  useEffect(() => {
+    if (!isOpen || !isLoading || !currentJobId || !currentJobAccessToken) return;
+
+    const targetJobId = currentJobId;
+    const targetAccessToken = currentJobAccessToken;
     let isSubscribed = true;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+    const abortController = new AbortController();
+    pollAbortControllerRef.current = abortController;
+    console.log(`[AI POLLING] started securely for job ${targetJobId}`);
 
     const checkJob = async () => {
       try {
-        const { data, error } = await supabase
-          .from('ai_jobs')
-          .select('id, status, response, error')
-          .eq('id', targetJobId)
-          .single();
+        const response = await fetch('/api/ai/job-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            job_id: targetJobId,
+            access_token: targetAccessToken
+          }),
+          signal: abortController.signal
+        });
 
-        if (error) {
-          console.error(`[AI POLLING] error checking job ${targetJobId}:`, error.message);
-          return false;
+        let data: any = {};
+        try {
+          data = await response.json();
+        } catch {
+          throw new Error(`Respons status tidak valid (HTTP ${response.status}).`);
         }
 
-        if (data && isSubscribed) {
-          console.log(`[AI POLLING] status: ${data.status}`);
-          if (data.status === 'completed' || data.status === 'failed') {
-            console.log(`[AI POLLING] response received`);
-            handleJobCompleted(data.status, data.response, data.error, 'Polling');
-            return true;
-          }
+        if (!isSubscribed) return;
+
+        if ([400, 401, 403, 404].includes(response.status)) {
+          handleJobCompleted(
+            'failed',
+            undefined,
+            data.message || 'Akses pemeriksaan job tidak valid atau telah kedaluwarsa.',
+            'Polling'
+          );
+          return;
         }
-      } catch (err: any) {
-        console.error(`[AI POLLING] exception polling job ${targetJobId}:`, err);
+
+        if (!response.ok || data.success !== true) {
+          throw new Error(data.message || `HTTP ${response.status}`);
+        }
+
+        console.log(`[AI POLLING] status: ${data.status}`);
+
+        if (data.status === 'cancelled') {
+          handleJobCompleted('cancelled', undefined, 'Proses dihentikan oleh pengguna.', 'Polling');
+          return;
+        }
+
+        if (data.status === 'completed' || data.status === 'failed') {
+          handleJobCompleted(
+            data.status,
+            data.response,
+            data.error || (data.status === 'failed' ? 'Permintaan tidak dapat diproses.' : undefined),
+            'Polling'
+          );
+          return;
+        }
+      } catch (err) {
+        if (isSubscribed) {
+          console.error(`[AI POLLING] error for job ${targetJobId}:`, err);
+        }
       }
-      return false;
+
+      if (isSubscribed) {
+        timeoutId = setTimeout(checkJob, 1500);
+      }
     };
 
-    // Immediate check so user doesn't wait for first interval tick
-    checkJob();
-
-    const intervalId = setInterval(async () => {
-      const finished = await checkJob();
-      if (finished) {
-        clearInterval(intervalId);
-      }
-    }, 1500);
+    void checkJob();
 
     return () => {
       isSubscribed = false;
-      console.log(`[AI POLLING] stopped/cleanup interval for job ${targetJobId}`);
-      clearInterval(intervalId);
+      if (timeoutId !== undefined) clearTimeout(timeoutId);
+      console.log(`[AI POLLING] stopped/cleanup for job ${targetJobId}`);
     };
-  }, [isOpen, isLoading, currentJobId]);
+  }, [isOpen, isLoading, currentJobId, currentJobAccessToken]);
 
   useEffect(() => {
     if (chatWindowRef.current) {
@@ -489,7 +548,9 @@ const AIChatWidget: React.FC = () => {
   };
 
   const startEditingMessage = (msg: Message) => {
-    if (isLoading) return;
+    if (isLoading) {
+      void handleStopGeneration();
+    }
     setEditingMessageId(msg.id);
     setEditingText(msg.text);
   };
@@ -501,7 +562,11 @@ const AIChatWidget: React.FC = () => {
 
   const saveAndResendMessage = async (msgId: string) => {
     const trimmed = editingText.trim();
-    if (!trimmed || isLoading) return;
+    if (!trimmed) return;
+
+    if (isLoading || currentJobId) {
+      await handleStopGeneration();
+    }
 
     const msgIndex = history.findIndex(m => m.id === msgId);
     if (msgIndex === -1) return;
@@ -531,20 +596,29 @@ const AIChatWidget: React.FC = () => {
 
     try {
       const { data: authData } = await supabase.auth.getUser();
-      const userId = authData?.user?.id || generateUuid();
+      const userId = authData?.user?.id || null;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token || null;
 
       const response = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-id': userId,
+          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
         },
         body: JSON.stringify({ 
           message: trimmed, 
           conversationId: conversationIdRef.current, 
           userId: userId,
           attachment: editedUserMsg.attachment,
-          currentDesignState: activeDesignState
+          currentDesignState: activeDesignState,
+          history: history.slice(0, msgIndex)
+            .filter(m => (m.sender === 'user' || m.sender === 'ai') && m.text !== 'AGM Assistant sedang memproses...')
+            .slice(-6)
+            .map(m => ({
+              role: m.sender === 'user' ? 'user' : 'assistant',
+              content: m.text
+            }))
         }),
       });
 
@@ -560,12 +634,25 @@ const AIChatWidget: React.FC = () => {
         throw new Error(data.message || `Gagal mengirim permintaan.`);
       }
 
+      if (
+        typeof data.job_id !== 'string' ||
+        typeof data.access_token !== 'string' ||
+        !/^[A-Za-z0-9_-]{43}$/.test(data.access_token)
+      ) {
+        throw new Error('Respons job tidak memiliki kredensial akses yang valid.');
+      }
+
+      setCurrentJobAccessToken(data.access_token);
       setCurrentJobId(data.job_id);
       if (data.response) {
         handleJobCompleted('completed', data.response, undefined, 'Direct');
       }
 
     } catch (error: any) {
+      if (error?.name === 'AbortError') {
+        console.log('[AI RESEND] Request aborted by user.');
+        return;
+      }
       const errorMessageText = `Error: ${error.message}`;
       setHistory(prev => prev.map(msg => 
         msg.text === 'AGM Assistant sedang memproses...' 
@@ -575,6 +662,7 @@ const AIChatWidget: React.FC = () => {
       setIsLoading(false);
       setLoadingStatusText('Sedang memproses...');
       setCurrentJobId(null);
+      setCurrentJobAccessToken(null);
       console.error('Error resending edited message:', error);
     }
   };
@@ -615,7 +703,9 @@ const AIChatWidget: React.FC = () => {
 
     try {
       const { data: authData } = await supabase.auth.getUser();
-      const userId = authData?.user?.id || generateUuid();
+      const userId = authData?.user?.id || null;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token || null;
       let uploadedAttachmentInfo: AttachmentInfo | undefined = undefined;
 
       if (activeFile) {
@@ -626,7 +716,7 @@ const AIChatWidget: React.FC = () => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-user-id': userId,
+            ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
           },
           body: JSON.stringify({
             fileBase64: base64Data,
@@ -655,15 +745,19 @@ const AIChatWidget: React.FC = () => {
           content: m.text
         }));
 
+      const abortController = new AbortController();
+      pollAbortControllerRef.current = abortController;
+
       const response = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-id': userId,
+          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
         },
-        body: JSON.stringify({ 
-          message: userMessageText, 
-          conversationId: conversationIdRef.current, 
+        signal: abortController.signal,
+        body: JSON.stringify({
+          message: userMessageText,
+          conversationId: conversationIdRef.current,
           userId: userId,
           attachment: uploadedAttachmentInfo,
           currentDesignState: activeDesignState,
@@ -683,6 +777,15 @@ const AIChatWidget: React.FC = () => {
         throw new Error(data.message || `Gagal mengirim permintaan.`);
       }
 
+      if (
+        typeof data.job_id !== 'string' ||
+        typeof data.access_token !== 'string' ||
+        !/^[A-Za-z0-9_-]{43}$/.test(data.access_token)
+      ) {
+        throw new Error('Respons job tidak memiliki kredensial akses yang valid.');
+      }
+
+      setCurrentJobAccessToken(data.access_token);
       setCurrentJobId(data.job_id);
       if (data.response) {
         handleJobCompleted('completed', data.response, undefined, 'Direct');
@@ -698,6 +801,7 @@ const AIChatWidget: React.FC = () => {
       setIsLoading(false);
       setLoadingStatusText('Sedang memproses...');
       setCurrentJobId(null);
+      setCurrentJobAccessToken(null);
       console.error('Error sending message:', error);
     }
   };
@@ -709,14 +813,15 @@ const AIChatWidget: React.FC = () => {
     setIsSubmittingCustomReq(true);
 
     try {
-      const { data: authData } = await supabase.auth.getUser();
-      const userId = authData?.user?.id || generateUuid();
+      await supabase.auth.getUser();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token || null;
 
       const res = await fetch('/api/ai/custom-request', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-id': userId
+          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
         },
         body: JSON.stringify({
           conversationId: conversationIdRef.current,
@@ -783,6 +888,7 @@ const AIChatWidget: React.FC = () => {
       localStorage.setItem('agm2_ai_conv_id', newId);
     } catch {}
     setCurrentJobId(null);
+    setCurrentJobAccessToken(null);
     setIsLoading(false);
     setLoadingStatusText('Sedang memproses...');
   };
@@ -1193,16 +1299,28 @@ const AIChatWidget: React.FC = () => {
                 disabled={isLoading}
               />
 
-              <button
-                onClick={() => sendMessage()}
-                disabled={isLoading || (!message.trim() && !selectedFile)}
-                aria-label="Kirim pesan"
-                className="w-7 h-7 rounded-md bg-slate-900 text-white flex items-center justify-center hover:bg-slate-800 disabled:opacity-20 disabled:bg-slate-300 disabled:cursor-not-allowed transition-all shrink-0 cursor-pointer"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
-                </svg>
-              </button>
+              {isLoading ? (
+                <button
+                  type="button"
+                  onClick={() => void handleStopGeneration()}
+                  aria-label="Hentikan proses AI"
+                  title="Hentikan proses AI (Stop)"
+                  className="w-7 h-7 rounded-md bg-rose-600 text-white flex items-center justify-center hover:bg-rose-700 active:scale-95 transition-all shrink-0 cursor-pointer shadow-xs animate-pulse"
+                >
+                  <span className="w-2.5 h-2.5 bg-white rounded-xs block" />
+                </button>
+              ) : (
+                <button
+                  onClick={() => sendMessage()}
+                  disabled={!message.trim() && !selectedFile}
+                  aria-label="Kirim pesan"
+                  className="w-7 h-7 rounded-md bg-slate-900 text-white flex items-center justify-center hover:bg-slate-800 disabled:opacity-20 disabled:bg-slate-300 disabled:cursor-not-allowed transition-all shrink-0 cursor-pointer"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
+                  </svg>
+                </button>
+              )}
             </div>
           </div>
         </div>

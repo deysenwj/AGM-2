@@ -7,10 +7,22 @@ export interface AIProductRecommendation {
   subcategory?: string;
   price?: number;
   discount?: number;
-  final_price?: number;
+  final_price?: number | PriceClassification;
   stock?: number;
   unit?: string;
   image_url?: string;
+}
+
+export type PriceStatus = 'priced' | 'unpriced' | 'preorder' | 'invalid_price_data';
+
+export interface PriceClassification {
+  status: PriceStatus;
+  originalPrice: number;
+  discount: number;
+  finalPrice: number;
+  isPriced: boolean;
+  isPreorder: boolean;
+  isValid: boolean;
 }
 
 const WHATSAPP_NUMBER = '6289694127723';
@@ -40,9 +52,15 @@ const whatsappUrlFor = (product: AIProductRecommendation) => {
 export const AIProductCard: FC<{ product: AIProductRecommendation }> = ({ product }) => {
   const [imageFailed, setImageFailed] = useState(false);
   const imageUrl = optimizeImageUrl(product.image_url);
-  const finalPrice = typeof product.final_price === 'number' ? product.final_price : product.price;
+  const fc = product.final_price as PriceClassification | undefined;
+  const isClassifier = fc && typeof fc !== 'number';
+  const finalPrice = typeof product.final_price === 'number' ? product.final_price : (isClassifier ? fc.finalPrice : product.price);
   const hasDiscount = Number(product.discount) > 0 && Number(product.price) > 0;
   const inStock = Number(product.stock) > 0;
+  const showPrice = isClassifier ? fc.isPriced : typeof product.final_price === 'number';
+  const priceText = isClassifier
+    ? (fc.status === 'preorder' ? 'Pre-order (konfirmasi harga)' : fc.status === 'invalid_price_data' ? 'Harga tidak valid' : fc.isPriced ? `Rp ${fc.finalPrice.toLocaleString('id-ID')}` : 'Harga hubungi toko')
+    : formatRupiah(finalPrice);
 
   return (
     <article className="flex gap-2.5 rounded-xl border border-slate-200 bg-white p-2 transition-colors hover:border-slate-300">
@@ -59,7 +77,7 @@ export const AIProductCard: FC<{ product: AIProductRecommendation }> = ({ produc
         ) : (
           <div className="flex h-full w-full items-center justify-center text-slate-300" aria-label="Foto produk tidak tersedia">
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.6-4.6a2 2 0 012.8 0L16 16l2-2a2 2 0 012.8 0L20 14M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.6-4.6a2 2 0 012.8 0L16 16l2-2a2 2 0 012.8 0L20 14M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 002 2v12a2 2 0 002 2z" />
             </svg>
           </div>
         )}
@@ -71,8 +89,10 @@ export const AIProductCard: FC<{ product: AIProductRecommendation }> = ({ produc
           <p className="mt-0.5 truncate text-[10.5px] uppercase tracking-wide text-slate-400">{product.subcategory}</p>
         )}
         <div className="mt-1 flex flex-wrap items-baseline gap-1.5">
-          <span className="text-[12px] font-bold text-slate-900">{formatRupiah(finalPrice)}</span>
+          <span className={`text-[12px] font-bold ${showPrice ? 'text-slate-900' : 'text-slate-500'}`}>{showPrice ? priceText : formatRupiah(finalPrice)}</span>
           {hasDiscount && <span className="text-[10px] text-slate-400 line-through">{formatRupiah(product.price)}</span>}
+          {isClassifier && fc.status === 'preorder' && <span className="text-[10px] text-amber-600">Pre-order — konfirmasi harga</span>}
+          {isClassifier && fc.status === 'invalid_price_data' && <span className="text-[10px] text-red-500">Data harga tidak valid</span>}
         </div>
         <span className={`mt-0.5 inline-block text-[10px] font-medium ${inStock ? 'text-emerald-600' : 'text-amber-600'}`}>
           {inStock ? `Stok ${product.stock} ${product.unit || ''}`.trim() : 'Pre-order'}

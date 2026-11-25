@@ -40,3 +40,6 @@ rekap_paku.xlsx
 
 .venv/
 # Ponytail*
+
+# Supabase local state
+supabase/.temp/

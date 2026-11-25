@@ -2,6 +2,7 @@
 import { v2 as cloudinary } from 'cloudinary';
 import { createClient } from '@supabase/supabase-js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { verifyAuth } from '../_lib/auth';
 
 // Centralized backend file validation constants
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
@@ -44,7 +45,7 @@ const sanitizeFilename = (filename: string): string => {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).json({ ok: true });
@@ -56,7 +57,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const { fileBase64, filename, mimeType, conversationId } = req.body || {};
-    const userId = (req.headers['x-user-id'] as string) || null;
+    const auth = await verifyAuth(req);
+    const userId = auth.isAuthenticated ? auth.userId : null;
 
     if (!fileBase64 || typeof fileBase64 !== 'string') {
       return res.status(400).json({ success: false, message: 'Data file tidak valid.' });

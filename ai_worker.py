@@ -1,9 +1,10 @@
 import os
 import io
+from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta
 import json
 import time
 import shutil
-import subprocess
 import urllib.request
 import csv
 import pypdf
@@ -23,39 +24,17 @@ if not SUPABASE_URL or not SUPABASE_WORKER_KEY:
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_WORKER_KEY)
 
-def find_hermes_executable() -> str:
-    appdata_hermes = os.path.expanduser(r"~\AppData\Local\hermes\hermes-agent\venv\Scripts\hermes.exe")
-    if os.path.exists(appdata_hermes):
-        return appdata_hermes
-
-    mac_local_hermes = os.path.expanduser("~/.local/bin/hermes")
-    if os.path.exists(mac_local_hermes):
-        return mac_local_hermes
-
-    for candidate in ["/usr/local/bin/hermes", "/opt/homebrew/bin/hermes"]:
-        if os.path.exists(candidate):
-            return candidate
-
-    found = shutil.which("hermes")
-    if found:
-        return found
-    return "hermes"
-
-HERMES_EXE = find_hermes_executable()
-
 # System Prompt Injection for AGM Furniture Consultant Persona
-SYSTEM_CONSULTANT_INSTRUCTION = """
-Anda adalah AGM Assistant, konsultan ahli digital resmi Toko CV Adi Guna Mandiri (AGM 2) Ketapang (spesialis furniture modern berkualitas berbasis rangka aluminium, kaca, dan ACP - Aluminium Composite Panel, serta katalog peralatan elektronik rumah tangga).
-Anda memiliki penguasaan mendalam atas SELURUH tipe produk di katalog, subkategori resmi, spesifikasi teknis, harga promo, ketersediaan stok, keunggulan material, dan alur pemesanan custom di Toko AGM 2 Ketapang.
+SYSTEM_CONSULTANT_INSTRUCTION = """ Anda adalah AGM Assistant, konsultan ahli digital resmi Toko CV Adi Guna Mandiri (AGM 2) Ketapang (spesialis furniture modern berkualitas berbasis rangka aluminium, kaca, dan ACP - Aluminium Composite Panel, serta katalog peralatan elektronik rumah tangga). Anda memiliki penguasaan mendalam atas SELURUH tipe produk di katalog, subkategori resmi, spesifikasi teknis, harga promo, ketersediaan stok, keunggulan material, dan alur pemesanan custom di Toko AGM 2 Ketapang.
 
 Karakter & Gaya Komunikasi (WAJIB IKUTI):
 - Gaya seperti AI Chat Shopee/Tokopedia: ringkas, ramah, langsung ke inti, tanpa basa-basi pembuka.
 - Struktur wajib: satu kalimat pembuka singkat, lalu rincian bila perlu, lalu satu kalimat penutup.
-- Boleh memakai format ringan berikut agar mudah dibaca:
+- Boleh memakai format ringan agar mudah dibaca:
   - **tebal** HANYA untuk nama produk, harga, dan angka penting.
-  - Daftar bullet "- " maksimal 4 butir, atau daftar nomor "1. " bila berurutan.
-  - Judul singkat "## " maksimal satu baris bila jawaban panjang.
-- DILARANG: tanda bintang tiga (***), underscore (_), tabel markdown, tautan markdown, emoji berlebihan.
+  - Daftar bullet "-" maksimal 4 butir, atau daftar nomor "1." bila berurutan.
+  - Judul singkat "##" maksimal satu baris bila jawaban panjang.
+  - DILARANG: tanda bintang tiga (***), underscore (_), tabel markdown, tautan markdown, emoji berlebihan.
 - Maksimal 6 baris untuk jawaban sederhana. Uraian hanya bila customer minta rincian.
 - Satu produk per baris dengan pola: - **Nama Produk** - Rp harga - stok.
 - Selalu beri satu baris kosong sebelum dan sesudah daftar agar tidak menempel.
@@ -67,9 +46,9 @@ Karakter & Gaya Komunikasi (WAJIB IKUTI):
 - Isi maksimal 3 produk dan hanya produk yang punya image_url pada data katalog. Jangan mengarang id, harga, stok, atau image_url.
 - Blok ini dibaca sistem untuk menampilkan foto produk. Jangan pernah menjelaskan isi blok ini ke customer.
 
-================================================================================
+==============================================================================
 PENGUASAAN PRODUK & SUBKATEGORI KATALOG AGM (MANDATORY KNOWLEDGE):
-================================================================================
+==============================================================================
 Toko AGM memiliki 15 subkategori produk furniture unggulan berbahan utama Aluminium, Kaca, dan ACP:
 
 1. LEMARI PAKAIAN (21+ Model):
@@ -131,27 +110,27 @@ Toko AGM memiliki 15 subkategori produk furniture unggulan berbahan utama Alumin
 12. MEJA RIAS:
     - Meja rias aluminium kaca dengan cermin bening luas dan laci kosmetik praktis.
 
-================================================================================
+==============================================================================
 KEUNGGULAN MATERIAL AGM DIBANDING KAYU:
-================================================================================
+==============================================================================
 1. 100% Anti Rayap & Tahan Air: Daerah pesisir/tropis Ketapang yang lembap atau rawan banjir tidak merusak furniture AGM. Bebas keropos selamanya.
 2. Rangka Aluminium: Ringan, kokoh, tidak berkarat, tidak melengkung, pilihan warna silver/anodized/hitam/putih.
 3. ACP (Aluminium Composite Panel): Lembaran komposit kokoh tahan benturan, anti pecah, tahan lembap, mudah dibersihkan.
 4. Kaca Tempered / Bening / Riben / Stiker: Tampilan modern, bersih, mewah, dan higienis.
 5. Keramik / Porselen: Bagian meja saji & meja kompor tahan api kompor serta tumpahan minyak panas.
 
-================================================================================
+==============================================================================
 LAYANAN TOKO & ALUR PEMESANAN:
-================================================================================
+==============================================================================
 - Lokasi Toko: Jalan Rahadi Ismail, Desa Padang, Kecamatan Benua Kayong, Kabupaten Ketapang, Kalimantan Barat.
 - Pengiriman: Dilayani armada toko khusus untuk area Ketapang dan sekitarnya agar barang kaca/aluminium aman sampai di rumah.
 - Kontak Cepat: WhatsApp Toko AGM: 0896-9412-7723.
 - Custom Order: Customer bisa request custom ukuran per centimeter, ubah jumlah pintu, pilih warna ACP, atau sesuaikan bentuk L/U.
 - Harga: Transparan, diskon promosi langsung pada produk promo. Produk bertanda PRE-ORDER / Rp 0 siap dikonsultasikan biayanya sesuai spesifikasi ukuran yang diinginkan.
 
-================================================================================
+==============================================================================
 PENGUASAAN & ANALISIS GAMBAR PRODUK (MULTIMODAL VISION & KETERANGAN FOTO):
-================================================================================
+==============================================================================
 1. Membaca Teks / Stiker Ukuran pada Foto Produk:
    - Banyak foto produk katalog AGM memiliki stiker atau tulisan penanda ukuran nyata (contoh: "UK 90", "150 x 40", "p180 x t180", "120 cm", "2 meter").
    - Anda WAJIB menganalisis dan membaca teks/stiker tersebut saat customer bertanya ukuran atau rincian gambar.
@@ -175,11 +154,11 @@ PENGUASAAN & ANALISIS GAMBAR PRODUK (MULTIMODAL VISION & KETERANGAN FOTO):
    - Kapan pun customer bertanya atau memiliki keterbatasan ukuran ruangan (misal: "ruangan saya hanya muat 120 cm", "bisa dibuat lebih pendek/lebar?", "sesuaikan dengan dapur saya"):
      a) Jelaskan bahwa ukuran bisa 100% DISESUAIKAN (custom per centimeter) di bengkel Toko AGM 2 Ketapang.
      b) Berikan solusi dinamis: jika customer mengecilkan ukuran lemari dari 150 cm (3 pintu) ke 120 cm (diubah jadi 2 pintu lebar), jelaskan penyesuaian fungsionalnya.
-     c) Lampirkan spesifikasi baru dalam blok \`\`\`json_design_state\`\`\` yang mencerminkan ukuran dinamis yang disepakati.
+     c) Lampirkan spesifikasi baru dalam blok `json_design_state` yang mencerminkan ukuran dinamis yang disepakati.
 
-================================================================================
+==============================================================================
 LOGIKA MENJAWAB CUSTOMER (DYNAMIC & SMART):
-================================================================================
+==============================================================================
 1. Pertanyaan Katalog / Stok / Harga / Gambar / Ukuran:
    - Gunakan fakta nyata dari [KATALOG SUPABASE - DATA REAL-TIME] dan analisis gambar.
    - Sebutkan nama produk, subkategori, harga setelah diskon (jika ada diskon, sebutkan harga asli dan nominal diskonnya), status stok, serta ukuran dan karakteristik visual dari gambar.
@@ -190,9 +169,9 @@ LOGIKA MENJAWAB CUSTOMER (DYNAMIC & SMART):
 
 3. Pertanyaan Custom / Penyesuaian Ukuran Dinamis:
    - Tanyakan ukuran ruangan atau kebutuhan khusus customer.
-   - HANYA sertakan blok \`\`\`json_design_state\`\`\` jika customer secara eksplisit meminta rancangan custom atau mengubah spesifikasi desain aktif.
+   - HANYA sertakan blok `json_design_state` jika customer secara eksplisit meminta rancangan custom atau mengubah spesifikasi desain aktif.
    - Format JSON Design State:
-\`\`\`json_design_state
+```json_design_state
 {
   "version": 1,
   "category": "wardrobe",
@@ -213,7 +192,8 @@ LOGIKA MENJAWAB CUSTOMER (DYNAMIC & SMART):
     "status": "not_configured"
   }
 }
-\`\`\`
+```
+```
 """
 
 def extract_pdf_text(file_bytes: bytes) -> str:
@@ -280,47 +260,98 @@ def normalize_attachment_context(filename: str, mime_type: str, raw_text: str) -
     truncated = len(clean_text) > MAX_CHARS
     if truncated:
         clean_text = clean_text[:MAX_CHARS]
-
     context = f"[ATTACHMENT]\nFilename: {filename}\nType: {mime_type}\n\n[CONTENT]\n{clean_text}\n"
     if truncated:
         context += "\n[File content truncated because it exceeds context limit.]\n"
     context += "[END ATTACHMENT]"
     return context
 
-def call_hermes_cli(prompt: str) -> str:
+def call_nine_router_chat(prompt: str) -> str:
+    """Calls 9Router OpenAI-compatible chat completions endpoint for consultation jobs."""
     try:
-        cmd = [HERMES_EXE, "chat", "-q", prompt, "-Q"]
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=120
+        base_url = os.environ.get("NINE_ROUTER_BASE_URL", "").strip().rstrip("/")
+        if not base_url:
+            raise Exception("NINE_ROUTER_BASE_URL is not configured.")
+        if not base_url.endswith("/v1"):
+            base_url = f"{base_url}/v1"
+
+        api_key = os.environ.get("NINE_ROUTER_API_KEY", "").strip()
+        if not api_key:
+            raise Exception("NINE_ROUTER_API_KEY is not configured.")
+
+        model = os.environ.get("NINE_ROUTER_CONSULTATION_MODEL", "my-combo").strip() or "my-combo"
+
+        payload = {
+            "model": model,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            "temperature": 0.7,
+            "max_tokens": 2048
+        }
+
+        data_bytes = json.dumps(payload).encode("utf-8")
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}"
+        }
+
+        req = urllib.request.Request(
+            f"{base_url}/chat/completions",
+            data=data_bytes,
+            headers=headers,
+            method="POST"
         )
 
-        if result.returncode != 0:
-            error_msg = result.stderr.strip() or f"Hermes process exited with code {result.returncode}"
-            raise Exception(error_msg)
+        with urllib.request.urlopen(req, timeout=180) as resp:
+            raw_text = resp.read().decode("utf-8")
+            parsed_res = json.loads(raw_text)
 
-        output = result.stdout.strip()
-        lines = output.splitlines()
-        clean_lines = [line for line in lines if not line.startswith("session_id:")]
-        final_text = "\n".join(clean_lines).strip()
-        return final_text if final_text else "No response from AI."
+        choices = parsed_res.get("choices", [])
+        if not choices:
+            raise Exception("Empty choices from 9Router API.")
 
-    except subprocess.TimeoutExpired:
-        raise Exception("Hermes CLI request timed out (120s).")
+        content = choices[0].get("message", {}).get("content", "")
+
+        if isinstance(content, list):
+            content = "".join(
+                item.get("text", "")
+                for item in content
+                if isinstance(item, dict)
+            )
+
+        if not isinstance(content, str) or not content.strip():
+            raise Exception("Empty message content from 9Router API.")
+
+        return content.strip()
+
+    except urllib.error.HTTPError as http_err:
+        body = ""
+        try:
+            body = http_err.read().decode("utf-8", errors="replace")
+        except Exception:
+            pass
+        raise Exception(f"9Router API HTTP {http_err.code}: {body[:500]}")
+
+    except urllib.error.URLError as url_err:
+        raise Exception(f"9Router API connection failed: {url_err}")
+
+    except json.JSONDecodeError as json_err:
+        raise Exception(f"9Router API invalid JSON response: {json_err}")
+
     except Exception as e:
-        raise Exception(f"Failed to execute Hermes CLI: {e}")
+        raise Exception(f"Failed to call 9Router API: {e}")
 
 def analyze_furniture_visualization_9router(image_url: str, user_prompt: str, current_design_state: dict) -> str:
-    """
-    Calls 9Router Vision API (gemini/gemini-3.7-flash) to inspect furniture visualization objectively.
-    Returns structured vision observation string or empty string on failure/timeout.
-    """
+    """Calls 9Router Vision API (ag/gemini-3.8-flash-high) to inspect furniture visualization objectively."""
     try:
-        nine_router_base = os.environ.get('NINE_ROUTER_BASE_URL', 'http://localhost:20128/v1').rstrip('/')
+        nine_router_base = os.environ.get('NINE_ROUTER_BASE_URL', 'http://host.docker.internal:20128/v1').strip().rstrip('/')
         nine_router_key = os.environ.get('NINE_ROUTER_API_KEY', '')
-        
+        nine_router_vision_model = os.environ.get('NINE_ROUTER_VISION_MODEL', 'ag/gemini-3.8-flash-high')
+
         system_instruction = (
             "You are the visual inspection and product detail component of AGM Assistant for CV Adi Guna Mandiri (AGM 2) Ketapang. "
             "Analyze the provided AGM furniture image thoroughly and objectively: "
@@ -334,7 +365,7 @@ def analyze_furniture_visualization_9router(image_url: str, user_prompt: str, cu
         )
 
         payload = {
-            "model": "gemini/gemini-3.7-flash",
+            "model": nine_router_vision_model,
             "messages": [
                 {
                     "role": "user",
@@ -347,19 +378,23 @@ def analyze_furniture_visualization_9router(image_url: str, user_prompt: str, cu
         }
 
         data_bytes = json.dumps(payload).encode('utf-8')
+        headers = {
+            "Content-Type": "application/json"
+        }
+        if nine_router_key:
+            headers["Authorization"] = f"Bearer {nine_router_key}"
+
         req = urllib.request.Request(
             f"{nine_router_base}/chat/completions",
             data=data_bytes,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {nine_router_key}" if nine_router_key else ""
-            }
+            headers=headers,
+            method="POST"
         )
 
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=60) as resp:
             resp_bytes = resp.read()
             raw_text = resp_bytes.decode('utf-8')
-            
+
             # Handle streaming chunks if returned as SSE
             if "data: " in raw_text:
                 chunks = raw_text.split("data: ")
@@ -387,7 +422,7 @@ def process_ai_job(job):
     conversation_id = job['conversation_id']
     raw_message = job['message']
     incoming_design_state = job.get('design_state')
-    
+
     user_prompt = raw_message
     attachment_info = None
 
@@ -407,10 +442,14 @@ def process_ai_job(job):
     print(f"[{time.strftime('%H:%M:%S')}] Processing job {job_id} for session {conversation_id}: '{user_prompt[:50]}...'")
 
     try:
-        supabase.from_("ai_jobs").update({
-            "status": "processing",
-            "processing_start_at": "now()"
-        }).eq("id", job_id).execute()
+        # Check if job was cancelled before execution starts
+        status_check = supabase.from_("ai_jobs").select("status, error").eq("id", job_id).maybe_single().execute()
+        if status_check.data:
+            st = status_check.data.get("status")
+            err = status_check.data.get("error")
+            if st == "cancelled" or (st == "failed" and err == "job_cancelled_by_user"):
+                print(f"[{time.strftime('%H:%M:%S')}] Job {job_id} was cancelled before worker execution. Aborting.")
+                return
 
         attachment_prefix = ""
         if attachment_info and attachment_info.get('storage_url'):
@@ -418,7 +457,7 @@ def process_ai_job(job):
             filename = attachment_info.get('filename', 'attachment')
             mime_type = attachment_info.get('mime_type', 'application/octet-stream')
             source_type = attachment_info.get('source', 'furniture_reference')
-            
+
             is_image_attachment = any(mime_type.lower().startswith(p) for p in ['image/jpeg', 'image/png', 'image/webp']) or any(filename.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.webp'])
 
             if is_image_attachment:
@@ -433,14 +472,13 @@ def process_ai_job(job):
                 req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
                 with urllib.request.urlopen(req) as resp:
                     file_bytes = resp.read()
-
                 extracted_text = extract_file_content(file_bytes, filename, mime_type)
                 attachment_prefix = normalize_attachment_context(filename, mime_type, extracted_text) + "\n\n"
 
         # Vision Pipeline Execution Guard (Trigger Vision ONLY if active visualization image exists AND prompt implies visual feedback)
         vision_context = ""
         active_img_url = (incoming_design_state or {}).get('visualization', {}).get('imageUrl')
-        
+
         # Check if prompt contains visual feedback indicators (leg, color, proportion, shape, appearance, etc.)
         prompt_lower = user_prompt.lower()
         is_explicit_dim = any(k in prompt_lower for k in ['panjang', 'lebar', 'tinggi', 'kedalaman', 'cm', 'mm', 'ukuran'])
@@ -466,7 +504,7 @@ def process_ai_job(job):
         try:
             catalog_res = supabase.from_("products").select("id,name,category,subcategory,description,price,discount,stock,unit,arrival_type,image_url,images").order("created_at", desc=True).limit(60).execute()
             catalog_items = catalog_res.data or []
-            
+
             # Simple keyword scoring for worker
             user_tokens = user_prompt.lower().split()
             def score_item(item):
@@ -491,7 +529,8 @@ def process_ai_job(job):
             for it in top_items:
                 price = int(it.get('price') or 0)
                 disc = int(it.get('discount') or 0)
-                img = it.get('image_url') or (it.get('images') and it.get('images')[0]) or ''
+                images = it.get('images')
+                img = it.get('image_url') or (images[0] if isinstance(images, list) and images else '')
                 compact_items.append({
                     "id": it.get('id'),
                     "name": it.get('name'),
@@ -526,7 +565,16 @@ def process_ai_job(job):
         # Combine System Persona + State Context + Live Catalog + Vision Context + Attachment + User Prompt
         full_prompt = f"{SYSTEM_CONSULTANT_INSTRUCTION}\n\n{catalog_context}\n\n{state_context}{vision_context}{attachment_prefix}Pertanyaan/Instruksi Customer:\n{user_prompt}"
 
-        ai_response_text = call_hermes_cli(full_prompt)
+        ai_response_text = call_nine_router_chat(full_prompt)
+
+        # Check if job was cancelled during LLM inference
+        status_check = supabase.from_("ai_jobs").select("status, error").eq("id", job_id).maybe_single().execute()
+        if status_check.data:
+            st = status_check.data.get("status")
+            err = status_check.data.get("error")
+            if st == "cancelled" or (st == "failed" and err == "job_cancelled_by_user"):
+                print(f"[{time.strftime('%H:%M:%S')}] Job {job_id} was cancelled during generation. Discarding output.")
+                return
 
         # Parse & Validate Output Design State
         updated_design_state = incoming_design_state
@@ -569,12 +617,12 @@ def process_ai_job(job):
                         dims = parsed.get('dimensions')
                         if not isinstance(dims, dict):
                             dims = {}
-                        
+
                         # Map legacy width if length is missing and width was used as length
                         legacy_width = parsed.get('width')
                         legacy_depth = parsed.get('depth')
                         legacy_height = parsed.get('height')
-                        
+
                         if legacy_width and not dims.get('length'):
                             dims['length'] = int(legacy_width) if str(legacy_width).isdigit() else legacy_width
                         if legacy_depth and not dims.get('width'):
@@ -586,7 +634,7 @@ def process_ai_job(job):
                             dims['unit'] = 'cm'
 
                         parsed['dimensions'] = dims
-                        
+
                         # Remove legacy top-level dimension keys to enforce clean canonical schema
                         parsed.pop('width', None)
                         parsed.pop('depth', None)
@@ -596,11 +644,11 @@ def process_ai_job(job):
                         if incoming_design_state and isinstance(incoming_design_state, dict):
                             prev_ver = incoming_design_state.get('version', 1)
                             parsed['version'] = prev_ver + 1
-                            
+
                             # Inherit or set stale visualization status if state changed
                             prev_vis = incoming_design_state.get('visualization', {})
                             new_vis = parsed.get('visualization', {})
-                            
+
                             if prev_vis.get('status') == 'ready':
                                 new_vis['status'] = 'stale'
                                 new_vis['imageUrl'] = prev_vis.get('imageUrl') # Retain as previous reference
@@ -623,8 +671,8 @@ def process_ai_job(job):
                             parsed['version'] = 1
                             if not parsed.get('visualization'):
                                 parsed['visualization'] = {
-                                    'status': 'not_configured',
-                                    'designVersion': 1
+                                        'status': 'not_configured',
+                                        'designVersion': 1
                                 }
 
                         updated_design_state = parsed
@@ -634,50 +682,60 @@ def process_ai_job(job):
         update_payload = {
             "status": "completed",
             "response": ai_response_text,
-            "completed_at": "now()"
+            "completed_at": datetime.now(timezone.utc).isoformat()
         }
-        if updated_design_state is not None:
-            try:
-                update_payload["design_state"] = updated_design_state
-            except Exception:
-                pass
-
-        try:
-            supabase.from_("ai_jobs").update(update_payload).eq("id", job_id).execute()
-        except Exception as update_err:
-            if "design_state" in str(update_err):
-                # Fallback if DB table has not cached design_state column yet
-                update_payload.pop("design_state", None)
-                supabase.from_("ai_jobs").update(update_payload).eq("id", job_id).execute()
-            else:
-                raise update_err
+        # Design state tetap dibawa dalam response JSON.
+        # Tabel ai_jobs produksi belum memiliki kolom design_state.
+        res = supabase.from_("ai_jobs").update(update_payload).eq("id", job_id).eq("status", "processing").execute()
+        if not res.data:
+            print(f"[{time.strftime('%H:%M:%S')}] Job {job_id} was not in processing status (cancelled or claimed by other). Output discarded.")
+            return
 
         print(f"[{time.strftime('%H:%M:%S')}] [OK] Job {job_id} completed successfully.")
 
     except Exception as e:
         error_message = str(e)
         print(f"[{time.strftime('%H:%M:%S')}] [ERROR] Job {job_id} failed: {error_message}")
-        supabase.from_("ai_jobs").update({
-            "status": "failed",
-            "error": error_message,
-            "completed_at": "now()"
-        }).eq("id", job_id).execute()
+        try:
+            supabase.from_("ai_jobs").update({
+                "status": "failed",
+                "error": error_message,
+                "completed_at": datetime.now(timezone.utc).isoformat()
+            }).eq("id", job_id).eq("status", "processing").execute()
+        except Exception:
+            pass
+
+def claim_ai_job():
+    """Atomically claim one pending job using claim_ai_job() RPC (FOR UPDATE SKIP LOCKED).
+    Returns job dict or None if no pending jobs available."""
+    try:
+        result = supabase.rpc("claim_ai_job").execute()
+        rows = result.data or []
+        if rows:
+            return rows[0]
+    except Exception as rpc_err:
+        print(f"[{time.strftime('%H:%M:%S')}] claim_ai_job RPC failed: {rpc_err}")
+    return None
+
+def recover_stale_jobs():
+    """
+    Disabled temporarily.
+
+    Production ai_jobs schema does not contain the retry/locking columns
+    used by the previous recovery implementation. Existing processing jobs
+    must not be modified until a separate recovery plan is approved.
+    """
+    return
 
 def listen_for_new_jobs():
-    print("==================================================")
-    print(" AGM Assistant Furniture Consultant Worker Active")
-    print(f" Target Supabase : {SUPABASE_URL}")
-    print("==================================================")
-
+    """Main worker loop: claim jobs atomically via RPC and process them."""
     while True:
         try:
-            res = supabase.from_("ai_jobs").select("*").eq("status", "pending").order("created_at", desc=False).limit(1).execute()
-            jobs = res.data
-            if jobs:
-                for job in jobs:
-                    process_ai_job(job)
+            job = claim_ai_job()
+            if job:
+                process_ai_job(job)
         except Exception as e:
-            print(f"[{time.strftime('%H:%M:%S')}] Error fetching pending jobs: {e}")
+            print(f"[{time.strftime('%H:%M:%S')}] Error in worker loop: {e}")
         time.sleep(3)
 
 if __name__ == "__main__":

@@ -9,13 +9,25 @@ export interface CatalogProduct {
   description?: string;
   price?: number;
   discount?: number;
-  final_price?: number;
+  final_price?: number | PriceClassification;
   stock?: number;
   unit?: string;
   arrival_type?: string;
   image_url?: string;
   images?: string[];
   created_at?: string;
+}
+
+export type PriceStatus = 'priced' | 'unpriced' | 'preorder' | 'invalid_price_data';
+
+export interface PriceClassification {
+  status: PriceStatus;
+  originalPrice: number;
+  discount: number;
+  finalPrice: number;
+  isPriced: boolean;
+  isPreorder: boolean;
+  isValid: boolean;
 }
 
 export interface ConversationTurn {
@@ -49,6 +61,10 @@ export type UserIntent =
   | 'material_inquiry'
   | 'product_recommendation'
   | 'product_search'
+  | 'product_comparison'
+  | 'spec_inquiry'
+  | 'follow_up'
+  | 'clarification'
   | 'price_inquiry'
   | 'stock_inquiry'
   | 'color_inquiry'
@@ -265,75 +281,108 @@ export function classifyUserIntent(
 ): UserIntent {
   const clean = userMessage.toLowerCase().trim();
 
-  // Out of scope check
+  // 1. Out of scope check
   if (isOutOfScopeProduct(clean)) {
     return 'out_of_scope';
   }
 
-  // Pure Showroom / Location Intent: must NOT contain product inquiry words
+  // 2. Custom furniture request
+  if (/bisa custom|custom ukuran|pesan ukuran khusus|rancang ukuran|bisa dibikinkan|bikin custom|buat custom|bisa buatkan|bisa pesan model|membuat .* custom/i.test(clean)) {
+    return 'custom_furniture';
+  }
+
+  // 3. Product comparison / differences between models
+  if (/perbedaan|bedanya|beda antara|beda dari|bagus mana|lebih bagus mana|bandingkan|dibanding|kelebihan.*kekurangan|lebih awet mana/i.test(clean)) {
+    return 'product_comparison';
+  }
+
+  // 4. Follow-up to previous turns (e.g. "kalau produk ketiga?", "yang nomor 2?", "kalau yang tadi?")
+  if (
+    context?.lastRecommendedProducts?.length &&
+    (/(?:produk|nomor|pilihan|opsi)\s*(?:ke-?\s*\d+|pertama|kedua|ketiga|1|2|3)\b/i.test(clean) ||
+     /^kalau yang (?:itu|tadi|pertama|kedua|ketiga)\b/i.test(clean))
+  ) {
+    if (/masih ada|ready|tersedia|stok/i.test(clean)) return 'stock_inquiry';
+    if (/berapa|harga/i.test(clean)) return 'price_inquiry';
+    return 'follow_up';
+  }
+
+  // 5. Pure Showroom / Location Intent: must NOT contain product inquiry words
   const hasShowroomWords = /showroom|lokasi toko|alamat toko|alamat agm|toko di mana|dimana toko|alamat fisik/i.test(clean);
   const hasProductWords = /rekomendasi|lemari|meja|rak|kitchen|harga|stok|beli|pesan|juta|budget|acp|kaca/i.test(clean);
   if (hasShowroomWords && !hasProductWords) {
     return 'showroom_info';
   }
 
-  // Operating Hours
+  // 6. Operating Hours
   if (/jam berapa buka|jam buka|buka jam|jam operasional|tutup jam berapa|hari apa buka/i.test(clean)) {
     return 'operating_hours';
   }
 
-  // Shipping policy
+  // 7. Shipping policy
   if (/ongkir|ongkos kirim|bisa kirim ke|pengiriman ke|kirim luar kota|area pengiriman/i.test(clean) && !hasProductWords) {
     return 'shipping_policy';
   }
 
-  // Material comparison / education
-  if (/perbedaan\s+(?:acp|kaca|aluminium|kayu)|bedanya\s+(?:acp|kaca|aluminium)|bagus\s+(?:mana|acp|kaca)|keunggulan\s+(?:acp|aluminium)|kenapa\s+aluminium/i.test(clean)) {
+  // 8. Material comparison / education
+  if (/perbedaan\s+(?:acp|kaca|aluminium|kayu)|bedanya\s+(?:acp|kaca|aluminium)|keunggulan\s+(?:acp|aluminium)|kenapa\s+aluminium|bahan\s+(?:acp|aluminium|kaca)\s+itu/i.test(clean)) {
     return 'material_comparison';
   }
 
-  // Greeting
+  // 9. Greeting
   if (/^(halo|hai|hi|assalamu['a]?laikum|pagi|siang|sore|malam)$/i.test(clean) ||
       /^(halo|hai|hi)\s+admin\b/i.test(clean)) {
     return 'greeting';
   }
 
-  // Category overview
-  if (/kategori apa saja|ada apa saja|daftar produk|semua produk|jual apa saja/i.test(clean)) {
-    return 'category_overview';
+  // 10. Clarification request from user
+  if (/maksudnya|bisa diperjelas|kurang jelas|bingung|gimana maksudnya/i.test(clean)) {
+    return 'clarification';
   }
 
-  // Stock inquiry
-  if (/berapa stok(?:nya)?|stoknya berapa|ready berapa|masih ada stok|sisa berapa unit/i.test(clean)) {
+  // 11. Specifications / Dimensions Inquiry
+  if (/spesifikasi|speknya|ukuran(?:nya)? berapa|dimensi(?:nya)?|panjang.*lebar.*tinggi|berapa cm|berapa meter|tinggi.*berapa|muat gak|muat tidak/i.test(clean)) {
+    return 'spec_inquiry';
+  }
+
+  // 12. Price inquiry (specific check before general recommendation)
+  if (/berapa harganya|harganya berapa|harga paling|paling murah|termurah|paling mahal|termahal|kisaran harga|daftar harga|harga berapa|berapaan/i.test(clean)) {
+    return 'price_inquiry';
+  }
+
+  // 13. Stock inquiry
+  if (/berapa stok(?:nya)?|stoknya berapa|ready berapa|masih ada stok|sisa berapa unit|apakah.*masih ada|masih tersedia|apakah ready/i.test(clean)) {
     return 'stock_inquiry';
   }
 
-  // Color inquiry
+  // 14. Color inquiry
   if (/ada warna apa|ada warna putih|pilihan warna|tersedia warna apa/i.test(clean)) {
     return 'color_inquiry';
   }
 
-  // Custom furniture request
-  if (/bisa custom|custom ukuran|pesan ukuran khusus|rancang ukuran|bisa dibikinkan/i.test(clean)) {
-    return 'custom_furniture';
+  // 15. Category overview / broad catalog explore
+  if (/kategori apa saja|ada apa saja|daftar produk|semua produk|jual apa saja|model apa saja|apa saja model|pilihan produknya|bisa jelaskan pilihan/i.test(clean)) {
+    return 'category_overview';
   }
 
-  // Price inquiry
-  if (/berapa harganya|harganya berapa|kisaran harga|daftar harga/i.test(clean)) {
-    return 'price_inquiry';
-  }
-
-  // If message contains budget, door count, material, or category -> product recommendation/search
-  const currency = parseIndonesianCurrency(clean);
-  const doors = parseDoorCount(clean);
-  const mat = parseMaterial(clean);
-  const cat = parseCategoryOrSubcategory(clean);
-
-  if (currency.maxPrice || currency.minPrice || doors || mat || cat.subcategory || /rekomendasi|cari|pilihkan/i.test(clean)) {
+  // 16. Product recommendation (advisory: fit, suggestions, budget-oriented)
+  if (/rekomendasi|pilihkan|mana yang cocok|bagus untuk|saran|cocok untuk|terbaik|pas untuk|sarankan/i.test(clean)) {
     return 'product_recommendation';
   }
 
-  // Context follow-up check: if user message is short and we have prior recommendation context
+  // 17. Product search (search / existence / lookup)
+  const currency = parseIndonesianCurrency(clean);
+  const cat = parseCategoryOrSubcategory(clean);
+
+  if (currency.maxPrice || currency.minPrice) {
+    return 'product_recommendation';
+  }
+
+  if (cat.subcategory || /ada\s+(?:lemari|meja|kitchen|etalase|bopet|rak|wastafel)|cari|mencari|mau beli|butuh/i.test(clean)) {
+    return 'product_search';
+  }
+
+  // 18. Context follow-up check: if user message short and we have prior recommendation context
   if (context?.constraints?.category || context?.constraints?.subcategory) {
     if (/yang|warna|pintu|acp|kaca|murah|mahal|diskon|budget|juta/i.test(clean)) {
       return 'product_recommendation';
@@ -442,27 +491,42 @@ export function filterAndRankCatalogProducts(
 ): FilterResult {
   const validProducts = products.filter(p => p.name && p.name.trim() !== '-');
 
-  const { maxPrice, minPrice, doors, doorType, material, color, subcategory } = constraints;
+  const { maxPrice, minPrice, doors, doorType, material, color, subcategory, rawKeywords } = constraints;
   const isBudgetConstrained = maxPrice !== undefined || minPrice !== undefined;
 
-  const matches: CatalogProduct[] = [];
+  let matches: CatalogProduct[] = [];
   const alternatives: CatalogProduct[] = [];
 
   for (const p of validProducts) {
     const pName = (p.name || '').toLowerCase();
     const pSubcat = (p.subcategory || p.category || '').toLowerCase();
     const pDesc = (p.description || '').toLowerCase();
-    const searchable = `${pName} ${pSubcat} ${pDesc}`;
+    // Normalize known merchant typos in searchable text
+    const normalizedSearchable = `${pName} ${pSubcat} ${pDesc}`
+      .replace(/\btaperwer\b/g, 'tupperware rak kaca')
+      .replace(/\bsleding\b/g, 'sliding')
+      .replace(/\btiolet\b/g, 'toilet rias')
+      .replace(/\bcatom\b/g, 'custom')
+      .replace(/\bwestafel\b/g, 'wastafel');
 
-    const rawPrice = Number(p.price) || 0;
-    const discount = Number(p.discount) || 0;
-    const finalPrice = Math.max(0, rawPrice - discount);
+    // Use classifier result if available (object format), otherwise fall back to raw calculation
+    const fc = p.final_price as PriceClassification | undefined;
+    let finalPrice: number;
+    let status: PriceStatus;
+    if (fc && typeof fc !== 'number') {
+      finalPrice = fc.isPriced ? fc.finalPrice : 0;
+      status = fc.status;
+    } else {
+      const rawPrice = Number(p.price) || 0;
+      const discount = Number(p.discount) || 0;
+      finalPrice = Math.max(0, rawPrice - discount);
+      status = 'priced';
+    }
 
     // 1. Category / Subcategory Filter
     if (subcategory) {
       if (subcategory === 'lemari') {
-        // Any lemari product
-        const isLemari = /lemari|wardrobe|almari|rak piring|etalase/i.test(searchable);
+        const isLemari = /lemari|wardrobe|almari|rak piring|etalase/i.test(normalizedSearchable);
         if (!isLemari) continue;
       } else {
         const targetSubcat = subcategory.toLowerCase();
@@ -472,7 +536,16 @@ export function filterAndRankCatalogProducts(
     }
 
     // 2. Budget / Price Filter
-    // Note: products with finalPrice === 0 are custom / pre-order. We only filter by price if finalPrice > 0
+    if (status === 'invalid_price_data') {
+      continue;
+    }
+    if (status === 'unpriced' || status === 'preorder') {
+      if (maxPrice !== undefined || minPrice !== undefined) {
+        alternatives.push({ ...p, final_price: finalPrice });
+        continue;
+      }
+    }
+
     let passesPrice = true;
     if (maxPrice !== undefined) {
       if (finalPrice > maxPrice) passesPrice = false;
@@ -485,64 +558,142 @@ export function filterAndRankCatalogProducts(
     let passesDoors = true;
     if (doors !== undefined) {
       const doorPattern = new RegExp(`\\b${doors}\\s*(?:pintu|pt)\\b`, 'i');
-      passesDoors = doorPattern.test(searchable);
+      passesDoors = doorPattern.test(normalizedSearchable);
     }
 
     // 4. Door Type Filter
     let passesDoorType = true;
     if (doorType === 'sliding') {
-      passesDoorType = /sleding|sliding|geser/i.test(searchable);
+      passesDoorType = /sleding|sliding|geser/i.test(normalizedSearchable);
     } else if (doorType === 'swing') {
-      passesDoorType = !/sleding|sliding|geser/i.test(searchable);
+      passesDoorType = !/sleding|sliding|geser/i.test(normalizedSearchable);
     }
 
     // 5. Material Filter
+    // Note: In AGM, almost all products feature aluminium frames. If material is aluminium,
+    // do not strictly exclude products unless they are explicitly non-aluminium (e.g. pure wood).
     let passesMaterial = true;
     if (material) {
       if (material === 'acp') {
-        passesMaterial = /\bacp\b/i.test(searchable);
+        passesMaterial = /\bacp\b/i.test(normalizedSearchable);
       } else if (material === 'kaca') {
-        passesMaterial = /\bkaca\b/i.test(searchable);
+        passesMaterial = /\bkaca\b/i.test(normalizedSearchable);
       } else if (material === 'keramik') {
-        passesMaterial = /\bkeramik\b|\bporselen\b|\bproslen\b/i.test(searchable);
-      } else if (material === 'aluminium') {
-        passesMaterial = /\balum/i.test(searchable);
+        passesMaterial = /\bkeramik\b|\bporselen\b|\bproslen\b/i.test(normalizedSearchable);
+      } else if (material === 'kayu') {
+        passesMaterial = /\bkayu\b|\btriplek\b|\bmdf\b/i.test(normalizedSearchable);
       }
+      // 'aluminium' is universal at AGM workshop; all valid catalog items qualify.
     }
 
     // 6. Color Filter
     let passesColor = true;
     if (color) {
-      passesColor = new RegExp(`\\b${color}\\b`, 'i').test(searchable);
+      passesColor = new RegExp(`\\b${color}\\b`, 'i').test(normalizedSearchable);
     }
 
     const itemWithFinal: CatalogProduct = {
       ...p,
-      final_price: finalPrice,
+      final_price: (p.final_price && typeof p.final_price !== 'number') ? p.final_price : finalPrice,
     };
 
     if (passesPrice && passesDoors && passesDoorType && passesMaterial && passesColor) {
       matches.push(itemWithFinal);
     } else if (passesDoors || passesMaterial || passesPrice) {
-      // Keep as potential alternative
       alternatives.push(itemWithFinal);
     }
   }
 
-  // Sort matches: items in stock first, then by lowest price or highest relevance
+  // Multi-factor relevance scoring for ranking
+  const scoreProduct = (item: CatalogProduct): number => {
+    let score = 0;
+    const name = (item.name || '').toLowerCase();
+    const subcat = (item.subcategory || item.category || '').toLowerCase();
+    const desc = (item.description || '').toLowerCase();
+    const stock = Number(item.stock) || 0;
+    const rawPrice = Number(item.price) || 0;
+
+    // Ready stock preference
+    if (stock > 0) score += 25;
+    // Valid priced product
+    if (rawPrice > 0) score += 10;
+
+    // Subcategory specific match
+    if (subcategory && subcategory !== 'lemari') {
+      const target = subcategory.toLowerCase();
+      if (subcat.includes(target)) score += 100;
+      if (name.includes(target)) score += 80;
+    }
+
+    // Doors match bonus
+    if (doors !== undefined) {
+      const doorRegex = new RegExp(`\\b${doors}\\s*(?:pintu|pt)\\b`, 'i');
+      if (doorRegex.test(`${name} ${desc}`)) score += 40;
+    }
+
+    // Keyword matching bonuses
+    const keywords = (rawKeywords || []).map(k => k.toLowerCase()).filter(k => k.length >= 3);
+    for (const kw of keywords) {
+      if (name.includes(kw)) score += 35;
+      else if (subcat.includes(kw)) score += 20;
+      else if (desc.includes(kw)) score += 10;
+    }
+
+    return score;
+  };
+
+  // Sort matches by relevance score first, then stock, then lowest price
   matches.sort((a, b) => {
+    const scoreDiff = scoreProduct(b) - scoreProduct(a);
+    if (scoreDiff !== 0) return scoreDiff;
+
     const stockA = Number(a.stock) || 0;
     const stockB = Number(b.stock) || 0;
-    // Prefer priced items over Rp 0 items when budget is requested
+    if (stockA !== stockB) return stockB - stockA;
+
     if (isBudgetConstrained) {
-      const priceA = a.final_price || 0;
-      const priceB = b.final_price || 0;
-      if (priceA > 0 && priceB === 0) return -1;
-      if (priceB > 0 && priceA === 0) return 1;
-      return (stockB - stockA) || (priceA - priceB);
+      const priceA = typeof a.final_price === 'number' ? a.final_price : 0;
+      const priceB = typeof b.final_price === 'number' ? b.final_price : 0;
+      if (priceA > 0 && priceB > 0) return priceA - priceB;
     }
-    return (stockB - stockA);
+
+    return 0;
   });
+
+  // When query is generic 'lemari' without specific subcategory, guarantee diverse representation:
+  // Show top Lemari Pakaian, top Lemari Dapur, and top Lemari Rak Kaca / Pajang
+  if (subcategory === 'lemari') {
+    const subcatMap = new Map<string, CatalogProduct[]>();
+    for (const item of matches) {
+      const sc = item.subcategory || 'Lainnya';
+      if (!subcatMap.has(sc)) subcatMap.set(sc, []);
+      subcatMap.get(sc)!.push(item);
+    }
+
+    const prioritySubcats = ['Lemari pakaian', 'Lemari Dapur', 'Lemari rak kaca', 'Lemari pajang', 'Lemari Sepatu'];
+    const diverseMatches: CatalogProduct[] = [];
+    const usedIds = new Set<string>();
+
+    for (const sc of prioritySubcats) {
+      const group = subcatMap.get(sc);
+      if (group && group.length > 0) {
+        diverseMatches.push(group[0]);
+        usedIds.add(group[0].id);
+        if (diverseMatches.length === 3) break;
+      }
+    }
+
+    // Fill remaining slots
+    for (const item of matches) {
+      if (diverseMatches.length >= matches.length) break;
+      if (!usedIds.has(item.id)) {
+        diverseMatches.push(item);
+        usedIds.add(item.id);
+      }
+    }
+
+    matches = diverseMatches;
+  }
 
   alternatives.sort((a, b) => (Number(b.stock) || 0) - (Number(a.stock) || 0));
 
@@ -566,18 +717,18 @@ export function filterAndRankCatalogProducts(
 }
 
 // -----------------------------------------------------------------------------
-// 7. Grounded Business Knowledge Facts (Toko AGM Padang)
+// 7. Grounded Business Knowledge Facts (Toko CV Adi Guna Mandiri (AGM 2) Ketapang)
 // -----------------------------------------------------------------------------
 
 export const AGM_BUSINESS_KNOWLEDGE = {
-  storeName: 'Toko AGM Padang (AGM 2 Ketapang)',
-  address: 'Kota Padang, Sumatera Barat',
+  storeName: 'Toko CV Adi Guna Mandiri (AGM 2) Ketapang',
+  address: 'Jalan Rahadi Ismail, Desa Padang, Kecamatan Benua Kayong, Kabupaten Ketapang, Kalimantan Barat',
   operatingHours: '07.30 - 21.00 WIB setiap hari',
   whatsapp: '0896-9412-7723',
-  shippingPolicy: 'Melayani pengiriman langsung ke seluruh area Kota Padang dan sekitarnya menggunakan armada toko sendiri. Produk kaca & aluminium dijamin aman sampai lokasi dan dirakit langsung oleh teknisi toko.',
+  shippingPolicy: 'Melayani pengiriman langsung ke seluruh area Ketapang dan sekitarnya menggunakan armada toko sendiri. Produk kaca & aluminium aman sampai lokasi dan dirakit langsung oleh teknisi toko.',
   customCapability: 'Toko AGM memiliki workshop/bengkel perakitan mandiri berbasis aluminium tebal dan ACP. Semua ukuran, susunan pintu, sekat, dan laci dapat disesuaikan per centimeter (custom).',
   materials: {
-    acp: 'ACP (Aluminium Composite Panel) adalah material komposit padat yang 100% tahan air, anti lapuk, anti rayap, tahan benturan keras, tidak mudah pecah, dan tidak berjamur. Tersedia aneka pilihan warna (hitam, putih, motif kayu).',
+    acp: 'ACP (Aluminium Composite Panel) adalah material komposit padat yang tahan air, anti lapuk, anti rayap, tahan benturan keras, tidak mudah pecah, dan tidak berjamur. Tersedia aneka pilihan warna (hitam, putih, motif kayu).',
     kaca: 'Kaca riben / bening higienis, anti gores, memberikan kesan modern transparan, sangat mudah dilap bersih.',
     aluminium: 'Rangka aluminium padat berkualitas tinggi, tidak berkarat, tidak melengkung, kokoh, dan tahan lama puluhan tahun dibanding serbuk kayu/MDF.',
     keramik: 'Lantai/dinding meja berbahan porselen/keramik tahan panas api kompor dan kuah makanan panas.',
@@ -593,9 +744,19 @@ export function formatProductRecommendationsBlock(products: CatalogProduct[]): s
     .filter(p => p.name && (p.image_url || (p.images && p.images[0])))
     .slice(0, 3)
     .map(p => {
-      const price = Number(p.price) || 0;
-      const discount = Number(p.discount) || 0;
-      const finalPrice = Math.max(0, price - discount);
+      const fc = p.final_price;
+      let price = 0;
+      let discount = 0;
+      let finalPrice = 0;
+      if (fc && typeof fc !== 'number') {
+        price = fc.originalPrice;
+        discount = fc.discount;
+        finalPrice = fc.isPriced ? fc.finalPrice : 0;
+      } else {
+        price = Number(p.price) || 0;
+        discount = Number(p.discount) || 0;
+        finalPrice = Math.max(0, price - discount);
+      }
       const img = p.image_url || (p.images && p.images[0]) || '';
       return {
         id: p.id,
@@ -603,7 +764,7 @@ export function formatProductRecommendationsBlock(products: CatalogProduct[]): s
         subcategory: p.subcategory || p.category,
         price,
         discount,
-        final_price: finalPrice,
+        final_price: (fc && typeof fc !== 'number') ? fc : finalPrice,
         stock: Number(p.stock) || 0,
         unit: p.unit || 'Pcs',
         image_url: img,
@@ -637,7 +798,7 @@ export function generateGroundedResponse(
   // 2. Operating Hours
   if (intent === 'operating_hours') {
     return [
-      `Toko AGM Padang buka setiap hari dengan jadwal:`,
+      `Toko CV Adi Guna Mandiri (AGM 2) Ketapang buka setiap hari dengan jadwal:`,
       '',
       `- **Jam Operasional**: **${AGM_BUSINESS_KNOWLEDGE.operatingHours}** (Senin s/d Minggu).`,
       `- **Pelayanan Konsultasi Online**: Siap melayani tanya jawab katalog & konsultasi custom.`,
@@ -649,10 +810,10 @@ export function generateGroundedResponse(
   // 3. Shipping Policy
   if (intent === 'shipping_policy') {
     return [
-      `Informasi Pengiriman **Toko AGM Padang**:`,
+      `Informasi Pengiriman **Toko CV Adi Guna Mandiri (AGM 2) Ketapang**:`,
       '',
       `- ${AGM_BUSINESS_KNOWLEDGE.shippingPolicy}`,
-      `- Untuk luar kota Padang, pengiriman dapat dikonsultasikan via WhatsApp admin (**${AGM_BUSINESS_KNOWLEDGE.whatsapp}**).`,
+      `- Untuk luar area Ketapang, pengiriman dapat dikonsultasikan via WhatsApp admin (**${AGM_BUSINESS_KNOWLEDGE.whatsapp}**).`,
       '',
       'Ada perabot yang ingin dikirimkan ke alamat Anda?',
     ].join('\n');
@@ -661,7 +822,7 @@ export function generateGroundedResponse(
   // 4. Material Comparison
   if (intent === 'material_comparison') {
     return [
-      'Berikut perbandingan material utama furniture di Toko AGM Padang:',
+      'Berikut perbandingan material utama furniture di Toko CV Adi Guna Mandiri (AGM 2) Ketapang:',
       '',
       '1. **ACP (Aluminium Composite Panel)**:',
       `   - ${AGM_BUSINESS_KNOWLEDGE.materials.acp}`,
@@ -682,7 +843,7 @@ export function generateGroundedResponse(
   // 5. Out of scope product
   if (intent === 'out_of_scope') {
     return [
-      `Mohon maaf, Toko AGM Padang adalah spesialis manufaktur furniture berbahan **aluminium, kaca, dan panel ACP** (seperti lemari pakaian, meja kompor, meja prasmanan, kitchen set, bopet TV, dan wastafel).`,
+      `Mohon maaf, Toko CV Adi Guna Mandiri (AGM 2) Ketapang adalah spesialis manufaktur furniture berbahan **aluminium, kaca, dan panel ACP** (seperti lemari pakaian, meja kompor, meja prasmanan, kitchen set, bopet TV, dan wastafel).`,
       '',
       `Kami tidak menyediakan produk sofa kain/busa, kasur springbed, maupun barang elektronik. Namun, jika Anda memerlukan rangka meja, lemari, atau partisi custom berbahan aluminium anti rayap, bengkel kami siap memproduksikannya.`,
       '',
@@ -699,10 +860,11 @@ export function generateGroundedResponse(
     if (products.length > 0) {
       const top = products[0];
       const stock = Number(top.stock) || 0;
-      const price = (top.final_price || Number(top.price) || 0);
+      const fc = top.final_price;
+      const price = (fc && typeof fc !== 'number') ? fc.originalPrice : (top.final_price || Number(top.price) || 0);
       const stockMsg = stock > 0
         ? `Saat ini **${top.name}** ready stock sebanyak **${stock} ${top.unit || 'unit'}**.`
-        : `Untuk produk **${top.name}**, status saat ini **Pre-order / Custom** dan dapat diproduksi langsung di workshop AGM Padang.`;
+        : `Untuk produk **${top.name}**, status saat ini **Pre-order / Custom** dan dapat diproduksi langsung di workshop Toko AGM 2 Ketapang.`;
 
       return [
         `Informasi ketersediaan stok:`,
@@ -711,7 +873,7 @@ export function generateGroundedResponse(
         `- Harga: Rp ${price.toLocaleString('id-ID')}`,
         `- Status Stok: ${stockMsg}`,
         '',
-        `Bisa langsung diantar oleh armada toko ke lokasi Anda di Padang. Ingin memesan atau menanyakan detailnya via WhatsApp?`,
+        `Bisa langsung diantar oleh armada toko ke lokasi Anda di Ketapang. Ingin memesan atau menanyakan detailnya via WhatsApp?`,
         formatProductRecommendationsBlock([top]),
       ].join('\n');
     }
@@ -727,14 +889,15 @@ export function generateGroundedResponse(
     let listText = '';
     if (products.length > 0) {
       const list = products.slice(0, 3).map(p => {
-        const finalP = p.final_price || Number(p.price) || 0;
+        const fc = p.final_price;
+        const finalP = (fc && typeof fc !== 'number') ? fc.originalPrice : (p.final_price || Number(p.price) || 0);
         return `- **${p.name}** (Rp ${finalP.toLocaleString('id-ID')}, stok: ${p.stock || 0})`;
       }).join('\n');
       listText = `\nBerikut beberapa contoh produk yang dapat dipesan dengan variasi warna **${color}**:\n${list}\n`;
     }
 
     return [
-      `Toko AGM Padang menyediakan varian warna modern seperti **putih, hitam, silver, dan motif serat kayu**.`,
+      `Toko CV Adi Guna Mandiri (AGM 2) Ketapang menyediakan varian warna modern seperti **putih, hitam, silver, dan motif serat kayu**.`,
       listText,
       `Warna dan panel (ACP warna putih / stiker kaca motif) dapat disesuaikan secara khusus (custom finishing) di bengkel workshop kami sesuai tema interior rumah Anda.`,
       formatProductRecommendationsBlock(products.slice(0, 3)),
@@ -751,12 +914,22 @@ export function generateGroundedResponse(
       : ':';
 
     const itemsText = topItems.map((p, idx) => {
-      const price = Number(p.price) || 0;
-      const discount = Number(p.discount) || 0;
-      const finalPrice = Math.max(0, price - discount);
+      const fc = p.final_price;
+      let price = 0;
+      let discount = 0;
+      let finalPrice = 0;
+      if (fc && typeof fc !== 'number') {
+        price = fc.originalPrice;
+        discount = fc.discount;
+        finalPrice = fc.isPriced ? fc.finalPrice : 0;
+      } else {
+        price = Number(p.price) || 0;
+        discount = Number(p.discount) || 0;
+        finalPrice = Math.max(0, price - discount);
+      }
       const stock = Number(p.stock) || 0;
-      const stockText = stock > 0 ? `Ready ${stock} ${p.unit || 'unit'}` : 'Pre-order';
-      const priceText = discount > 0
+      const stockText = stock > 0 ? `Ready ${stock} ${p.unit || 'unit'}` : (fc && typeof fc !== 'number' && fc.isPreorder) ? 'Pre-order' : 'Habis / Custom';
+      const priceText = discount > 0 && price > 0
         ? `Rp ${finalPrice.toLocaleString('id-ID')} (Diskon Rp ${discount.toLocaleString('id-ID')} dari Rp ${price.toLocaleString('id-ID')})`
         : `Rp ${finalPrice.toLocaleString('id-ID')}`;
 
@@ -767,7 +940,7 @@ export function generateGroundedResponse(
     const jsonBlock = formatProductRecommendationsBlock(topItems);
 
     return [
-      `Berikut rekomendasi produk dari katalog Toko AGM Padang${budgetNote}`,
+      `Berikut rekomendasi produk dari katalog Toko CV Adi Guna Mandiri (AGM 2) Ketapang${budgetNote}`,
       '',
       itemsText,
       '',
@@ -781,7 +954,8 @@ export function generateGroundedResponse(
     let altText = '';
     if (closestAlternatives.length > 0) {
       altText = '\n\nSebagai alternatif terdekat dari katalog kami:\n' + closestAlternatives.slice(0, 3).map((a, i) => {
-        const finalP = a.final_price || Number(a.price) || 0;
+        const fc = a.final_price;
+        const finalP = (fc && typeof fc !== 'number') ? fc.originalPrice : (a.final_price || Number(a.price) || 0);
         return `${i + 1}. **${a.name}** — Rp ${finalP.toLocaleString('id-ID')} (${Number(a.stock) > 0 ? `Stok ${a.stock}` : 'Pre-order'})`;
       }).join('\n');
     }
@@ -790,7 +964,7 @@ export function generateGroundedResponse(
       `Untuk pilihan ${constraints.subcategory || 'lemari'} dengan spesifikasi khusus yang Anda minta, produk katalog ready stock kami saat ini memiliki rentang harga di atas **Rp ${budgetCeiling.toLocaleString('id-ID')}**.`,
       altText,
       '',
-      `Namun, karena Toko AGM Padang memiliki workshop mandiri, **kami bisa membuatkan rancangan custom dengan penyesuaian ukuran/bahan yang mendekati budget Anda**.`,
+      `Namun, karena Toko CV Adi Guna Mandiri (AGM 2) Ketapang memiliki workshop mandiri, **kami bisa membuatkan rancangan custom dengan penyesuaian ukuran/bahan yang mendekati budget Anda**.`,
       '',
       `Apakah Anda ingin berkonsultasi untuk pembuatan custom sesuai ukuran ruangan Anda?`,
       formatProductRecommendationsBlock(closestAlternatives.slice(0, 3)),
@@ -799,7 +973,7 @@ export function generateGroundedResponse(
 
   // General fallback
   return [
-    `Toko AGM Padang menyediakan 15 subkategori furniture aluminium, kaca, dan ACP berkualitas (100% anti rayap & tahan air).`,
+    `Toko CV Adi Guna Mandiri (AGM 2) Ketapang menyediakan 15 subkategori furniture aluminium, kaca, dan ACP berkualitas (100% anti rayap & tahan air).`,
     '',
     `Silakan sebutkan tipe perabot yang Anda butuhkan (contoh: *lemari pakaian 2 pintu*, *meja kompor type U*, atau *kitchen set* beserta perkiraan ukuran/budget), dan saya akan siapkan pilihan terbaik dari katalog Supabase.`,
   ].join('\n');
