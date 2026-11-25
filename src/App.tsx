@@ -386,8 +386,6 @@ export default function App() {
     }
   });
 
-  const [txStartDate, setTxStartDate] = useState<string>('');
-  const [txEndDate, setTxEndDate] = useState<string>('');
 
   // ── SAFETY STOCK & REORDER POINT ALGORITHM PARAMETERS ──
   const [safetyStockLeadTime, setSafetyStockLeadTime] = useState<number>(3); // Supplier Lead Time (days)
@@ -672,41 +670,6 @@ export default function App() {
     };
   }, []);
 
-  const visibleTransactions = React.useMemo(() => {
-    let filtered = transactions;
-
-    if (txStartDate || txEndDate) {
-      return filtered.filter(tx => {
-        const timeMs = tx.dateRaw ? new Date(tx.dateRaw).getTime() : 0;
-        if (isNaN(timeMs) || timeMs === 0) return true; // Don't drop items if date parse fails
-
-        const txDate = new Date(timeMs);
-        txDate.setHours(0, 0, 0, 0);
-
-        let matchStartDate = true;
-        if (txStartDate) {
-          const start = new Date(txStartDate);
-          start.setHours(0, 0, 0, 0);
-          matchStartDate = txDate.getTime() >= start.getTime();
-        }
-
-        let matchEndDate = true;
-        if (txEndDate) {
-          const end = new Date(txEndDate);
-          end.setHours(0, 0, 0, 0);
-          matchEndDate = txDate.getTime() <= end.getTime();
-        }
-        return matchStartDate && matchEndDate;
-      });
-    }
-
-    // Default: Show all transactions sorted newest first
-    return [...filtered].sort((a, b) => {
-      const timeA = a.dateRaw ? new Date(a.dateRaw).getTime() : 0;
-      const timeB = b.dateRaw ? new Date(b.dateRaw).getTime() : 0;
-      return timeB - timeA;
-    });
-  }, [transactions, txStartDate, txEndDate]);
 
   const [transactionToDelete, setTransactionToDelete] = useState<string | null>(null);
   const [isDeleteTransactionModalOpen, setIsDeleteTransactionModalOpen] = useState<boolean>(false);
@@ -3687,120 +3650,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* ── 2. RIWAYAT TRANSAKSI PENJUALAN ── */}
-              <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-xs mb-8">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-slate-100">
-                  <div>
-                    <h3 className="font-extrabold text-base text-slate-900">Riwayat Transaksi Penjualan</h3>
-                    <p className="text-xs text-slate-500 mt-0.5">Klik baris untuk melihat rincian nota &amp; data pelanggan</p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 text-xs">
-                    <div className="flex items-center gap-1.5 bg-slate-100/80 px-3 py-1.5 rounded-xl border border-slate-200/60">
-                      <span className="text-slate-500 text-xs font-semibold">Mulai:</span>
-                      <input 
-                        type="date" 
-                        value={txStartDate}
-                        onChange={(e) => setTxStartDate(e.target.value)}
-                        className="bg-transparent border-none p-0 text-xs text-slate-900 font-semibold focus:outline-none"
-                      />
-                    </div>
-                    <div className="flex items-center gap-1.5 bg-slate-100/80 px-3 py-1.5 rounded-xl border border-slate-200/60">
-                      <span className="text-slate-500 text-xs font-semibold">Selesai:</span>
-                      <input 
-                        type="date" 
-                        value={txEndDate}
-                        onChange={(e) => setTxEndDate(e.target.value)}
-                        className="bg-transparent border-none p-0 text-xs text-slate-900 font-semibold focus:outline-none"
-                      />
-                    </div>
-                    {(txStartDate || txEndDate) && (
-                      <button 
-                        onClick={() => { setTxStartDate(''); setTxEndDate(''); }}
-                        className="text-rose-600 hover:text-rose-700 font-bold text-xs border border-rose-200 bg-rose-50 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
-                      >
-                        Reset
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-400 font-extrabold text-[10px] uppercase tracking-wider">
-                        <th className="p-3.5">No. Nota &amp; Waktu</th>
-                        <th className="p-3.5">Pelanggan</th>
-                        <th className="p-3.5 text-center">Status Pembayaran</th>
-                        <th className="p-3.5 text-right">Total Transaksi</th>
-                        <th className="p-3.5 text-center">Aksi</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {visibleTransactions.length === 0 ? (
-                        <tr>
-                          <td colSpan={5} className="p-8 text-center text-slate-400 text-xs font-medium">
-                            {txStartDate || txEndDate ? 'Tidak ada transaksi ditemukan pada rentang tanggal ini.' : 'Belum ada transaksi tersimpan.'}
-                          </td>
-                        </tr>
-                      ) : (
-                        visibleTransactions.map((tx) => {
-                          const isPending = tx.remainingAmount !== undefined && tx.remainingAmount > 0;
-                          return (
-                            <tr 
-                              key={tx.id} 
-                              onClick={() => setSelectedTxDetail(tx)}
-                              className="hover:bg-slate-50/80 cursor-pointer transition-colors active:scale-[0.99] origin-left animate-fade-in"
-                            >
-                              <td className="p-3.5">
-                                <div className="font-extrabold text-slate-900">{tx.id}</div>
-                                <div className="text-[11px] text-slate-500 font-medium mt-0.5">{tx.date}</div>
-                              </td>
-                              <td className="p-3.5">
-                                <div className="font-bold text-slate-900">{tx.customerName}</div>
-                                {tx.customerPhone && <div className="text-[11px] text-slate-500 font-medium">HP: {tx.customerPhone}</div>}
-                              </td>
-                              <td className="p-3.5 text-center">
-                                {isPending ? (
-                                  <span className="font-mono text-[10px] font-extrabold text-amber-600 tracking-wider uppercase">
-                                    BELUM LUNAS
-                                  </span>
-                                ) : (
-                                  <span className="font-mono text-[10px] font-extrabold text-slate-400 tracking-wider uppercase">
-                                    LUNAS
-                                  </span>
-                                )}
-                              </td>
-                              <td className="p-3.5 text-right font-black text-slate-900 text-sm">
-                                Rp {tx.totalPrice.toLocaleString('id-ID')}
-                              </td>
-                              <td className="p-3.5 text-center">
-                                <div className="flex items-center justify-center gap-2">
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); setSelectedTxDetail(tx); }}
-                                    className="px-2.5 py-1 border border-slate-200 text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded text-xs font-semibold transition-all cursor-pointer"
-                                  >
-                                    Rincian
-                                  </button>
-                                  {isAdmin && (
-                                    <button 
-                                      onClick={(e) => { e.stopPropagation(); setTransactionToDelete(tx.id); setIsDeleteTransactionModalOpen(true); }}
-                                      className="p-1.5 text-slate-400 hover:text-slate-900 active:scale-95 transition-all rounded-lg hover:bg-slate-100 cursor-pointer flex items-center justify-center"
-                                      title="Hapus Transaksi"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5 text-slate-400 hover:text-slate-900 transition-colors" />
-                                    </button>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
               {/* ── 3. PREDIKSI SAFETY STOCK & SUPPLY DEMAND RESTOCK (TERLETAK DI PALING BAWAH HALAMAN ANALISIS) ── */}
               {(() => {
                 const cutoffDate = new Date();
@@ -4089,7 +3938,7 @@ export default function App() {
               <span className="text-xs font-medium">Memuat Kasir &amp; Cetak Nota...</span>
             </div>
           }>
-            <NotaView products={products} triggerToast={triggerToast} isAdmin={isAdmin} adjustStock={adjustStock} deductBulkStock={deductBulkStock} addTransaction={addTransaction} />
+            <NotaView products={products} triggerToast={triggerToast} isAdmin={isAdmin} adjustStock={adjustStock} deductBulkStock={deductBulkStock} addTransaction={addTransaction} transactions={transactions} deleteTransaction={(id) => { setTransactionToDelete(id); setIsDeleteTransactionModalOpen(true); }} markAsPaid={handleMarkAsPaid} />
           </React.Suspense>
         )}
 

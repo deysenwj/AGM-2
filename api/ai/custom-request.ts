@@ -2,10 +2,9 @@
 import { createClient } from '@supabase/supabase-js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const supabaseServerKey =
   process.env.SUPABASE_WORKER_KEY ||
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
   process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const supabase = (supabaseUrl && supabaseServerKey) ? createClient(supabaseUrl, supabaseServerKey) : null;
@@ -35,9 +34,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ success: false, message: 'Method Not Allowed' });
   }
 
+  // Supabase availability guard: before first supabase usage for TS null narrowing
+  if (!supabase) {
+    return res.status(500).json({
+      success: false,
+      message: 'Konfigurasi Supabase server belum tersedia. Custom request tidak dapat disimpan ke inbox admin.'
+    });
+  }
+
   try {
     const { conversationId, designState, customerName, customerPhone, customerNotes, attachmentSnapshot } = req.body || {};
-    
+
     // Server-side Authorization Token Extraction
     let authenticatedUserId: string | null = null;
     const authHeader = req.headers['authorization'];
@@ -132,13 +139,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Insert immutable design request into Supabase inbox.
-    if (!supabase) {
-      return res.status(500).json({
-        success: false,
-        message: 'Konfigurasi Supabase server belum tersedia. Custom request tidak dapat disimpan ke inbox admin.'
-      });
-    }
-
     try {
       const { error: designErr } = await supabase.from('ai_furniture_designs').upsert({
         id: designId,

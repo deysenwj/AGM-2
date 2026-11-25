@@ -290,7 +290,7 @@ def call_nine_router_chat(prompt: str) -> str:
                 }
             ],
             "temperature": 0.7,
-            "max_tokens": 2048
+            "max_tokens": 512
         }
 
         data_bytes = json.dumps(payload).encode("utf-8")
@@ -306,7 +306,7 @@ def call_nine_router_chat(prompt: str) -> str:
             method="POST"
         )
 
-        with urllib.request.urlopen(req, timeout=180) as resp:
+        with urllib.request.urlopen(req, timeout=30) as resp:
             raw_text = resp.read().decode("utf-8")
             parsed_res = json.loads(raw_text)
 
@@ -502,7 +502,7 @@ def process_ai_job(job):
         top_product_image_url = None
         top_product_name = None
         try:
-            catalog_res = supabase.from_("products").select("id,name,category,subcategory,description,price,discount,stock,unit,arrival_type,image_url,images").order("created_at", desc=True).limit(60).execute()
+            catalog_res = supabase.from_("products").select("id,name,category,subcategory,price,discount,stock,unit,image_url,images").order("created_at", desc=True).limit(20).execute()
             catalog_items = catalog_res.data or []
 
             # Simple keyword scoring for worker

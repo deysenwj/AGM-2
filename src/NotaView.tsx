@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import html2canvas from 'html2canvas';
-import type { Product } from './App';
+import type { Product, Transaction } from './App';
 
 interface NotaItem {
   product: Product;
@@ -14,6 +14,9 @@ interface NotaViewProps {
   adjustStock: (id: string, amount: number) => Promise<void>;
   deductBulkStock?: (items: { productId: string; quantity: number }[]) => Promise<void>;
   addTransaction: (tx: any) => Promise<void>;
+  transactions?: Transaction[];
+  deleteTransaction?: (id: string) => void;
+  markAsPaid?: (id: string) => void;
 }
 
 const formatCurrency = (amount: number) => {
@@ -296,8 +299,11 @@ const generateNotaHtml = (
   `;
 };
 
-const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, adjustStock, deductBulkStock, addTransaction }) => {
+const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, adjustStock, deductBulkStock, addTransaction, transactions = [], deleteTransaction, markAsPaid }) => {
   const [activeTab, setActiveTab] = useState<'create' | 'history'>('create');
+  const [selectedTxDetail, setSelectedTxDetail] = useState<any | null>(null);
+  const [txStartDate, setTxStartDate] = useState<string>('');
+  const [txEndDate, setTxEndDate] = useState<string>('');
   const [recentInvoices, setRecentInvoices] = useState<any[]>(() => {
     try {
       const saved = localStorage.getItem('agm2_recent_invoices');
@@ -317,6 +323,41 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
 
   const [isConfirming, setIsConfirming] = useState<boolean>(false);
   const [isProcessingPrint, setIsProcessingPrint] = useState<boolean>(false);
+  const displayInvoices = React.useMemo(() => {
+    const baseList = transactions && transactions.length > 0 ? transactions : recentInvoices;
+    if (!txStartDate && !txEndDate) {
+      return [...baseList].sort((a: any, b: any) => {
+        const timeA = a.dateRaw ? new Date(a.dateRaw).getTime() : 0;
+        const timeB = b.dateRaw ? new Date(b.dateRaw).getTime() : 0;
+        return timeB - timeA;
+      });
+    }
+    return baseList.filter((tx: any) => {
+      const timeMs = tx.dateRaw ? new Date(tx.dateRaw).getTime() : 0;
+      if (isNaN(timeMs) || timeMs === 0) return true;
+      const txDate = new Date(timeMs);
+      txDate.setHours(0, 0, 0, 0);
+
+      let matchStart = true;
+      if (txStartDate) {
+        const start = new Date(txStartDate);
+        start.setHours(0, 0, 0, 0);
+        matchStart = txDate.getTime() >= start.getTime();
+      }
+      let matchEnd = true;
+      if (txEndDate) {
+        const end = new Date(txEndDate);
+        end.setHours(0, 0, 0, 0);
+        matchEnd = txDate.getTime() <= end.getTime();
+      }
+      return matchStart && matchEnd;
+    }).sort((a: any, b: any) => {
+      const timeA = a.dateRaw ? new Date(a.dateRaw).getTime() : 0;
+      const timeB = b.dateRaw ? new Date(b.dateRaw).getTime() : 0;
+      return timeB - timeA;
+    });
+  }, [transactions, recentInvoices, txStartDate, txEndDate]);
+
   const [searchTerm, setSearchTerm] = useState<string>('');
   const notaRef = useRef<HTMLDivElement>(null);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>(products);
@@ -977,63 +1018,105 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
       ) : (
         /* ── RECENT INVOICES & REPRINT HISTORY TABLE ── */
         <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 pb-3 border-b border-slate-100">
             <div>
               <h3 className="font-extrabold text-base text-slate-900">Riwayat Nota &amp; Cetak Ulang</h3>
-              <p className="text-xs text-slate-500">Daftar nota transaksi kasir yang baru saja diproses di perangkat ini</p>
+              <p className="text-xs text-slate-500">Klik baris untuk melihat rincian nota &amp; data pelanggan</p>
             </div>
-            <span className="text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-lg border border-slate-200">
-              {recentInvoices.length} Transaksi Tercatat
-            </span>
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <div className="flex items-center gap-1.5 bg-slate-100/80 px-3 py-1.5 rounded-xl border border-slate-200/60">
+                <span className="text-slate-500 text-xs font-semibold">Mulai:</span>
+                <input 
+                  type="date" 
+                  value={txStartDate}
+                  onChange={(e) => setTxStartDate(e.target.value)}
+                  className="bg-transparent border-none p-0 text-xs text-slate-900 font-semibold focus:outline-none"
+                />
+              </div>
+              <div className="flex items-center gap-1.5 bg-slate-100/80 px-3 py-1.5 rounded-xl border border-slate-200/60">
+                <span className="text-slate-500 text-xs font-semibold">Selesai:</span>
+                <input 
+                  type="date" 
+                  value={txEndDate}
+                  onChange={(e) => setTxEndDate(e.target.value)}
+                  className="bg-transparent border-none p-0 text-xs text-slate-900 font-semibold focus:outline-none"
+                />
+              </div>
+              {(txStartDate || txEndDate) && (
+                <button 
+                  onClick={() => { setTxStartDate(''); setTxEndDate(''); }}
+                  className="text-rose-600 hover:text-rose-700 font-bold text-xs border border-rose-200 bg-rose-50 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+                >
+                  Reset
+                </button>
+              )}
+              <span className="text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-lg border border-slate-200">
+                {displayInvoices.length} Transaksi
+              </span>
+            </div>
           </div>
 
-          {recentInvoices.length === 0 ? (
+          {displayInvoices.length === 0 ? (
             <div className="text-center py-16 text-slate-400 text-xs font-medium">
-              Belum ada riwayat nota yang dicetak pada sesi ini. Buat nota di tab "Buat Nota Transaksi Kasir".
+              {txStartDate || txEndDate ? 'Tidak ada transaksi ditemukan pada rentang tanggal ini.' : 'Belum ada riwayat nota tersimpan.'}
             </div>
           ) : (
             <div>
               {/* Mobile Card List View (< md) */}
               <div className="md:hidden space-y-3">
-                {recentInvoices.map((inv: any) => (
-                  <div key={'mobile-inv-' + inv.id} className="p-3.5 bg-slate-50/70 border border-slate-200/80 rounded-xl space-y-2.5">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <strong className="font-mono font-bold text-slate-900 text-xs block">#{inv.id}</strong>
-                        <span className="text-slate-400 text-[10px] block">{inv.date || 'Hari ini'}</span>
+                {displayInvoices.map((inv: any) => {
+                  const isPending = inv.remainingAmount !== undefined && inv.remainingAmount > 0;
+                  return (
+                    <div 
+                      key={'mobile-inv-' + inv.id} 
+                      onClick={() => setSelectedTxDetail(inv)}
+                      className="p-3.5 bg-slate-50/70 border border-slate-200/80 rounded-xl space-y-2.5 cursor-pointer hover:bg-slate-100/70 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <strong className="font-mono font-bold text-slate-900 text-xs block">#{inv.id}</strong>
+                          <span className="text-slate-400 text-[10px] block">{inv.date || 'Hari ini'}</span>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-mono font-bold text-slate-900 text-xs">
+                            {formatCurrency(Number(inv.totalPrice || 0))}
+                          </div>
+                          {isPending ? (
+                            <span className="font-mono text-[9px] font-extrabold text-amber-600 uppercase">Belum Lunas</span>
+                          ) : (
+                            <span className="font-mono text-[9px] font-extrabold text-emerald-600 uppercase">Lunas</span>
+                          )}
+                        </div>
                       </div>
-                      <div className="text-right font-mono font-bold text-slate-900 text-xs">
-                        {formatCurrency(Number(inv.totalPrice || 0))}
+
+                      <div className="text-xs">
+                        <span className="font-bold text-slate-900 block">{inv.customerName}</span>
+                        {inv.customerPhone && (
+                          <span className="text-slate-500 text-[11px] font-mono block">{inv.customerPhone}</span>
+                        )}
+                      </div>
+
+                      <div className="text-[11px] text-slate-600 bg-white p-2 rounded-lg border border-slate-200/60 line-clamp-2">
+                        {(inv.items || []).map((it: any) => `${it.productName || it.name} (${it.quantity}x)`).join(', ') || '-'}
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setSelectedTxDetail(inv); }}
+                          className="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors cursor-pointer text-center"
+                        >
+                          Rincian
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleReprint(inv); }}
+                          className="flex-1 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer text-center"
+                        >
+                          Cetak Ulang
+                        </button>
                       </div>
                     </div>
-
-                    <div className="text-xs">
-                      <span className="font-bold text-slate-900 block">{inv.customerName}</span>
-                      {inv.customerPhone && (
-                        <span className="text-slate-500 text-[11px] font-mono block">{inv.customerPhone}</span>
-                      )}
-                    </div>
-
-                    <div className="text-[11px] text-slate-600 bg-white p-2 rounded-lg border border-slate-200/60 line-clamp-2">
-                      {(inv.items || []).map((it: any) => `${it.productName || it.name} (${it.quantity}x)`).join(', ') || '-'}
-                    </div>
-
-                    <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
-                      <button
-                        onClick={() => handleReprint(inv)}
-                        className="flex-1 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer text-center"
-                      >
-                        Cetak Ulang
-                      </button>
-                      <button
-                        onClick={() => handleLoadToCashier(inv)}
-                        className="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors cursor-pointer text-center"
-                      >
-                        Muat ke Kasir
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Desktop Table View (>= md) */}
@@ -1044,51 +1127,88 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
                       <th className="py-3 px-4">No. Nota &amp; Tanggal</th>
                       <th className="py-3 px-4">Pelanggan</th>
                       <th className="py-3 px-4">Rincian Barang</th>
+                      <th className="py-3 px-4 text-center">Status</th>
                       <th className="py-3 px-4 text-right">Total Transaksi</th>
                       <th className="py-3 px-4 text-right">Aksi</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {recentInvoices.map((inv: any) => (
-                      <tr key={'recent-inv-' + inv.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="py-3 px-4">
-                          <strong className="font-mono font-bold text-slate-900 text-xs block">#{inv.id}</strong>
-                          <span className="text-slate-400 text-[10px] block">{inv.date || 'Hari ini'}</span>
-                        </td>
-                        <td className="py-3 px-4">
-                          <span className="font-bold text-slate-900 block">{inv.customerName}</span>
-                          {inv.customerPhone && (
-                            <span className="text-slate-500 text-[11px] font-mono block">{inv.customerPhone}</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-4 max-w-xs">
-                          <div className="text-[11px] text-slate-700 line-clamp-2">
-                            {(inv.items || []).map((it: any) => `${it.productName || it.name} (${it.quantity}x)`).join(', ') || '-'}
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
-                          {formatCurrency(Number(inv.totalPrice || 0))}
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <div className="inline-flex items-center gap-1.5">
-                            <button
-                              onClick={() => handleReprint(inv)}
-                              className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer"
-                              title="Cetak Ulang Nota"
-                            >
-                              Cetak
-                            </button>
-                            <button
-                              onClick={() => handleLoadToCashier(inv)}
-                              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors cursor-pointer"
-                              title="Muat data ke form kasir"
-                            >
-                              Muat
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                    {displayInvoices.map((inv: any) => {
+                      const isPending = inv.remainingAmount !== undefined && inv.remainingAmount > 0;
+                      return (
+                        <tr 
+                          key={'recent-inv-' + inv.id} 
+                          onClick={() => setSelectedTxDetail(inv)}
+                          className="hover:bg-slate-50/80 cursor-pointer transition-colors"
+                        >
+                          <td className="py-3 px-4">
+                            <strong className="font-mono font-bold text-slate-900 text-xs block">#{inv.id}</strong>
+                            <span className="text-slate-400 text-[10px] block">{inv.date || 'Hari ini'}</span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className="font-bold text-slate-900 block">{inv.customerName}</span>
+                            {inv.customerPhone && (
+                              <span className="text-slate-500 text-[11px] font-mono block">{inv.customerPhone}</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 max-w-xs">
+                            <div className="text-[11px] text-slate-700 line-clamp-2">
+                              {(inv.items || []).map((it: any) => `${it.productName || it.name} (${it.quantity}x)`).join(', ') || '-'}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            {isPending ? (
+                              <span className="font-mono text-[10px] font-extrabold text-amber-600 tracking-wider uppercase">
+                                BELUM LUNAS
+                              </span>
+                            ) : (
+                              <span className="font-mono text-[10px] font-extrabold text-slate-400 tracking-wider uppercase">
+                                LUNAS
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
+                            {formatCurrency(Number(inv.totalPrice || 0))}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <div className="inline-flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                onClick={() => setSelectedTxDetail(inv)}
+                                className="px-2.5 py-1 border border-slate-200 text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded text-xs font-semibold transition-all cursor-pointer"
+                                title="Lihat Rincian & Data Pelanggan"
+                              >
+                                Rincian
+                              </button>
+                              <button
+                                onClick={() => handleReprint(inv)}
+                                className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer"
+                                title="Cetak Ulang Nota"
+                              >
+                                Cetak
+                              </button>
+                              <button
+                                onClick={() => handleLoadToCashier(inv)}
+                                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors cursor-pointer"
+                                title="Muat data ke form kasir"
+                              >
+                                Muat
+                              </button>
+                              {isAdmin && deleteTransaction && (
+                                <button
+                                  onClick={() => deleteTransaction(inv.id)}
+                                  className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                                  title="Hapus Transaksi"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1098,15 +1218,15 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
       )}
     </div>
   ) : (
-        <div className="text-center py-16 px-8 text-slate-500 bg-white rounded-2xl border border-slate-200 max-w-md mx-auto">
-          <svg className="w-10 h-10 text-slate-400 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-          </svg>
-          <h3 className="font-bold text-slate-900 mb-1 text-sm">Akses Khusus Admin</h3>
-          <p className="text-xs text-slate-500">Anda tidak memiliki akses untuk membuat nota. Silakan login sebagai Admin.</p>
-        </div>
-      )}
+    <div className="text-center py-16 px-8 text-slate-500 bg-white rounded-2xl border border-slate-200 max-w-md mx-auto">
+      <svg className="w-10 h-10 text-slate-400 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+      </svg>
+      <h3 className="font-bold text-slate-900 mb-1 text-sm">Akses Khusus Admin</h3>
+      <p className="text-xs text-slate-500">Anda tidak memiliki akses untuk membuat nota. Silakan login sebagai Admin.</p>
+    </div>
+  )}
 
       {/* ── NOTA CONFIRMATION MODAL ── */}
       {isConfirming && (
@@ -1184,6 +1304,155 @@ const NotaView: React.FC<NotaViewProps> = ({ products, triggerToast, isAdmin, ad
           </div>
         </div>
       )}
+    
+      {/* ── TRANSACTION DETAIL MODAL ── */}
+      {selectedTxDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in" onClick={() => setSelectedTxDetail(null)}>
+          <div className="w-full max-w-[460px] bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 shadow-xl relative animate-pop-in" onClick={(e) => e.stopPropagation()}>
+            <button 
+              onClick={() => setSelectedTxDetail(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 w-8 h-8 rounded-full flex items-center justify-center transition-colors z-10 cursor-pointer"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            <div className="flex items-start justify-between gap-3 mb-4 pr-6">
+              <div>
+                <h3 className="font-bold text-base text-slate-900">Detail Transaksi Penjualan</h3>
+                <p className="text-xs text-slate-500 mt-0.5">No Struk: <strong className="text-slate-800">{selectedTxDetail.id}</strong> • {selectedTxDetail.date}</p>
+              </div>
+            </div>
+
+            {/* Status Badge Indicator */}
+            <div className="mb-4">
+              {selectedTxDetail.remainingAmount !== undefined && selectedTxDetail.remainingAmount > 0 ? (
+                <div className="flex items-center justify-between bg-slate-50 border border-slate-200 p-3 rounded-xl text-slate-800 text-xs font-semibold">
+                  <span className="flex items-center gap-2">
+                    <span className="font-mono text-[10px] font-extrabold text-amber-600 tracking-wider">BELUM LUNAS</span>
+                    <span className="text-slate-400">•</span>
+                    <span className="text-slate-600 font-mono">Sisa: {formatCurrency(selectedTxDetail.remainingAmount)}</span>
+                  </span>
+                  {isAdmin && markAsPaid && (
+                    <button
+                      onClick={() => {
+                        markAsPaid(selectedTxDetail.id);
+                        setSelectedTxDetail((prev: any) => prev ? { ...prev, remainingAmount: 0 } : null);
+                      }}
+                      className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg text-[11px] transition-all cursor-pointer shadow-xs"
+                    >
+                      ✓ Tandai Lunas
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-slate-800 text-xs font-semibold">
+                  <span className="font-mono text-[10px] font-extrabold text-emerald-600 tracking-wider">STATUS: LUNAS</span>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-4 text-xs mb-6 text-left border-y border-slate-200 py-4">
+              {/* Buyer info */}
+              <div>
+                <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px] block mb-1.5">Data Pelanggan</span>
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1">
+                  <div><span className="text-slate-500 font-semibold">Nama:</span> <strong className="text-slate-900">{selectedTxDetail.customerName}</strong></div>
+                  {selectedTxDetail.customerPhone && (
+                    <div><span className="text-slate-500 font-semibold">No. HP:</span> <strong className="text-slate-900">{selectedTxDetail.customerPhone}</strong></div>
+                  )}
+                  {selectedTxDetail.customerAddress && (
+                    <div><span className="text-slate-500 font-semibold">Alamat:</span> <span className="text-slate-900">{selectedTxDetail.customerAddress}</span></div>
+                  )}
+                  {(selectedTxDetail.notes || selectedTxDetail.customerNotes) && (
+                    <div><span className="text-slate-500 font-semibold">Keterangan:</span> <span className="text-slate-900 italic font-medium">{selectedTxDetail.notes || selectedTxDetail.customerNotes}</span></div>
+                  )}
+                </div>
+              </div>
+
+              {/* Items */}
+              <div>
+                <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px] block mb-1.5">Item yang Dibeli</span>
+                <div className="overflow-x-auto max-h-40 overflow-y-auto border border-slate-200 rounded-xl">
+                  <table className="w-full text-left border-collapse text-[11px]">
+                    <thead>
+                      <tr className="bg-slate-50 text-[10px] font-bold text-slate-500 border-b border-slate-200 uppercase">
+                        <th className="p-2.5">Item</th>
+                        <th className="p-2.5 text-center">Qty</th>
+                        <th className="p-2.5 text-right">Harga</th>
+                        <th className="p-2.5 text-right">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {(selectedTxDetail.items || []).map((item: any, idx: number) => {
+                        const itPrice = Number(item.price || item.product?.price || 0);
+                        const itQty = Number(item.quantity || 1);
+                        return (
+                          <tr key={'modal-tx-item-' + idx} className="hover:bg-slate-50">
+                            <td className="p-2.5 font-semibold text-slate-900">{item.productName || item.name || item.product?.name}</td>
+                            <td className="p-2.5 text-center font-bold text-slate-900">{itQty}</td>
+                            <td className="p-2.5 text-right font-medium">{formatCurrency(itPrice)}</td>
+                            <td className="p-2.5 text-right font-bold text-slate-900">{formatCurrency(itPrice * itQty)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Payment Breakdown Summary */}
+              <div className="pt-3 border-t border-slate-200 space-y-1.5 text-xs">
+                <div className="flex justify-between font-semibold text-slate-700">
+                  <span>Total Transaksi:</span>
+                  <span className="font-bold text-slate-900">{formatCurrency(Number(selectedTxDetail.totalPrice || 0))}</span>
+                </div>
+                {selectedTxDetail.deliveryFee !== undefined && Number(selectedTxDetail.deliveryFee) > 0 && (
+                  <div className="flex justify-between font-semibold text-slate-700">
+                    <span>Ongkos Antar:</span>
+                    <span className="font-bold text-slate-900">{formatCurrency(Number(selectedTxDetail.deliveryFee))}</span>
+                  </div>
+                )}
+                {selectedTxDetail.payAmount !== undefined && (
+                  <div className="flex justify-between font-semibold text-slate-700">
+                    <span>Bayar:</span>
+                    <span className="font-bold text-slate-900">{formatCurrency(Number(selectedTxDetail.payAmount))}</span>
+                  </div>
+                )}
+                {selectedTxDetail.remainingAmount !== undefined && selectedTxDetail.remainingAmount > 0 && (
+                  <div className="flex justify-between font-semibold text-slate-700 pt-0.5">
+                    <span>Kurang (Sisa):</span>
+                    <span className="font-bold text-slate-900">{formatCurrency(selectedTxDetail.remainingAmount)}</span>
+                  </div>
+                )}
+                {selectedTxDetail.changeAmount !== undefined && selectedTxDetail.changeAmount > 0 && (
+                  <div className="flex justify-between font-semibold text-slate-700 pt-0.5">
+                    <span>Kembalian:</span>
+                    <span className="font-bold text-slate-900">{formatCurrency(selectedTxDetail.changeAmount)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button 
+                onClick={() => handleReprint(selectedTxDetail)}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs uppercase rounded-xl transition-all cursor-pointer"
+              >
+                Cetak Ulang
+              </button>
+              <button 
+                onClick={() => setSelectedTxDetail(null)}
+                className="flex-1 py-2.5 bg-slate-900 text-white font-bold text-xs uppercase rounded-xl hover:bg-slate-800 transition-all cursor-pointer shadow-xs"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </section>
   );
 };
