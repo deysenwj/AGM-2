@@ -1,0 +1,41 @@
+question_id,reference_answer,reference_status
+K-01,"Bahan utama Meja tv bopet 4 pt roda: alumunium kaca",DRAFT_NEEDS_CS_VALIDATION
+K-02,"Subkategori Lemari sepatu 6 rak: Lemari Sepatu",DRAFT_NEEDS_CS_VALIDATION
+K-03,"Harga Meja tv bopet 4 pt roda: Rp2.450.000 (Diskon Rp150.000)",DRAFT_NEEDS_CS_VALIDATION
+K-04,"Stok Lemari sepatu 6 rak: Perlu dicek di sistem",DRAFT_NEEDS_CS_VALIDATION
+K-05,"Deskripsi Lemari sepatu 6 rak: Bahan alumunium kaca",DRAFT_NEEDS_CS_VALIDATION
+K-06,"Unit Meja tv bopet 4 pt roda: Pcs",DRAFT_NEEDS_CS_VALIDATION
+K-07,"Kategori Meja tv bopet 4 pt roda: furniture",DRAFT_NEEDS_CS_VALIDATION
+K-08,"Bahan utama Lemari sepatu 6 rak: alumunium kaca",DRAFT_NEEDS_CS_VALIDATION
+R-01,"Rekomendasi meja aluminium: Meja tv bopet 4 pt roda",DRAFT_NEEDS_CS_VALIDATION
+R-02,"Rekomendasi lemari sepatu: Lemari sepatu 6 rak",DRAFT_NEEDS_CS_VALIDATION
+R-03,"Rekomendasi TV: Meja tv bopet 4 pt roda",DRAFT_NEEDS_CS_VALIDATION
+R-04,"Rekomendasi rak banyak: Lemari sepatu 6 rak",DRAFT_NEEDS_CS_VALIDATION
+R-05,"Rekomendasi kaca: Meja tv bopet 4 pt roda",DRAFT_NEEDS_CS_VALIDATION
+R-06,"Rekomendasi ruang makan: Perlu detail kebutuhan",DRAFT_NEEDS_CS_VALIDATION
+R-07,"Rekomendasi terbaik: Meja tv bopet 4 pt roda",DRAFT_NEEDS_CS_VALIDATION
+H-01,"Harga Meja tv bopet 4 pt roda: Rp2.450.000 (Diskon Rp150.000)",DRAFT_NEEDS_CS_VALIDATION
+H-02,"Diskon Lemari sepatu 6 rak: Perlu dicek di sistem",DRAFT_NEEDS_CS_VALIDATION
+H-03,"Harga Lemari sepatu 6 rak: Perlu dicek di sistem",DRAFT_NEEDS_CS_VALIDATION
+H-04,"Produk harga 0: Perlu verifikasi di katalog",DRAFT_NEEDS_CS_VALIDATION
+H-05,"Harga final Meja tv bopet 4 pt roda: Rp2.300.000",DRAFT_NEEDS_CS_VALIDATION
+H-06,"Stok produk: Perlu verifikasi di sistem",DRAFT_NEEDS_CS_VALIDATION
+H-07,"Harga dan stok Lemari sepatu 6 rak: Perlu dicek di sistem",DRAFT_NEEDS_CS_VALIDATION
+C-01,"Siapkan: ukuran, material, desain, fungsi khusus, detail ruangan",DRAFT_NEEDS_CS_VALIDATION
+C-02,"Ya, bisa disesuaikan per cm",DRAFT_NEEDS_CS_VALIDATION
+C-03,"Proses: Kumpulkan kebutuhan -> Konsultasi awal -> Arahkan ke CS AGM",DRAFT_NEEDS_CS_VALIDATION
+C-04,"Berikan ukuran, material, desain, fungsi spesifik ke CS AGM",DRAFT_NEEDS_CS_VALIDATION
+C-05,"Pilihan material: Aluminium, Kaca, ACP",DRAFT_NEEDS_CS_VALIDATION
+C-06,"Tidak bisa menetapkan harga final, perlu konfirmasi CS",DRAFT_NEEDS_CS_VALIDATION
+C-07,"Sampaikan kebutuhan awal dan minta arahan proses konsultasi",DRAFT_NEEDS_CS_VALIDATION
+C-08,"Rangkum kebutuhan: [Detail kebutuhan pelanggan]",DRAFT_NEEDS_CS_VALIDATION
+O-01,"Di luar cakupan layanan AGM Assistant",DRAFT_NEEDS_CS_VALIDATION
+O-02,"Di luar cakupan layanan AGM Assistant",DRAFT_NEEDS_CS_VALIDATION
+O-03,"Di luar cakupan layanan AGM Assistant",DRAFT_NEEDS_CS_VALIDATION
+O-04,"Di luar cakupan layanan AGM Assistant",DRAFT_NEEDS_CS_VALIDATION
+O-05,"Di luar cakupan layanan AGM Assistant",DRAFT_NEEDS_CS_VALIDATION
+B-01,"Rp2.450.000",DRAFT_NEEDS_CS_VALIDATION
+B-02,"Ada, cek katalog",DRAFT_NEEDS_CS_VALIDATION
+B-03,"Perlu dicek di sistem",DRAFT_NEEDS_CS_VALIDATION
+B-04,"Ya, sampaikan ke CS AGM",DRAFT_NEEDS_CS_VALIDATION
+B-05,"Aluminium anti karat/rayap",DRAFT_NEEDS_CS_VALIDATION

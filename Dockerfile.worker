@@ -5,4 +5,8 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Ship the worker source into the image. Without this, the image contains no
+# ai_worker.py and deployments can keep running an older/stale worker layer.
+COPY ai_worker.py .
+
 CMD ["python", "-u", "ai_worker.py"]

@@ -1,0 +1,41 @@
+question_id,category,question,expected_behavior,reference_answer,reference_status
+K-01,K,Apa bahan utama Meja tv bopet 4 pt roda?,,Bahan utama Meja tv bopet 4 pt roda: alumunium kaca,DRAFT_NEEDS_CS_VALIDATION
+K-02,K,Apa subkategori Lemari sepatu 6 rak?,,Subkategori Lemari sepatu 6 rak: Lemari Sepatu,DRAFT_NEEDS_CS_VALIDATION
+K-03,K,Berapa harga Meja tv bopet 4 pt roda?,,Harga Meja tv bopet 4 pt roda: Rp2.450.000 (Diskon Rp150.000),DRAFT_NEEDS_CS_VALIDATION
+K-04,K,Apakah Lemari sepatu 6 rak memiliki stok?,,Stok Lemari sepatu 6 rak: Perlu dicek di sistem,DRAFT_NEEDS_CS_VALIDATION
+K-05,K,Apa deskripsi Lemari sepatu 6 rak?,,Deskripsi Lemari sepatu 6 rak: Bahan alumunium kaca,DRAFT_NEEDS_CS_VALIDATION
+K-06,K,Apa unit untuk Meja tv bopet 4 pt roda?,,Unit Meja tv bopet 4 pt roda: Pcs,DRAFT_NEEDS_CS_VALIDATION
+K-07,K,Apa kategori Meja tv bopet 4 pt roda?,,Kategori Meja tv bopet 4 pt roda: furniture,DRAFT_NEEDS_CS_VALIDATION
+K-08,K,Apa bahan utama Lemari sepatu 6 rak?,,Bahan utama Lemari sepatu 6 rak: alumunium kaca,DRAFT_NEEDS_CS_VALIDATION
+R-01,R,Rekomendasi meja untuk ruang tamu dengan bahan aluminium?,,Rekomendasi meja aluminium: Meja tv bopet 4 pt roda,DRAFT_NEEDS_CS_VALIDATION
+R-02,R,Saran lemari untuk kebutuhan penyimpanan sepatu?,,Rekomendasi lemari sepatu: Lemari sepatu 6 rak,DRAFT_NEEDS_CS_VALIDATION
+R-03,R,Produk apa yang cocok untuk area TV di ruang keluarga?,,Rekomendasi TV: Meja tv bopet 4 pt roda,DRAFT_NEEDS_CS_VALIDATION
+R-04,R,"Butuh lemari dengan banyak rak, apa rekomendasinya?",,Rekomendasi rak banyak: Lemari sepatu 6 rak,DRAFT_NEEDS_CS_VALIDATION
+R-05,R,Rekomendasi furniture berbahan kaca?,,Rekomendasi kaca: Meja tv bopet 4 pt roda,DRAFT_NEEDS_CS_VALIDATION
+R-06,R,Bantu saya pilih furniture untuk ruang makan.,,Rekomendasi ruang makan: Perlu detail kebutuhan,DRAFT_NEEDS_CS_VALIDATION
+R-07,R,Apa rekomendasi terbaik dari katalog?,,Rekomendasi terbaik: Meja tv bopet 4 pt roda,DRAFT_NEEDS_CS_VALIDATION
+H-01,H,Berapa harga Meja tv bopet 4 pt roda?,,Harga Meja tv bopet 4 pt roda: Rp2.450.000 (Diskon Rp150.000),DRAFT_NEEDS_CS_VALIDATION
+H-02,H,Apakah Lemari sepatu 6 rak ada diskon?,,Diskon Lemari sepatu 6 rak: Perlu dicek di sistem,DRAFT_NEEDS_CS_VALIDATION
+H-03,H,Berapa harga Lemari sepatu 6 rak?,,Harga Lemari sepatu 6 rak: Perlu dicek di sistem,DRAFT_NEEDS_CS_VALIDATION
+H-04,H,Apakah ada produk dengan harga 0?,,Produk harga 0: Perlu verifikasi di katalog,DRAFT_NEEDS_CS_VALIDATION
+H-05,H,Apa harga final Meja tv bopet 4 pt roda?,,Harga final Meja tv bopet 4 pt roda: Rp2.300.000,DRAFT_NEEDS_CS_VALIDATION
+H-06,H,Apakah stok produk tersedia?,,Stok produk: Perlu verifikasi di sistem,DRAFT_NEEDS_CS_VALIDATION
+H-07,H,Tolong sebutkan harga dan stok Lemari sepatu 6 rak.,,Harga dan stok Lemari sepatu 6 rak: Perlu dicek di sistem,DRAFT_NEEDS_CS_VALIDATION
+C-01,C,"Saya mau custom lemari, apa saja yang perlu saya siapkan?",,"Siapkan: ukuran, material, desain, fungsi khusus, detail ruangan",DRAFT_NEEDS_CS_VALIDATION
+C-02,C,Bisa ubah jumlah pintu lemari?,,"Ya, bisa disesuaikan per cm",DRAFT_NEEDS_CS_VALIDATION
+C-03,C,Bagaimana proses konsultasi custom furniture AGM?,,Proses: Kumpulkan kebutuhan -> Konsultasi awal -> Arahkan ke CS AGM,DRAFT_NEEDS_CS_VALIDATION
+C-04,C,"Saya mau custom ukuran 200x100x50, bagaimana?",,"Berikan ukuran, material, desain, fungsi spesifik ke CS AGM",DRAFT_NEEDS_CS_VALIDATION
+C-05,C,Apa saja pilihan material untuk custom furniture?,,"Pilihan material: Aluminium, Kaca, ACP",DRAFT_NEEDS_CS_VALIDATION
+C-06,C,Bisakah saya minta estimasi harga custom?,,"Tidak bisa menetapkan harga final, perlu konfirmasi CS",DRAFT_NEEDS_CS_VALIDATION
+C-07,C,Apa saja yang perlu saya sampaikan ke CS untuk custom?,,Sampaikan kebutuhan awal dan minta arahan proses konsultasi,DRAFT_NEEDS_CS_VALIDATION
+C-08,C,Bantu saya merangkum kebutuhan custom furniture saya.,,Rangkum kebutuhan: [Detail kebutuhan pelanggan],DRAFT_NEEDS_CS_VALIDATION
+O-01,O,Berapa harga saham BBCA hari ini?,,Di luar cakupan layanan AGM Assistant,DRAFT_NEEDS_CS_VALIDATION
+O-02,O,Bagaimana cara membuat website React?,,Di luar cakupan layanan AGM Assistant,DRAFT_NEEDS_CS_VALIDATION
+O-03,O,Apa berita terbaru di Kalimantan Barat?,,Di luar cakupan layanan AGM Assistant,DRAFT_NEEDS_CS_VALIDATION
+O-04,O,Tolong buatkan resep rendang.,,Di luar cakupan layanan AGM Assistant,DRAFT_NEEDS_CS_VALIDATION
+O-05,O,Siapa presiden Indonesia saat ini?,,Di luar cakupan layanan AGM Assistant,DRAFT_NEEDS_CS_VALIDATION
+B-01,B,brp hrg lmari pakaian?,,Rp2.450.000,DRAFT_NEEDS_CS_VALIDATION
+B-02,B,kicen set ada ga?,,"Ada, cek katalog",DRAFT_NEEDS_CS_VALIDATION
+B-03,B,lemari sepatu stok?,,Perlu dicek di sistem,DRAFT_NEEDS_CS_VALIDATION
+B-04,B,mau custom ukuran 2 meter?,,"Ya, sampaikan ke CS AGM",DRAFT_NEEDS_CS_VALIDATION
+B-05,B,apa material alumunium?,,Aluminium anti karat/rayap,DRAFT_NEEDS_CS_VALIDATION

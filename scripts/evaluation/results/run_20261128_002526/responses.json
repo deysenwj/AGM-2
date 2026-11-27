@@ -1,0 +1,362 @@
+[
+  {
+    "question_id": "K-01",
+    "category": "K",
+    "question": "Apa bahan utama Meja tv bopet 4 pt roda?",
+    "candidate_answer": "Bahan utama Meja tv bopet 4 pt roda adalah aluminium dan kaca.\n\nSilakan hubungi CS AGM untuk konfirmasi detail teknis lebih lanjut.",
+    "response_time_seconds": 13.96,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "K-02",
+    "category": "K",
+    "question": "Apa subkategori Lemari sepatu 6 rak?",
+    "candidate_answer": "Lemari sepatu 6 rak Subkategori Lemari Sepatu Silakan hubungi CS AGM untuk konfirmasi lebih lanjut.",
+    "response_time_seconds": 21.58,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "K-03",
+    "category": "K",
+    "question": "Berapa harga Meja tv bopet 4 pt roda?",
+    "candidate_answer": "Meja tv bopet 4 pt roda Rp2.300.000 stok 1 Pcs\n```json_product_recommendations\n[{\"id\":\"ccf24ec5-a335-42ad-a6be-83c78f42ebba\",\"name\":\"Meja tv bopet 4 pt roda\",\"subcategory\":\"Meja tv\",\"price\":2450000,\"discount\":150000,\"final_price\":2300000,\"stock\":1,\"unit\":\"Pcs\",\"image_url\":\"https://res.cloudinary.com/beb9qamf/image/upload/v1794661203/product_images/wvqj9hkknsatrtuqwbvr.jpg\"}]\n```\nSilakan hubungi CS AGM untuk konfirmasi lebih lanjut.",
+    "response_time_seconds": 18.09,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "K-04",
+    "category": "K",
+    "question": "Apakah Lemari sepatu 6 rak memiliki stok?",
+    "candidate_answer": "Ada 2 produk dengan nama “Lemari sepatu 6 rak”:\n\n- Bahan alumunium kaca: stok 0.\n- Barang kaca: stok 1 Pcs.\n\nStok dan ketersediaan final perlu dikonfirmasi ke CS AGM.",
+    "response_time_seconds": 17.05,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "K-05",
+    "category": "K",
+    "question": "Apa deskripsi Lemari sepatu 6 rak?",
+    "candidate_answer": "Ditemukan 2 entri \"Lemari sepatu 6 rak\" di katalog:\n\n1. ID ccdbda55 — deskripsi: \"Bahan alumunium kaca\", harga Rp 1.450.000, stok 0, tanpa gambar.\n2. ID a79af9c3 — deskripsi: \"Barang kaca\", harga Rp 1.200.000 (diskon Rp 50.000 → akhir Rp 1.150.000), stok 1, ada gambar.\n\nDetail teknis lanjutan (ketebalan, grade material, sertifikasi) belum tercatat di katalog. Silakan hubungi CS AGM untuk konfirmasi langsung.\n\nAda lagi yang bisa dibantu?",
+    "response_time_seconds": 17.06,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "K-06",
+    "category": "K",
+    "question": "Apa unit untuk Meja tv bopet 4 pt roda?",
+    "candidate_answer": "Pcs unit Meja tv bopet 4 pt roda. Silakan hubungi CS AGM untuk konfirmasi lebih lanjut.\n```json_product_recommendations\n[{\"id\":\"ccf24ec5-a335-42ad-a6be-83c78f42ebba\",\"name\":\"Meja tv bopet 4 pt roda\",\"subcategory\":\"Meja tv\",\"price\":2450000,\"discount\":150000,\"final_price\":2300000,\"stock\":1,\"unit\":\"Pcs\",\"image_url\":\"https://res.cloudinary.com/beb9qamf/image/upload/v1794661203/product_images/wvqj9hkknsatrtuqwbvr.jpg\"}]\n```",
+    "response_time_seconds": 14.21,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "K-07",
+    "category": "K",
+    "question": "Apa kategori Meja tv bopet 4 pt roda?",
+    "candidate_answer": "furniture\nInfo ada katalog\nSilakan tanyakan kebutuhan lain.",
+    "response_time_seconds": 11.65,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "K-08",
+    "category": "K",
+    "question": "Apa bahan utama Lemari sepatu 6 rak?",
+    "candidate_answer": "Bahan utama Lemari sepatu 6 rak adalah aluminium dan kaca. Silakan hubungi CS AGM untuk konfirmasi detail material lebih lanjut.",
+    "response_time_seconds": 13.73,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "R-01",
+    "category": "R",
+    "question": "Rekomendasi meja untuk ruang tamu dengan bahan aluminium?",
+    "candidate_answer": "Di katalog AGM tersedia meja TV bahan aluminium kaca yang cocok untuk ruang tamu:\n\nMeja tv bopet 4 pt roda\n- Bahan: aluminium kaca\n- Harga asli: Rp 2.450.000\n- Diskon: Rp 150.000\n- Harga akhir: Rp 2.300.000\n- Stok: 1 Pcs\n\nHarga dan stok perlu dikonfirmasi langsung ke CS AGM. Kalau ingin ukuran per cm atau warna ACP khusus, bisa diajukan konsultasi custom ke staf AGM.\n\nAda yang bisa dibantu mengenai produk furniture, material, atau konsultasi custom di AGM?\n\n```json_product_recommendations\n[{\"id\":\"ccf24ec5-a335-42ad-a6be-83c78f42ebba\",\"name\":\"Meja tv bopet 4 pt roda\",\"subcategory\":\"Meja tv\",\"price\":2450000,\"discount\":150000,\"final_price\":2300000,\"stock\":1,\"unit\":\"Pcs\",\"image_url\":\"https://res.cloudinary.com/beb9qamf/image/upload/v1794661203/product_images/wvqj9hkknsatrtuqwbvr.jpg\"}]\n```",
+    "response_time_seconds": 41.72,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "R-02",
+    "category": "R",
+    "question": "Saran lemari untuk kebutuhan penyimpanan sepatu?",
+    "candidate_answer": "Lemari sepatu 6 rak bahan alumunium kaca stok 0\nSilakan hubungi CS AGM untuk konfirmasi lebih lanjut.",
+    "response_time_seconds": 14.48,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "R-03",
+    "category": "R",
+    "question": "Produk apa yang cocok untuk area TV di ruang keluarga?",
+    "candidate_answer": "Meja tv bopet 4 pt roda cocok alas tv\n```json_product_recommendations\n[{\"id\":\"ccf24ec5-a335-42ad-a6be-83c78f42ebba\",\"name\":\"Meja tv bopet 4 pt roda\",\"subcategory\":\"Meja tv\",\"price\":2450000,\"discount\":150000,\"final_price\":2300000,\"stock\":1,\"unit\":\"Pcs\",\"image_url\":\"https://res.cloudinary.com/beb9qamf/image/upload/v1794661203/product_images/wvqj9hkknsatrtuqwbvr.jpg\"}]\n```\nSilakan hubungi CS AGM untuk konfirmasi lebih lanjut.",
+    "response_time_seconds": 13.95,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "R-04",
+    "category": "R",
+    "question": "Butuh lemari dengan banyak rak, apa rekomendasinya?",
+    "candidate_answer": "Rekomendasi lemari dengan banyak rak:\n\n1. Lemari 4 pt belah 8 — bahan aluminium kaca, harga asli Rp2.400.000, diskon Rp180.000, harga akhir Rp2.220.000. Stok tercatat 0.\n2. Lemari 3 pt taperwer — bahan aluminium kaca, harga asli Rp1.900.000, diskon Rp100.000, harga akhir Rp1.800.000. Stok tercatat 2.\n3. Lermari 2 pt belah 4 — bahan aluminium kaca, harga asli Rp1.550.000, diskon Rp100.000, harga akhir Rp1.450.000. Stok tercatat 0.\n\nPilihan paling sesuai berdasarkan nama produk adalah Lemari 4 pt belah 8, tetapi stok dan harga final perlu dikonfirmasi ke CS AGM.\n\n```json_product_recommendations\n[{\"id\":\"230d6d88-d06e-4b96-9e9d-e0808bd7d50d\",\"name\":\"Lemari 4 pt belah 8\",\"subcategory\":\"Lemari pajang\",\"price\":2400000,\"discount\":150000,\"final_price\":2250000,\"stock\":0,\"unit\":\"Pcs\",\"image_url\":\"https://res.cloudinary.com/beb9qamf/image/upload/v1788003660/product_images/mavbfndxnvdcm0cxcdcn.jpg\"},{\"id\":\"e00c453f-112c-42d5-ab8b-0f361fa92ac0\",\"name\":\"Lemari 3 pt taperwer\",\"subcategory\":\"Lemari rak kaca\",\"price\":1900000,\"discount\":100000,\"final_price\":1800000,\"stock\":2,\"unit\":\"Pcs\",\"image_url\":\"https://res.cloudinary.com/beb9qamf/image/upload/v1785929846/product_images/tb7ldgwdoiencsyzkjso.jpg\"},{\"id\":\"feccfbb7-d844-4ff0-95a1-e21d7aad2e0e\",\"name\":\"Lermari 2 pt belah 4\",\"subcategory\":\"Lemari rak kaca\",\"price\":1550000,\"discount\":100000,\"final_price\":1450000,\"stock\":0,\"unit\":\"Pcs\",\"image_url\":\"https://res.cloudinary.com/beb9qamf/image/upload/v1788003584/product_images/yd6x0vgmiiijd3kvogmo.jpg\"}]\n```\n\nSilakan hubungi CS AGM untuk konfirmasi stok dan detail rak.",
+    "response_time_seconds": 26.35,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "R-05",
+    "category": "R",
+    "question": "Rekomendasi furniture berbahan kaca?",
+    "candidate_answer": "Berikut rekomendasi furniture berbahan kaca dari katalog AGM (kaca: tempered/bening/riben/stiker):\n\n1. Meja tv bopet 4 pt roda — aluminium + kaca, stok 1, harga asli Rp 2.450.000, diskon Rp 150.000, akhir Rp 2.300.000.\n2. Meja prasmanan 40x150 kramik roda — aluminium + kaca, stok 1, harga asli Rp 1.700.000, diskon Rp 60.000, akhir Rp 1.640.000.\n\nStok dan harga bisa berubah; konfirmasi ketersediaan real-time dan harga final langsung ke CS AGM.\n\nButah ukuran atau material khusus? Silakan hubungi CS AGM untuk konsultasi custom.\n\n```json_product_recommendations\n[{\"id\":\"ccf24ec5-a335-42ad-a6be-83c78f42ebba\",\"name\":\"Meja tv bopet 4 pt roda\",\"subcategory\":\"Meja tv\",\"price\":2450000,\"discount\":150000,\"final_price\":2300000,\"stock\":1,\"unit\":\"Pcs\",\"image_url\":\"https://res.cloudinary.com/beb9qamf/image/upload/v1794661203/product_images/wvqj9hkknsatrtuqwbvr.jpg\"},{\"id\":\"f04040f3-43e5-4818-93d9-73da9569602e\",\"name\":\"Meja prasmanan 40x150 kramik roda\",\"subcategory\":\"Meja prasmanan\",\"price\":1700000,\"discount\":60000,\"final_price\":1640000,\"stock\":1,\"unit\":\"Pcs\",\"image_url\":\"https://res.cloudinary.com/beb9qamf/image/upload/v1787062071/product_images/bd1liyilh2wwbsxtiaqp.jpg\"}]\n```",
+    "response_time_seconds": 27.9,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "R-06",
+    "category": "R",
+    "question": "Bantu saya pilih furniture untuk ruang makan.",
+    "candidate_answer": "Lemari dapur 3 pintu\n[{\"id\":\"9477e602-f902-436b-9b81-420daf446fd5\",\"name\":\"Lemari dapur 3 pintu \",\"subcategory\":\"Lemari Dapur\",\"price\":2100000,\"discount\":130000,\"final_price\":1970000,\"stock\":2,\"unit\":\"Pcs\",\"image_url\":\"https://res.cloudinary.com/beb9qamf/image/upload/v1793160322/product_images/qayu0h7lctepdy8twld0.jpg\"}]\nSilakan hubungi CS AGM untuk konfirmasi lebih lanjut.",
+    "response_time_seconds": 14.36,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "R-07",
+    "category": "R",
+    "question": "Apa rekomendasi terbaik dari katalog?",
+    "candidate_answer": "Berikut beberapa rekomendasi produk terbaik yang saat ini tersedia (ready stock) di katalog CV Adi Guna Mandiri:\n\n1. Lemari Dapur 3 Pintu\n- Kategori: Lemari Dapur\n- Material: Aluminium (tahan karat dan rayap)\n- Harga: Rp 2.100.000 (Diskon Rp 130.000) -> Rp 1.970.000\n- Stok: 2 Pcs\n\n2. Meja TV Bopet 4 Pintu Roda\n- Kategori: Meja TV\n- Material: Aluminium dan kaca\n- Harga: Rp 2.450.000 (Diskon Rp 150.000) -> Rp 2.300.000\n- Stok: 1 Pcs\n\n3. Lemari Pakaian 2 Pintu Sleding Oval\n- Kategori: Lemari Pakaian\n- Material: Aluminium dan ACP (tahan lembap dan benturan)\n- Harga: Rp 2.600.000 (Diskon Rp 100.000) -> Rp 2.500.000\n- Stok: 1 Pcs\n\nKetersediaan stok dan harga final dapat berubah sewaktu-waktu. Silakan hubungi CS AGM untuk konfirmasi ketersediaan real-time dan pemesanan lebih lanjut. Ada jenis furnitur tertentu yang sedang Anda cari?\n\n```json_product_recommendations\n[\n  {\n    \"id\": \"9477e602-f902-436b-9b81-420daf446fd5\",\n    \"name\": \"Lemari dapur 3 pintu \",\n    \"subcategory\": \"Lemari Dapur\",\n    \"price\": 2100000,\n    \"discount\": 130000,\n    \"final_price\": 1970000,\n    \"stock\": 2,\n    \"unit\": \"Pcs\",\n    \"image_url\": \"https://res.cloudinary.com/beb9qamf/image/upload/v1793160322/product_images/qayu0h7lctepdy8twld0.jpg\"\n  },\n  {\n    \"id\": \"ccf24ec5-a335-42ad-a6be-83c78f42ebba\",\n    \"name\": \"Meja tv bopet 4 pt roda\",\n    \"subcategory\": \"Meja tv\",\n    \"price\": 2450000,\n    \"discount\": 150000,\n    \"final_price\": 2300000,\n    \"stock\": 1,\n    \"unit\": \"Pcs\",\n    \"image_url\": \"https://res.cloudinary.com/beb9qamf/image/upload/v1794661203/product_images/wvqj9hkknsatrtuqwbvr.jpg\"\n  },\n  {\n    \"id\": \"ba32c6d8-ec57-45a3-a137-b9b18047ad45\",\n    \"name\": \"Lemari pakaian 2 pt sleding oval\",\n    \"subcategory\": \"Lemari pakaian\",\n    \"price\": 2600000,\n    \"discount\": 100000,\n    \"final_price\": 2500000,\n    \"stock\": 1,\n    \"unit\": \"Pcs\",\n    \"image_url\": \"https://res.cloudinary.com/beb9qamf/image/upload/v1791204643/product_images/ihzzr3yi937zwo2u8p5g.jpg\"\n  }\n]\n```",
+    "response_time_seconds": 23.74,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "H-01",
+    "category": "H",
+    "question": "Berapa harga Meja tv bopet 4 pt roda?",
+    "candidate_answer": "Meja tv bopet 4 pt roda — bahan aluminium + kaca.\n\nHarga asli: Rp2.450.000\nDiskon: Rp150.000\nHarga akhir: Rp2.300.000\nStok tercatat: 1 Pcs\n\nHarga dan stok perlu dikonfirmasi ke CS AGM untuk ketersediaan real-time. Ada lagi yang bisa dibantu?\n\n```json_product_recommendations\n[{\"id\":\"ccf24ec5-a335-42ad-a6be-83c78f42ebba\",\"name\":\"Meja tv bopet 4 pt roda\",\"subcategory\":\"Meja tv\",\"price\":2450000,\"discount\":150000,\"final_price\":2300000,\"stock\":1,\"unit\":\"Pcs\",\"image_url\":\"https://res.cloudinary.com/beb9qamf/image/upload/v1794661203/product_images/wvqj9hkknsatrtuqwbvr.jpg\"}]\n```",
+    "response_time_seconds": 11.33,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "H-02",
+    "category": "H",
+    "question": "Apakah Lemari sepatu 6 rak ada diskon?",
+    "candidate_answer": "Tidak ada diskon. Silakan hubungi CS AGM untuk konfirmasi lebih lanjut.\n```json_product_recommendations\n[{\"id\":\"a79af9c3-3da1-4674-8271-e4a95c1ca0e6\",\"name\":\"Lemari sepatu  6 rak\",\"subcategory\":\"Lemari Sepatu\",\"price\":1200000,\"discount\":50000,\"final_price\":1150000,\"stock\":1,\"unit\":\"Pcs\",\"image_url\":\"https://res.cloudinary.com/beb9qamf/image/upload/v1785206131/product_images/agjqibujagxecifz7nbl.jpg\"}]\n```",
+    "response_time_seconds": 22.53,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "H-03",
+    "category": "H",
+    "question": "Berapa harga Lemari sepatu 6 rak?",
+    "candidate_answer": "Harga Lemari sepatu 6 rak 1150000\n[{\"id\":\"a79af9c3-3da1-4674-8271-e4a95c1ca0e6\",\"name\":\"Lemari sepatu  6 rak\",\"subcategory\":\"Lemari Sepatu\",\"price\":1200000,\"discount\":50000,\"final_price\":1150000,\"stock\":1,\"unit\":\"Pcs\",\"image_url\":\"https://res.cloudinary.com/beb9qamf/image/upload/v1785206131/product_images/agjqibujagxecifz7nbl.jpg\"}]\nSilakan hubungi CS AGM untuk konfirmasi lebih lanjut.",
+    "response_time_seconds": 16.94,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "H-04",
+    "category": "H",
+    "question": "Apakah ada produk dengan harga 0?",
+    "candidate_answer": "Ada beberapa produk tercatat dengan harga Rp 0 di sistem katalog (antara lain Kitchen set, Meja kompor, dan beberapa lemari pakaian/pajang).\n\nNilai Rp 0 bukan berarti gratis, melainkan harga resmi belum tercatat di sistem atau merupakan produk custom yang memerlukan perhitungan teknis lebih lanjut.\n\nSilakan hubungi CS AGM untuk konfirmasi harga dan informasi lebih lanjut.",
+    "response_time_seconds": 18.63,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "H-05",
+    "category": "H",
+    "question": "Apa harga final Meja tv bopet 4 pt roda?",
+    "candidate_answer": "Meja tv bopet 4 pt roda (bahan aluminium + kaca):\n\n- Harga asli: Rp 2.450.000\n- Diskon: Rp 150.000\n- Harga final: Rp 2.300.000\n- Stok tercatat: 1 Pcs\n\nHarga final dan ketersediaan real-time perlu dikonfirmasi ke CS AGM. Ada lagi yang bisa dibantu?\n\n```json_product_recommendations\n[{\"id\":\"ccf24ec5-a335-42ad-a6be-83c78f42ebba\",\"name\":\"Meja tv bopet 4 pt roda\",\"subcategory\":\"Meja tv\",\"price\":2450000,\"discount\":150000,\"final_price\":2300000,\"stock\":1,\"unit\":\"Pcs\",\"image_url\":\"https://res.cloudinary.com/beb9qamf/image/upload/v1794661203/product_images/wvqj9hkknsatrtuqwbvr.jpg\"}]\n```",
+    "response_time_seconds": 13.81,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "H-06",
+    "category": "H",
+    "question": "Apakah stok produk tersedia?",
+    "candidate_answer": "Stok bervariasi; cek detail produk.\n[{\"id\":\"2c3a704a-848c-4ad5-900e-d6eb55c6630a\",\"name\":\"Back drop tv 240\",\"subcategory\":\"Backdrop meja tv\",\"price\":9850000,\"discount\":300000,\"final_price\":9550000,\"stock\":1,\"unit\":\"Pcs\",\"image_url\":\"https://res.cloudinary.com/beb9qamf/image/upload/v1785290476/product_images/mq2qj1sayr42h2cl1vdo.jpg\"},{\"id\":\"ccf24ec5-a335-42ad-a6be-83c78f42ebba\",\"name\":\"Meja tv bopet 4 pt roda\",\"subcategory\":\"Meja tv\",\"price\":2450000,\"discount\":150000,\"final_price\":2300000,\"stock\":1,\"unit\":\"Pcs\",\"image_url\":\"https://res.cloudinary.com/beb9qamf/image/upload/v1794661203/product_images/wvqj9hkknsatrtuqwbvr.jpg\"},{\"id\":\"9477e602-f902-436b-9b81-420daf446fd5\",\"name\":\"Lemari dapur 3 pintu \",\"subcategory\":\"Lemari Dapur\",\"price\":2100000,\"discount\":130000,\"final_price\":1970000,\"stock\":2,\"unit\":\"Pcs\",\"image_url\":\"https://res.cloudinary.com/beb9qamf/image/upload/v1793160322/product_images/qayu0h7lctepdy8twld0.jpg\"}]\nSilakan hubungi CS AGM untuk konfirmasi lebih lanjut.",
+    "response_time_seconds": 25.18,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "H-07",
+    "category": "H",
+    "question": "Tolong sebutkan harga dan stok Lemari sepatu 6 rak.",
+    "candidate_answer": "Informasi stok Lemari sepatu 6 rak tidak tersedia di semua entri katalog.\n```json_product_recommendations\n[{\"id\":\"ccdbda55-0ddc-413c-b129-b03f4f309c91\",\"name\":\"Lemari sepatu 6 rak\",\"subcategory\":\"Lemari Sepatu\",\"price\":1450000,\"discount\":0,\"final_price\":1450000,\"stock\":0,\"unit\":\"Pcs\",\"image_url\":\"\"},{\"id\":\"a79af9c3-3da1-4674-8271-e4a95c1ca0e6\",\"name\":\"Lemari sepatu  6 rak\",\"subcategory\":\"Lemari Sepatu\",\"price\":1200000,\"discount\":50000,\"final_price\":1150000,\"stock\":1,\"unit\":\"Pcs\",\"image_url\":\"https://res.cloudinary.com/beb9qamf/image/upload/v1785206131/product_images/agjqibujagxecifz7nbl.jpg\"}]\n```\nSilakan hubungi CS AGM untuk konfirmasi harga final dan ketersediaan real-time.",
+    "response_time_seconds": 18.04,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "C-01",
+    "category": "C",
+    "question": "Saya mau custom lemari, apa saja yang perlu saya siapkan?",
+    "candidate_answer": "Untuk konsultasi custom lemari di CV Adi Guna Mandiri (AGM), beberapa detail awal yang perlu Anda siapkan:\n\n1. Ukuran Ruangan/Alokasi Lemari\n- Estimasi panjang, lebar/kedalaman, dan tinggi (dalam cm).\n\n2. Jenis dan Fungsi Lemari\n- Lemari pakaian (gantung/rak/laci), lemari dapur, lemari pajang, atau fungsi lainnya.\n\n3. Jumlah dan Tipe Pintu\n- Jumlah pintu (misal: 2, 3, 4 pintu atau lebih).\n- Model bukaan: pintu swing (buka biasa) atau sliding (geser).\n\n4. Pilihan Kombinasi Material\n- Aluminium: rangka utama (anti karat dan rayap).\n- Panel penutup/dinding: ACP (Aluminium Composite Panel) atau kaca (bening/riben).\n\n5. Referensi Desain atau Sketsa (jika ada)\n- Foto contoh model atau denah sederhana tata letak sekat/rak bagian dalam.\n\nSetelah data kebutuhan awal siap, tim bengkel dan CS AGM akan membantu menghitung estimasi biaya serta memvalidasi kelayakan teknisnya.\n\nApakah Anda sudah memiliki gambaran ukuran atau model lemari yang diinginkan?",
+    "response_time_seconds": 13.9,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "C-02",
+    "category": "C",
+    "question": "Bisa ubah jumlah pintu lemari?",
+    "candidate_answer": "Bisa. Lemari AGM dapat disesuaikan jumlah pintunya lewat jalur custom.\n\nYang perlu disiapkan:\n- Jenis furnitur (lemari pakaian, lemari dapur, rak piring, dll.)\n- Ukuran ruangan atau ukuran lebar/tinggi/kedalaman yang diinginkan (dihitung per cm)\n- Jumlah pintu yang diinginkan (misal dari 3 jadi 4 pintu)\n- Material: aluminium, kaca, atau ACP\n- Warna ACP (jika pakai ACP), serta bentuk L/U bila perlu\n\nCatatan:\n- Jumlah pintu memengaruhi ukuran daun pintu dan konstruksi, jadi kelayakannya perlu dikonfirmasi bengkel/teknisi AGM.\n- Harga custom dihitung bengkel berdasarkan spesifikasi, bukan harga produk katalog. Saya tidak bisa menetapkan harga final.\n\nReferensi katalog yang ada (stok & harga perlu dikonfirmasi real-time ke CS):\n- Lemari pakaian 3 pt acp — Rp2.500.000, diskon Rp80.000, akhir Rp2.420.000, stok 1\n- Lemari pakaian 2 pt sleding oval — Rp2.600.000, diskon Rp100.000, akhir Rp2.500.000, stok 1\n- Lemari pakaian 3 pintu motif gantungan + lipatan — Rp2.030.000, diskon Rp80.000, akhir Rp1.950.000, stok 1\n\nBoleh sebutkan jenis lemari dan ukuran yang diinginkan? Silakan hubungi CS AGM untuk konfirmasi harga dan kelayakan teknis.",
+    "response_time_seconds": 16.04,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "C-03",
+    "category": "C",
+    "question": "Bagaimana proses konsultasi custom furniture AGM?",
+    "candidate_answer": "Proses kumpul kebutuhan awal ukuran material desain fungsi.\nSilakan hubungi CS AGM untuk konfirmasi lebih lanjut.",
+    "response_time_seconds": 18.66,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "C-04",
+    "category": "C",
+    "question": "Saya mau custom ukuran 200x100x50, bagaimana?",
+    "candidate_answer": "Proses kumpulkan kebutuhan ukuran material fungsi; Silakan hubungi CS AGM untuk konfirmasi lebih lanjut.\n```json_product_recommendations\n[]\n```",
+    "response_time_seconds": 11.32,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "C-05",
+    "category": "C",
+    "question": "Apa saja pilihan material untuk custom furniture?",
+    "candidate_answer": "Untuk pembuatan custom furniture di CV Adi Guna Mandiri (AGM), pilihan material utama yang tersedia meliputi:\n\n1. Aluminium\nDigunakan sebagai rangka utama furniture. Karakteristiknya kokoh, anti karat, anti rayap, dan tahan air.\n\n2. ACP (Aluminium Composite Panel)\nMaterial panel komposit aluminium yang tahan benturan, tahan lembap, serta tersedia dalam berbagai pilihan warna/motif untuk dinding atau pintu lemari/kitchen set.\n\n3. Kaca\nPilihan kaca untuk pintu, rak, atau etalase (seperti kaca bening, riben, stiker, atau tempered sesuai kebutuhan desain).\n\n4. Keramik / PVC\nKombinasi material pelengkap, umum digunakan pada bagian top table meja kompor atau meja prasmanan agar tahan panas dan mudah dibersihkan.\n\nBisa diinfokan rencana jenis furniture, ukuran ruangan, dan model yang ingin dibuat agar dapat kami bantu rangkumkan spesifikasinya? Silakan hubungi CS AGM untuk konsultasi lebih lanjut.",
+    "response_time_seconds": 11.85,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "C-06",
+    "category": "C",
+    "question": "Bisakah saya minta estimasi harga custom?",
+    "candidate_answer": "Bisa, tapi estimasi harga custom di AGM bukan angka pasti — perhitungannya dilakukan bengkel berdasarkan spesifikasi. AGM Assistant hanya bisa membantu merangkum kebutuhan awal Anda.\n\nAgar bisa dihitung, mohon lengkapi:\n\n1. Jenis furnitur (lemari pakaian / lemari dapur / kitchen set / meja kompor / meja prasmanan / rak / etalase / lainnya)\n2. Ukuran yang diinginkan (panjang x tinggi x kedalaman, dalam cm)\n3. Material: aluminium rangka saja, atau kombinasi kaca / ACP\n4. Jumlah pintu dan jenis bukaan (biasa, sleding, belah)\n5. Bentuk: lurus, L, atau U\n6. Fungsi khusus (roda, laci, wastafel, kompor tanam, sekat, dll.)\n7. Warna/Finishing ACP bila diinginkan\n8. Lokasi pemasangan dan target waktu\n\nSebagai gambaran, produk jadi di katalog kami yang paling mendekati bisa jadi acuan kasar — misalnya Lemari pakaian 2 pt sleding oval (aluminium ACP) Rp2.600.000 diskon Rp100.000 jadi Rp2.500.000, atau Lemari pakaian acp 3 pt oval Rp2.700.000 diskon Rp100.000 jadi Rp2.600.000. Harga custom dengan ukuran berbeda akan dihitung terpisah oleh bengkel, bukan skala langsung dari harga produk jadi.\n\nSilakan kirimkan detail di atas, lalu hubungi CS AGM untuk mendapatkan estimasi resmi dan konfirmasi ketersediaan.",
+    "response_time_seconds": 15.8,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "C-07",
+    "category": "C",
+    "question": "Apa saja yang perlu saya sampaikan ke CS untuk custom?",
+    "candidate_answer": "Jenis furnitur ukuran ruangan material fungsi khusus per cm Silakan hubungi CS AGM untuk konfirmasi lebih lanjut.",
+    "response_time_seconds": 15.75,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "C-08",
+    "category": "C",
+    "question": "Bantu saya merangkum kebutuhan custom furniture saya.",
+    "candidate_answer": "Kebutuhan awal jenis furnitur ukuran ruangan material desain fungsi khusus tolong sebutkan\nAda lagi yang bisa dibantu?",
+    "response_time_seconds": 18.7,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "O-01",
+    "category": "O",
+    "question": "Berapa harga saham BBCA hari ini?",
+    "candidate_answer": "Maaf, pertanyaan tersebut di luar cakupan layanan AGM Assistant yang berfokus pada katalog furniture dan konsultasi custom CV Adi Guna Mandiri.\n\nApakah ada yang bisa dibantu mengenai produk furniture, material, atau konsultasi custom di AGM?",
+    "response_time_seconds": 14.1,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "O-02",
+    "category": "O",
+    "question": "Bagaimana cara membuat website React?",
+    "candidate_answer": "Maaf, pertanyaan tersebut di luar cakupan layanan AGM Assistant yang berfokus pada katalog furniture dan konsultasi custom CV Adi Guna Mandiri.\n\nApakah ada yang bisa dibantu mengenai produk furniture, material, atau konsultasi custom di AGM?",
+    "response_time_seconds": 12.57,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "O-03",
+    "category": "O",
+    "question": "Apa berita terbaru di Kalimantan Barat?",
+    "candidate_answer": "Di luar cakupan layanan AGM Assistant. Apakah ada yang bisa dibantu mengenai produk furniture, material, atau konsultasi custom di AGM?",
+    "response_time_seconds": 18.1,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "O-04",
+    "category": "O",
+    "question": "Tolong buatkan resep rendang.",
+    "candidate_answer": "Maaf, pertanyaan tersebut di luar cakupan layanan AGM Assistant yang berfokus pada katalog furniture dan konsultasi custom CV Adi Guna Mandiri.\nApakah ada yang bisa dibantu mengenai produk furniture, material, atau konsultasi custom di AGM?",
+    "response_time_seconds": 13.06,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "O-05",
+    "category": "O",
+    "question": "Siapa presiden Indonesia saat ini?",
+    "candidate_answer": "Maaf, pertanyaan tersebut di luar cakupan layanan AGM Assistant yang berfokus pada katalog furniture dan konsultasi custom CV Adi Guna Mandiri.\n\nApakah ada yang bisa dibantu mengenai produk furniture, material, atau konsultasi custom di AGM?",
+    "response_time_seconds": 19.56,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "B-01",
+    "category": "B",
+    "question": "brp hrg lmari pakaian?",
+    "candidate_answer": "Harga lemari pakaian yang tercatat di katalog:\n\n1. Lemari pakaian 2 pt sleding oval — bahan alumunium ACP\n   Harga Rp2.600.000, diskon Rp100.000, harga akhir Rp2.500.000. Stok 1 Pcs.\n\n2. Lemari pakaian 3 pt acp — bahan alumunium ACP\n   Harga Rp2.500.000, diskon Rp80.000, harga akhir Rp2.420.000. Stok 1 Pcs.\n\n3. Lemari pakaian acp 3 pt oval — bahan alumunium ACP\n   Harga Rp2.700.000, diskon Rp100.000, harga akhir Rp2.600.000. Stok 1 Pcs.\n\nAda juga varian lain (6 pintu catom, 5 tiolet ACP, 4 pintu jumbo premium) tapi belum ada harga tercatat di sistem — perlu dikonfirmasi ke CS AGM.\n\nHarga final dan ketersediaan real-time silakan hubungi CS AGM. Ada lagi yang bisa dibantu?\n\n```json_product_recommendations\n[{\"id\":\"ba32c6d8-ec57-45a3-a137-b9b18047ad45\",\"name\":\"Lemari pakaian 2 pt sleding oval\",\"subcategory\":\"Lemari pakaian\",\"price\":2600000,\"discount\":100000,\"final_price\":2500000,\"stock\":1,\"unit\":\"Pcs\",\"image_url\":\"https://res.cloudinary.com/beb9qamf/image/upload/v1791204643/product_images/ihzzr3yi937zwo2u8p5g.jpg\"},{\"id\":\"1983d82b-6982-468f-90d3-d85c7fae02ef\",\"name\":\"Lemari pakaian 3 pt acp\",\"subcategory\":\"Lemari pakaian\",\"price\":2500000,\"discount\":80000,\"final_price\":2420000,\"stock\":1,\"unit\":\"Pcs\",\"image_url\":\"https://res.cloudinary.com/beb9qamf/image/upload/v1788004251/product_images/hb9qeoc6n4d9jgotxt7a.jpg\"},{\"id\":\"59f4996a-02ca-4da8-9124-917aa75ddabe\",\"name\":\"Lemari pakaian acp 3 pt oval\",\"subcategory\":\"Lemari pakaian\",\"price\":2700000,\"discount\":100000,\"final_price\":2600000,\"stock\":1,\"unit\":\"Pcs\",\"image_url\":\"https://res.cloudinary.com/beb9qamf/image/upload/v1788004312/product_images/nvxalqgl266f8r1auppe.jpg\"}]\n```",
+    "response_time_seconds": 17.17,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "B-02",
+    "category": "B",
+    "question": "kicen set ada ga?",
+    "candidate_answer": "Ada Kicen set westafel dan Kicen set 6 pintu+laci+westafel tersedia di katalog\n```json_product_recommendations\n[{\"id\":\"e3ed3dc7-98f9-4f16-8617-1c1f075b5908\",\"name\":\"Kicen set 5 pintu westafel\",\"subcategory\":\"Kitchen set\",\"price\":0,\"discount\":0,\"final_price\":0,\"stock\":0,\"unit\":\"Pcs\",\"image_url\":\"https://res.cloudinary.com/beb9qamf/image/upload/v1787477834/product_images/mlwpgvduumgcvg0brlvg.jpg\"},{\"id\":\"54009718-7977-41e6-8970-58f840f5cac7\",\"name\":\"Kicen set 6 pintu+laci+westafel\",\"subcategory\":\"Kitchen set\",\"price\":0,\"discount\":0,\"final_price\":0,\"stock\":0,\"unit\":\"Pcs\",\"image_url\":\"https://res.cloudinary.com/beb9qamf/image/upload/v1787477783/product_images/x7h35gs2lzgg9opikcp1.jpg\"}]\n```\nSilakan hubungi CS AGM untuk konfirmasi detail dan pemesanan lebih lanjut.",
+    "response_time_seconds": 21.47,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "B-03",
+    "category": "B",
+    "question": "lemari sepatu stok?",
+    "candidate_answer": "Stok tidak tersedia Lemari sepatu 6 rak. Silakan hubungi CS AGM untuk konfirmasi lebih lanjut.",
+    "response_time_seconds": 10.98,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "B-04",
+    "category": "B",
+    "question": "mau custom ukuran 2 meter?",
+    "candidate_answer": "Bisa, di AGM kami melayani pembuatan custom furniture dengan ukuran per sentimeter sesuai kebutuhan ruangan Anda.\n\nUntuk membantu konsultasi awal dan estimasi kebutuhan, boleh diinformasikan beberapa detail berikut:\n1. Jenis furnitur apa yang ingin dibuat? (Contoh: lemari pakaian, kitchen set, meja TV, lemari dapur, dll.)\n2. Detail dimensi lengkap: panjang 200 cm (2 meter), perkiraan tinggi dan kedalaman (lebar ke belakang) berapa cm?\n3. Pilihan material panel: kombinasi rangka aluminium dengan panel ACP (tahan benturan & lembap), kaca (bening/riben), atau kombinasi keduanya?\n4. Model dan jumlah pintu yang diinginkan (misal: pintu sliding/geser atau pintu swing biasa)?\n\nSetelah detail terkumpul, tim CS dan bengkel AGM akan membantu menghitung estimasi biaya serta kelayakan konstruksinya.\n\nFurnitur jenis apa yang sedang Anda rencanakan?",
+    "response_time_seconds": 15.78,
+    "execution_status": "completed",
+    "error_message": ""
+  },
+  {
+    "question_id": "B-05",
+    "category": "B",
+    "question": "apa material alumunium?",
+    "candidate_answer": "Aluminium = logam ringan yang dipakai AGM sebagai rangka furniture. Karakteristik umum:\n\n- Anti karat — tidak berkarat seperti besi, cocok area lembap (dapur, kamar mandi).\n- Anti rayap — bukan kayu, jadi bebas serangan rayap.\n- Ringan tapi kuat — mudah dipindah, rangka tetap kokoh.\n- Perawatan mudah — cukup dilap, tidak perlu pelapis khusus.\n\nDi katalog AGM, aluminium dipadukan dengan:\n- Kaca — tempered/bening/riben/stiker sebagai pintu atau panel.\n- ACP (Aluminium Composite Panel) — panel pelapis, tahan benturan dan lembap.\n- PVC — umum pada meja prasmanan.\n\nCatatan: detail teknis seperti ketebalan profil, grade, atau sertifikasi tidak tercatat di sistem katalog kami. Silakan hubungi CS AGM untuk konfirmasi spesifikasi teknis.\n\nAda lagi yang bisa dibantu?",
+    "response_time_seconds": 14.3,
+    "execution_status": "completed",
+    "error_message": ""
+  }
+]

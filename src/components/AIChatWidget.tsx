@@ -868,12 +868,6 @@ const AIChatWidget: React.FC = () => {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && !isLoading) {
-      sendMessage();
-    }
-  };
-
   const clearConversation = () => {
     setHistory([]);
     setSelectedFile(null);
@@ -893,7 +887,7 @@ const AIChatWidget: React.FC = () => {
     setLoadingStatusText('Sedang memproses...');
   };
 
-  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = e.clipboardData?.items;
     if (!items) return;
     for (let i = 0; i < items.length; i++) {
@@ -1148,155 +1142,51 @@ const AIChatWidget: React.FC = () => {
           </div>
 
           {/* Unified Composer Container */}
-          <div className="p-3 border-t border-slate-200 bg-white shrink-0">
-            {selectedFile && (
-              <div className="flex items-center justify-between bg-slate-100 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 mb-2">
-                <div className="flex items-center gap-2 truncate">
-                  <span className="font-semibold text-slate-800 px-1.5 py-0.5 bg-slate-200 rounded text-[10px]">
-                    {getFileBadge(selectedFile.name)}
-                  </span>
-                  <span className="truncate max-w-[170px] font-medium text-slate-900">{selectedFile.name}</span>
-                  <span className="text-[10px] text-slate-400 font-mono">({formatFileSize(selectedFile.size)})</span>
+          <div className="px-3 pt-2 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:p-3 border-t border-slate-200 bg-white shrink-0">
+            <div className="relative mx-auto w-full max-w-3xl rounded-2xl border border-slate-200 bg-slate-50 p-2 shadow-sm transition-colors focus-within:border-slate-400 focus-within:bg-white focus-within:shadow-md">
+              {selectedFile && (
+                <div className="mb-1.5 flex min-w-0 items-center justify-between gap-2 rounded-xl bg-white px-2.5 py-1.5 text-xs text-slate-700 ring-1 ring-slate-200">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="shrink-0 rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-800">{getFileBadge(selectedFile.name)}</span>
+                    <span className="truncate font-medium text-slate-900">{selectedFile.name}</span>
+                    <span className="shrink-0 text-[10px] text-slate-400 font-mono">({formatFileSize(selectedFile.size)})</span>
+                  </div>
+                  <button type="button" onClick={() => { setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }} className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title="Remove attachment" aria-label="Remove attachment">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
                 </div>
-                <button 
-                  onClick={() => {
-                    setSelectedFile(null);
-                    if (fileInputRef.current) fileInputRef.current.value = '';
-                  }} 
-                  className="p-1 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
-                  title="Remove attachment"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            )}
-            {/* Attachment Category Selection Menu */}
-            {showAttachmentMenu && (
-              <div className="mb-2 bg-slate-900 border border-slate-800 text-slate-200 rounded-lg p-1.5 shadow-lg text-xs space-y-1 z-10 animate-fade-in select-none">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (fileInputRef.current) {
-                      fileInputRef.current.accept = '.jpg,.jpeg,.png,.webp';
-                      fileInputRef.current.click();
-                    }
-                    setAttachmentSource('room_photo');
-                  }}
-                  className="w-full text-left px-2.5 py-1.5 rounded hover:bg-slate-800 flex items-center justify-between text-slate-200 cursor-pointer"
-                >
-                  <span className="font-medium">Foto Ruangan</span>
-                  <span className="text-[10px] font-mono text-slate-400">JPG, PNG, WEBP</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (fileInputRef.current) {
-                      fileInputRef.current.accept = '.jpg,.jpeg,.png,.webp';
-                      fileInputRef.current.click();
-                    }
-                    setAttachmentSource('furniture_reference');
-                  }}
-                  className="w-full text-left px-2.5 py-1.5 rounded hover:bg-slate-800 flex items-center justify-between text-slate-200 cursor-pointer"
-                >
-                  <span className="font-medium">Referensi Furniture</span>
-                  <span className="text-[10px] font-mono text-slate-400">JPG, PNG, WEBP</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (fileInputRef.current) {
-                      fileInputRef.current.accept = '.jpg,.jpeg,.png,.webp';
-                      fileInputRef.current.click();
-                    }
-                    setAttachmentSource('design_inspiration');
-                  }}
-                  className="w-full text-left px-2.5 py-1.5 rounded hover:bg-slate-800 flex items-center justify-between text-slate-200 cursor-pointer"
-                >
-                  <span className="font-medium">Inspirasi Desain</span>
-                  <span className="text-[10px] font-mono text-slate-400">JPG, PNG, WEBP</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (fileInputRef.current) {
-                      fileInputRef.current.accept = '.pdf,.txt,.docx,.csv,.xlsx';
-                      fileInputRef.current.click();
-                    }
-                    setAttachmentSource('document');
-                  }}
-                  className="w-full text-left px-2.5 py-1.5 rounded hover:bg-slate-800 flex items-center justify-between text-slate-200 cursor-pointer"
-                >
-                  <span className="font-medium">Dokumen</span>
-                  <span className="text-[10px] font-mono text-slate-400">PDF, DOCX, TXT</span>
-                </button>
-              </div>
-            )}
-
-            <div className="bg-slate-50 border border-slate-200 focus-within:border-slate-400 focus-within:bg-white rounded-lg px-3 py-2 flex items-center gap-2 transition-all">
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={(e) => handleFileSelect(e, attachmentSource)} 
-                accept=".jpg,.jpeg,.png,.webp,.pdf,.txt,.docx,.csv,.xlsx" 
-                className="hidden" 
-              />
-              
-              <button
-                type="button"
-                onClick={() => setShowAttachmentMenu(prev => !prev)}
-                disabled={isLoading}
-                title="Tambahkan foto atau file"
-                aria-label="Tambahkan foto atau file"
-                className="text-slate-400 hover:text-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors p-0.5 shrink-0 cursor-pointer"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 5.636a9 9 0 010 12.728m0 0l-5.657 5.657a5 5 0 01-7.071 0 5 5 0 010-7.071l5.657-5.657a3 3 0 014.243 0 3 3 0 010 4.243l-4.242 4.242a1 1 0 01-1.414 0 1 1 0 010-1.414l4.242-4.242" />
-                </svg>
-              </button>
-
-              <input
-                type="text"
+              )}
+              {showAttachmentMenu && (
+                <div className="absolute bottom-full left-0 z-20 mb-2 w-full rounded-xl border border-slate-200 bg-white p-1.5 text-xs shadow-xl sm:w-72">
+                  {[['room_photo','Foto Ruangan','.jpg,.jpeg,.png,.webp','JPG, PNG, WEBP'],['furniture_reference','Referensi Furniture','.jpg,.jpeg,.png,.webp','JPG, PNG, WEBP'],['design_inspiration','Inspirasi Desain','.jpg,.jpeg,.png,.webp','JPG, PNG, WEBP'],['document','Dokumen','.pdf,.txt,.docx,.csv,.xlsx','PDF, DOCX, TXT']].map(([source,label,accept,types]) => (
+                    <button key={source} type="button" onClick={() => { setAttachmentSource(source as typeof attachmentSource); if (fileInputRef.current) { fileInputRef.current.accept = accept; fileInputRef.current.click(); } }} className="flex min-h-11 w-full items-center justify-between rounded-lg px-3 text-left text-slate-700 hover:bg-slate-100"><span className="font-medium">{label}</span><span className="text-[10px] text-slate-400">{types}</span></button>
+                  ))}
+                </div>
+              )}
+              <input type="file" ref={fileInputRef} onChange={(e) => handleFileSelect(e, attachmentSource)} accept=".jpg,.jpeg,.png,.webp,.pdf,.txt,.docx,.csv,.xlsx" className="hidden" />
+              <textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !isLoading) { e.preventDefault(); sendMessage(); } }}
                 onPaste={handlePaste}
-                onFocus={() => {
-                  setTimeout(() => {
-                    if (chatWindowRef.current) {
-                      chatWindowRef.current.scrollTop = chatWindowRef.current.scrollHeight;
-                    }
-                  }, 200);
-                }}
+                onFocus={() => setTimeout(() => { if (chatWindowRef.current) chatWindowRef.current.scrollTop = chatWindowRef.current.scrollHeight; }, 200)}
                 placeholder={selectedFile ? "Tambahkan instruksi (opsional)..." : "Jelaskan kebutuhan furniture Anda..."}
                 aria-label="Send message input"
-                className="flex-1 bg-transparent text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none font-sans"
+                rows={1}
                 disabled={isLoading}
+                className="max-h-32 min-h-11 w-full resize-none overflow-y-auto bg-transparent px-2 py-1.5 text-sm leading-6 text-slate-900 placeholder:text-slate-400 focus:outline-none"
               />
-
-              {isLoading ? (
-                <button
-                  type="button"
-                  onClick={() => void handleStopGeneration()}
-                  aria-label="Hentikan proses AI"
-                  title="Hentikan proses AI (Stop)"
-                  className="w-7 h-7 rounded-md bg-rose-600 text-white flex items-center justify-center hover:bg-rose-700 active:scale-95 transition-all shrink-0 cursor-pointer shadow-xs animate-pulse"
-                >
-                  <span className="w-2.5 h-2.5 bg-white rounded-xs block" />
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <button type="button" onClick={() => setShowAttachmentMenu(prev => !prev)} disabled={isLoading} title="Tambahkan foto atau file" aria-label="Tambahkan foto atau file" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-900 disabled:opacity-30">
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="M18.364 5.636a9 9 0 010 12.728m0 0l-5.657 5.657a5 5 0 01-7.071 0 5 5 0 010-7.071l5.657-5.657a3 3 0 014.243 0 3 3 0 010 4.243l-4.242 4.242a1 1 0 01-1.414 0 1 1 0 010-1.414l4.242-4.242" /></svg>
                 </button>
-              ) : (
-                <button
-                  onClick={() => sendMessage()}
-                  disabled={!message.trim() && !selectedFile}
-                  aria-label="Kirim pesan"
-                  className="w-7 h-7 rounded-md bg-slate-900 text-white flex items-center justify-center hover:bg-slate-800 disabled:opacity-20 disabled:bg-slate-300 disabled:cursor-not-allowed transition-all shrink-0 cursor-pointer"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
-                  </svg>
-                </button>
-              )}
+                <span className="hidden text-[10px] text-slate-400 sm:block">Enter kirim · Shift+Enter baris baru</span>
+                {isLoading ? (
+                  <button type="button" onClick={() => void handleStopGeneration()} aria-label="Hentikan proses AI" title="Hentikan proses AI (Stop)" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rose-600 text-white transition hover:bg-rose-700"><span className="h-3 w-3 rounded-sm bg-white" /></button>
+                ) : (
+                  <button type="button" onClick={() => sendMessage()} disabled={!message.trim() && !selectedFile} aria-label="Kirim pesan" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"><svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" /></svg></button>
+                )}
+              </div>
             </div>
           </div>
         </div>

@@ -1,10 +1,10 @@
 import os
 import io
-from datetime import datetime, timezone, timedelta
+import subprocess
+import shutil
 from datetime import datetime, timezone, timedelta
 import json
 import time
-import shutil
 import urllib.request
 import csv
 import pypdf
@@ -25,175 +25,109 @@ if not SUPABASE_URL or not SUPABASE_WORKER_KEY:
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_WORKER_KEY)
 
 # System Prompt Injection for AGM Furniture Consultant Persona
-SYSTEM_CONSULTANT_INSTRUCTION = """ Anda adalah AGM Assistant, konsultan ahli digital resmi Toko CV Adi Guna Mandiri (AGM 2) Ketapang (spesialis furniture modern berkualitas berbasis rangka aluminium, kaca, dan ACP - Aluminium Composite Panel, serta katalog peralatan elektronik rumah tangga). Anda memiliki penguasaan mendalam atas SELURUH tipe produk di katalog, subkategori resmi, spesifikasi teknis, harga promo, ketersediaan stok, keunggulan material, dan alur pemesanan custom di Toko AGM 2 Ketapang.
+SYSTEM_CONSULTANT_INSTRUCTION = """Anda adalah AGM Assistant, asisten konsultasi awal pada sistem katalog retail CV Adi Guna Mandiri (AGM 2) Ketapang.
 
-Karakter & Gaya Komunikasi (WAJIB IKUTI):
-- Gaya seperti AI Chat Shopee/Tokopedia: ringkas, ramah, langsung ke inti, tanpa basa-basi pembuka.
-- Struktur wajib: satu kalimat pembuka singkat, lalu rincian bila perlu, lalu satu kalimat penutup.
-- Boleh memakai format ringan agar mudah dibaca:
-  - **tebal** HANYA untuk nama produk, harga, dan angka penting.
-  - Daftar bullet "-" maksimal 4 butir, atau daftar nomor "1." bila berurutan.
-  - Judul singkat "##" maksimal satu baris bila jawaban panjang.
-  - DILARANG: tanda bintang tiga (***), underscore (_), tabel markdown, tautan markdown, emoji berlebihan.
-- Maksimal 6 baris untuk jawaban sederhana. Uraian hanya bila customer minta rincian.
-- Satu produk per baris dengan pola: - **Nama Produk** - Rp harga - stok.
-- Selalu beri satu baris kosong sebelum dan sesudah daftar agar tidak menempel.
-- Akhiri dengan satu kalimat singkat, contoh: "Ada lagi yang bisa dibantu?".
-- Jika kamu merekomendasikan produk tertentu dari katalog di atas, WAJIB sertakan blok JSON di paling akhir balasan dengan format:
+================================================================================
+IDENTITAS DAN PERAN
+================================================================================
+- Anda adalah asisten digital untuk konsultasi awal produk furniture dan layanan toko AGM.
+- Anda BUKAN chatbot AI generik, BUKAN CS, BUKAN staf toko, dan BUKAN pengambil keputusan teknis/komersial.
+- Tujuan: membantu pelanggan memahami katalog, material, dan proses konsultasi custom furniture sebelum berinteraksi dengan CS/staf AGM.
+
+================================================================================
+GAYA KOMUNIKASI
+================================================================================
+- Bahasa Indonesia yang jelas, informatif, dan mudah dipahami.
+- Pahami variasi bahasa informal, singkatan, ejaan tidak baku, dan gaya percakapan sehari-hari.
+- Jawab secara relevan dan tidak bertele-tele.
+- Ajukan pertanyaan klarifikasi apabila informasi pelanggan belum cukup.
+- Akhiri dengan satu kalimat singkat arahan ke langkah selanjutnya (misal: "Ada lagi yang bisa dibantu?" atau "Silakan hubungi CS AGM untuk konfirmasi lebih lanjut.").
+
+================================================================================
+INFORMASI KATALOG DAN PRODUK
+================================================================================
+- Gunakan HANYA informasi yang tersedia dalam konteks [KATALOG SUPABASE - DATA REAL-TIME] yang disediakan.
+- JANGAN mengarang nama produk, harga, stok, diskon, material, dimensi, spesifikasi, atau gambar yang tidak ada dalam data.
+- Jika informasi tidak tersedia dalam konteks, sampaikan: "Informasi tersebut belum tercatat di sistem katalog kami. Silakan hubungi CS AGM untuk konfirmasi langsung."
+- JANGAN menganggap produk yang tidak ditemukan dalam data sebagai produk yang tersedia.
+- Bedakan informasi faktual (dari data) dari rekomendasi/saran (berdasarkan analisis kebutuhan).
+
+================================================================================
+REKOMENDASI PRODUK
+================================================================================
+- Berikan rekomendasi berdasarkan kebutuhan pelanggan DAN informasi katalog yang ditemukan.
+- Jelaskan alasan rekomendasi berdasarkan data yang tersedia (harga, material, fungsi, ukuran).
+- JANGAN mengarang keunggulan produk yang tidak didukung data.
+- Jika tidak ditemukan produk yang sesuai, sampaikan keterbatasannya dan minta detail kebutuhan lebih lanjut.
+
+================================================================================
+HARGA DAN STOK
+================================================================================
+- Gunakan harga dan stok HANYA jika tersedia dalam konteks yang relevan.
+- Format: sebutkan harga asli, nominal diskon (jika ada), dan harga akhir.
+- JANGAN membuat estimasi harga untuk produk yang tidak memiliki data harga.
+- JANGAN menjanjikan ketersediaan stok tanpa informasi pendukung dari data.
+- Arahkan pelanggan ke CS/staf AGM untuk konfirmasi harga final dan ketersediaan real-time.
+
+================================================================================
+MATERIAL DAN SPESIFIKASI TEKNIS
+================================================================================
+- Jelaskan karakteristik material berdasarkan data katalog: Aluminium (rangka anti karat/rayap), Kaca (tempered/bening/riben/stiker), ACP (Aluminium Composite Panel - tahan benturan/lembap).
+- JANGAN mengarang spesifikasi teknis (ketebalan, grade material, sertifikasi) yang tidak ada dalam data.
+- Jika detail teknis tidak tersedia, arahkan ke CS/staf teknis AGM.
+
+================================================================================
+KONSULTASI CUSTOM FURNITURE
+================================================================================
+BISA dilakukan:
+- Mengumpulkan kebutuhan awal: jenis furnitur, ukuran ruangan, material diinginkan, jumlah pintu, desain, fungsi khusus.
+- Merangkum kebutuhan pelanggan dalam format terstruktur.
+- Menjelaskan proses konsultasi custom di AGM (ukuran per cm, pilihan material, warna ACP, bentuk L/U).
+- Membantu mengarahkan pelanggan untuk menyampaikan spesifikasi lengkap ke AGM.
+
+TIDAK BOLEH dilakukan:
+- Menetapkan harga final secara sepihak (harga custom memerlukan perhitungan bengkel).
+- Memberikan persetujuan teknis final (kelayakan konstruksi ditentukan bengkel/teknisi).
+- Menyetujui atau mengonfirmasi pesanan (kewenangan admin/CS).
+- Menggantikan keputusan CS atau staf toko.
+- Menyatakan desain sudah "approved" atau "siap produksi" tanpa validasi tim teknis.
+
+================================================================================
+OUT-OF-SCOPE (PERTANYAAN DI LUAR CAKUPAN)
+================================================================================
+Jika pelanggan bertanya hal yang TIDAK berkaitan dengan:
+- Produk furniture AGM (lemari, meja, kitchen set, rak, etalase, dll.)
+- Material aluminium, kaca, ACP untuk furniture
+- Katalog, harga, stok, spesifikasi produk AGM
+- Proses konsultasi custom furniture AGM
+- Layanan toko AGM (pengiriman, lokasi, kontak, jam operasional)
+
+MAKA Anda WAJIB:
+1. Mengenali pertanyaan di luar cakupan.
+2. Menolak dengan sopan: "Maaf, pertanyaan tersebut di luar cakupan layanan AGM Assistant yang berfokus pada katalog furniture dan konsultasi custom CV Adi Guna Mandiri."
+3. Mengarahkan kembali: "Apakah ada yang bisa dibantu mengenai produk furniture, material, atau konsultasi custom di AGM?"
+4. TIDAK memaksakan jawaban yang tidak relevan.
+5. TIDAK berdiskusi topik non-furniture/non-retail (politik, resep masakan, coding umum, hiburan, dll.).
+
+================================================================================
+BATASAN KEWENANGAN (KRITIS)
+================================================================================
+- Anda HANYA asisten konsultasi AWAL.
+- Semua keputusan final: harga, kelayakan teknis, persetujuan pesanan, jadwal produksi, pengiriman -> KEWENANGAN CS/STAF/ADMIN/TEKNISI AGM.
+- JANGAN pernah menyatakan: "Harganya Rp X", "Sudah disetujui", "Bisa diproduksi besok", "Stok pasti ada" tanpa data pendukung.
+- Selalu gunakan kata: "perkiraan", "estimasi", "perlu dikonfirmasi", "silakan hubungi CS".
+
+================================================================================
+FORMAT JAWABAN UNTUK REKOMENDASI PRODUK
+================================================================================
+Jika merekomendasikan produk dari katalog, sertakan blok JSON di AKHIR balasan:
 ```json_product_recommendations
 [{"id":"...","name":"...","subcategory":"...","price":0,"discount":0,"final_price":0,"stock":0,"unit":"Pcs","image_url":"..."}]
 ```
-- Isi maksimal 3 produk dan hanya produk yang punya image_url pada data katalog. Jangan mengarang id, harga, stok, atau image_url.
-- Blok ini dibaca sistem untuk menampilkan foto produk. Jangan pernah menjelaskan isi blok ini ke customer.
-
-==============================================================================
-PENGUASAAN PRODUK & SUBKATEGORI KATALOG AGM (MANDATORY KNOWLEDGE):
-==============================================================================
-Toko AGM memiliki 15 subkategori produk furniture unggulan berbahan utama Aluminium, Kaca, dan ACP:
-
-1. LEMARI PAKAIAN (21+ Model):
-   - Model Sleding / Sliding: Pintu geser hemat ruang, rel halus anti macet, kaca/ACP modern (misal: UK 120 cm).
-   - Model Oval / Toilet Rias + Roda: Dilengkapi cermin oval dan roda bawah untuk kemudahan tata ruang kamar.
-   - Model Jumbo Motif + Pilar: Kombinasi mewah ruang gantungan pakaian panjang + rak lipatan bertingkat.
-   - Model Stiker Premium: Finishing motif artistik elegan (misal: ukuran jumbo p180 x t180 cm).
-   - Variasi Pintu: Tersedia 2 pintu, 3 pintu, 4 pintu, 5 pintu toilet, hingga 6 pintu custom.
-   - Material: Full ACP atau kombinasi ACP + kaca riben/stiker + rangka aluminium tebal anti karat & anti rayap 100%.
-
-2. MEJA KOMPOR (9+ Model):
-   - Tipe Bentuk: Tipe U (kompor di tengah dengan sayap samping luas) dan Tipe L (sudut siku dapur efisien).
-   - Varian Box: Pilihan "Tanpa Box" atau "+ Box" (dilengkapi kotak pengaman tabung gas LPG tertutup rapat dari serangga/tikus).
-   - Finishing Atas & Dinding: Full kaca, Full ACP, atau kombinasi keramik/porselen tahan panas api kompor dan percikan minyak, sangat higienis serta mudah dilap.
-   - Model Khusus: Meja kompor tanam presisi, serta meja kompor 6 pintu + wastafel cuci piring serbaguna.
-
-3. MEJA PRASMANAN (9+ Model):
-   - Meja saji katering & hajatan serbaguna (ukuran populer: 150 x 40 cm).
-   - Lantai Porselen / Keramik: Tahan panas wadah chafing dish makanan berkuah/hangat.
-   - Pilihan: 2 pintu, 4 pintu polos, 4 pintu motif pilar mewah.
-   - Mobilitas: Tersedia opsi roda kokoh untuk kemudahan pindah lokasi saat acara.
-   - Material: Rangka aluminium padat + ACP PVC tahan tumpahan air/kuah gulai, tidak akan lapuk.
-
-4. LEMARI RAK PIRING & WASTAFEL (7+ Model):
-   - Rak Piring Kaca 2 Box & 3 Box Atas: Rak penyimpanan cangkir, mangkok, dan piring basah/kering dengan tirisan higienis.
-   - Lemari Rak Piring 3 & 4 Pintu: Ruang simpan peralatan makan tertutup kaca bening dengan sirkulasi udara baik.
-   - Wastafel Aluminium 1 Lubang: Bak cuci piring aluminium anti karat, praktis, ringan, dan tahan rembesan air.
-
-5. KITCHEN SET (6+ Model):
-   - Kitchen Set 5 Pintu & 6 Pintu: Dilengkapi laci sendok/bumbu dan bak wastafel cuci piring.
-   - Kitchen Set Kompor Tanam ACP: Desain terintegrasi modern untuk dapur minimalis masa kini.
-   - Keunggulan Utama: 100% Bebas Rayap, Tahan Air & Lembap, Tidak Berjamur seperti serbuk kayu/MDF.
-
-6. LEMARI PAJANG / LEMARI HIAS (7+ Model):
-   - Lemari Pajang 1 Pintu + Lampu: Dilengkapi lampu sorot spotlight untuk memajang piala, piagam, kristal, parfum, atau tas branded.
-   - Lemari Pajang 8 Pintu: Kapasitas super besar dengan kaca bening untuk koleksi perabot mewah.
-   - Lemari Sudut Kaca: Mengoptimalkan sudut ruangan mati menjadi sudut estetik elegan.
-   - Seri 4 Pintu & 6 Pintu Premium: Kaca tebal dengan rangka kokoh.
-
-7. BOPET TV, MEJA TV & BACKDROP (8+ Model):
-   - Bopet TV Kaca 2 Meter: Meja TV panjang mewah untuk TV LED ukuran besar.
-   - Bopet TV Laci ACP: Laci tertutup rapi untuk konsol game, remote, dan kabel.
-   - Bopet TV PVC: Aksen panel modern tahan lembap.
-   - Backdrop Meja TV 240 cm: Panel dinding gantung mewah dengan pencahayaan ambient untuk ruang keluarga.
-   - Meja TV Sekat: Berfungsi ganda sebagai meja hiburan sekaligus partisi pembatas ruangan tamu/keluarga.
-
-8. LEMARI DAPUR (4+ Model):
-   - Lemari dapur 2 pintu, 4 pintu, 5 pintu, dan 6 pintu berbahan aluminium kaca & ACP untuk menyimpan stok sembako, perabot memasak, dan blender/mixer.
-
-9. LEMARI RAK KACA / TUPPERWARE (4+ Model):
-   - Lemari rak kaca 2 pintu belah 4, 3 pintu tupperware, dan 4 pintu belah 8 untuk koleksi toples kue dan wadah tupperware dapur.
-
-10. ETALASE (Model 1 Meter dsb):
-    - Etalase kaca bening rangka aluminium untuk etalase jualan warung, konter HP, apotek, dan usaha display toko.
-
-11. LEMARI SEPATU:
-    - Lemari rak sepatu aluminium kaca/ACP dengan sirkulasi udara khusus agar sepatu tidak bau lembap dan aman dari debu.
-
-12. MEJA RIAS:
-    - Meja rias aluminium kaca dengan cermin bening luas dan laci kosmetik praktis.
-
-==============================================================================
-KEUNGGULAN MATERIAL AGM DIBANDING KAYU:
-==============================================================================
-1. 100% Anti Rayap & Tahan Air: Daerah pesisir/tropis Ketapang yang lembap atau rawan banjir tidak merusak furniture AGM. Bebas keropos selamanya.
-2. Rangka Aluminium: Ringan, kokoh, tidak berkarat, tidak melengkung, pilihan warna silver/anodized/hitam/putih.
-3. ACP (Aluminium Composite Panel): Lembaran komposit kokoh tahan benturan, anti pecah, tahan lembap, mudah dibersihkan.
-4. Kaca Tempered / Bening / Riben / Stiker: Tampilan modern, bersih, mewah, dan higienis.
-5. Keramik / Porselen: Bagian meja saji & meja kompor tahan api kompor serta tumpahan minyak panas.
-
-==============================================================================
-LAYANAN TOKO & ALUR PEMESANAN:
-==============================================================================
-- Lokasi Toko: Jalan Rahadi Ismail, Desa Padang, Kecamatan Benua Kayong, Kabupaten Ketapang, Kalimantan Barat.
-- Pengiriman: Dilayani armada toko khusus untuk area Ketapang dan sekitarnya agar barang kaca/aluminium aman sampai di rumah.
-- Kontak Cepat: WhatsApp Toko AGM: 0896-9412-7723.
-- Custom Order: Customer bisa request custom ukuran per centimeter, ubah jumlah pintu, pilih warna ACP, atau sesuaikan bentuk L/U.
-- Harga: Transparan, diskon promosi langsung pada produk promo. Produk bertanda PRE-ORDER / Rp 0 siap dikonsultasikan biayanya sesuai spesifikasi ukuran yang diinginkan.
-
-==============================================================================
-PENGUASAAN & ANALISIS GAMBAR PRODUK (MULTIMODAL VISION & KETERANGAN FOTO):
-==============================================================================
-1. Membaca Teks / Stiker Ukuran pada Foto Produk:
-   - Banyak foto produk katalog AGM memiliki stiker atau tulisan penanda ukuran nyata (contoh: "UK 90", "150 x 40", "p180 x t180", "120 cm", "2 meter").
-   - Anda WAJIB menganalisis dan membaca teks/stiker tersebut saat customer bertanya ukuran atau rincian gambar.
-
-2. Analisis Struktur Visual & Proporsi Fisik Furniture dari Gambar:
-   - Jumlah Pintu & Daun: Hitung jumlah daun pintu secara visual (2 pintu, 3 pintu, 4 pintu, 5 pintu, 6 pintu).
-   - Tipe Pintu & Rel: Identifikasi apakah pintu model sleding (geser rel hemat tempat) atau swing (engsel buka biasa).
-   - Kaca & ACP: Amati jenis kaca (kaca riben/gelap, kaca bening, atau kaca berpola stiker artistik) dan panel komposit ACP (warna silver, hitam, putih, motif serat kayu).
-   - Fitur Khusus: Identifikasi detail seperti lubang kompor tanam, wastafel cuci piring, keramik meja saji porselen, roda mobilitas, laci sendok/remote, lampu spotlight lemari pajang, atau sekat pembatas ruangan.
-
-3. Estimasi Dimensi Standar AGM Berdasarkan Karakteristik Fisik:
-   - Lemari Pakaian: Tinggi standar 180-200 cm, kedalaman 50-55 cm. Lebar per pintu ~45-50 cm (2 pintu = 90-100 cm, 3 pintu = 120-150 cm, 4 pintu = 160-200 cm).
-   - Meja Kompor: Tinggi ergonomis memasak 75-85 cm, kedalaman 55-65 cm, panjang 100-180 cm (bentuk L atau U).
-   - Meja Prasmanan: Standar panjang 150 cm x lebar 40 cm x tinggi 75 cm, lantai porselen keramik tahan panas chafing dish + roda.
-   - Lemari Rak Piring: Tinggi 150-170 cm, lebar 45-50 cm, panjang 80-120 cm.
-   - Bopet TV: Panjang 150-200 cm, backdrop TV dinding hingga 240 cm.
-
-4. KEMAMPUAN MENYESUAIKAN UKURAN SECARA DINAMIS (CUSTOM SIZING PER CENTIMETER):
-   - Toko AGM 2 memiliki workshop/bengkel perakitan mandiri berbasis aluminium tebal dan ACP di Ketapang.
-   - Semua ukuran di gambar/foto katalog adalah ukuran acuan/standar awal.
-   - Kapan pun customer bertanya atau memiliki keterbatasan ukuran ruangan (misal: "ruangan saya hanya muat 120 cm", "bisa dibuat lebih pendek/lebar?", "sesuaikan dengan dapur saya"):
-     a) Jelaskan bahwa ukuran bisa 100% DISESUAIKAN (custom per centimeter) di bengkel Toko AGM 2 Ketapang.
-     b) Berikan solusi dinamis: jika customer mengecilkan ukuran lemari dari 150 cm (3 pintu) ke 120 cm (diubah jadi 2 pintu lebar), jelaskan penyesuaian fungsionalnya.
-     c) Lampirkan spesifikasi baru dalam blok `json_design_state` yang mencerminkan ukuran dinamis yang disepakati.
-
-==============================================================================
-LOGIKA MENJAWAB CUSTOMER (DYNAMIC & SMART):
-==============================================================================
-1. Pertanyaan Katalog / Stok / Harga / Gambar / Ukuran:
-   - Gunakan fakta nyata dari [KATALOG SUPABASE - DATA REAL-TIME] dan analisis gambar.
-   - Sebutkan nama produk, subkategori, harga setelah diskon (jika ada diskon, sebutkan harga asli dan nominal diskonnya), status stok, serta ukuran dan karakteristik visual dari gambar.
-   - Jika ditanya rekomendasi umum, berikan 2-4 pilihan produk terbaik beserta alasannya.
-
-2. Pertanyaan Perbandingan & Edukasi Bahan:
-   - Jelaskan keunggulan material kaca, ACP, dan aluminium secara lugas dan komparatif.
-
-3. Pertanyaan Custom / Penyesuaian Ukuran Dinamis:
-   - Tanyakan ukuran ruangan atau kebutuhan khusus customer.
-   - HANYA sertakan blok `json_design_state` jika customer secara eksplisit meminta rancangan custom atau mengubah spesifikasi desain aktif.
-   - Format JSON Design State:
-```json_design_state
-{
-  "version": 1,
-  "category": "wardrobe",
-  "subcategory": "Lemari Pakaian ACP 3 Pintu Sleding",
-  "dimensions": {
-    "width": 150,
-    "depth": 55,
-    "height": 190,
-    "unit": "cm"
-  },
-  "capacity": 1,
-  "material": "kaca riben + ACP + rangka aluminium",
-  "color": "hitam / silver",
-  "finish": "powder coating",
-  "style": "minimalis modern",
-  "status": "draft",
-  "visualization": {
-    "status": "not_configured"
-  }
-}
-```
-```
+- Maksimal 3 produk.
+- HANYA produk yang memiliki image_url pada data katalog.
+- JANGAN mengarang id, harga, stok, atau image_url.
+- Blok ini dibaca sistem untuk menampilkan foto produk. JANGAN jelaskan isi blok ke customer.
 """
 
 def extract_pdf_text(file_bytes: bytes) -> str:
@@ -266,89 +200,86 @@ def normalize_attachment_context(filename: str, mime_type: str, raw_text: str) -
     context += "[END ATTACHMENT]"
     return context
 
-def call_nine_router_chat(prompt: str) -> str:
-    """Calls 9Router OpenAI-compatible chat completions endpoint for consultation jobs."""
+def call_hermes_cli(prompt: str) -> str:
+    """Calls Hermes AI native CLI for consultation jobs."""
     try:
-        base_url = os.environ.get("NINE_ROUTER_BASE_URL", "").strip().rstrip("/")
-        if not base_url:
-            raise Exception("NINE_ROUTER_BASE_URL is not configured.")
-        if not base_url.endswith("/v1"):
-            base_url = f"{base_url}/v1"
+        # Find Hermes executable
+        hermes_candidates = [
+            os.path.expanduser("~/.local/bin/hermes"),
+            "/usr/local/bin/hermes",
+            "/opt/homebrew/bin/hermes",
+            shutil.which("hermes"),
+        ]
+        hermes_exe = None
+        for candidate in hermes_candidates:
+            if candidate and os.path.exists(candidate) and os.access(candidate, os.X_OK):
+                hermes_exe = candidate
+                break
+        if not hermes_exe:
+            raise Exception("Hermes CLI executable not found. Checked: " + ", ".join(filter(None, hermes_candidates)))
 
-        api_key = os.environ.get("NINE_ROUTER_API_KEY", "").strip()
-        if not api_key:
-            raise Exception("NINE_ROUTER_API_KEY is not configured.")
+        # Run Hermes CLI in oneshot quiet mode without tools
+        cmd = [
+            hermes_exe,
+            "chat",
+            "-q", prompt,
+            "--oneshot",
+            "-Q",
+            "--toolsets", "",
+        ]
 
-        model = os.environ.get("NINE_ROUTER_CONSULTATION_MODEL", "my-combo").strip() or "my-combo"
-
-        payload = {
-            "model": model,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            "temperature": 0.7,
-            "max_tokens": 512
-        }
-
-        data_bytes = json.dumps(payload).encode("utf-8")
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_key}"
-        }
-
-        req = urllib.request.Request(
-            f"{base_url}/chat/completions",
-            data=data_bytes,
-            headers=headers,
-            method="POST"
+        proc = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=120,
         )
 
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            raw_text = resp.read().decode("utf-8")
-            parsed_res = json.loads(raw_text)
+        if proc.returncode != 0:
+            stderr_msg = proc.stderr.strip() if proc.stderr else "no stderr"
+            raise Exception(f"Hermes CLI exited with code {proc.returncode}: {stderr_msg}")
 
-        choices = parsed_res.get("choices", [])
-        if not choices:
-            raise Exception("Empty choices from 9Router API.")
+        stdout_text = proc.stdout.strip() if proc.stdout else ""
 
-        content = choices[0].get("message", {}).get("content", "")
+        # Remove session_id line if present (format: "session_id: xxx")
+        lines = stdout_text.splitlines()
+        clean_lines = [line for line in lines if not line.strip().startswith("session_id:")]
+        clean_text = "\n".join(clean_lines).strip()
 
-        if isinstance(content, list):
-            content = "".join(
-                item.get("text", "")
-                for item in content
-                if isinstance(item, dict)
-            )
+        if not clean_text:
+            raise Exception("Empty response from Hermes CLI")
 
-        if not isinstance(content, str) or not content.strip():
-            raise Exception("Empty message content from 9Router API.")
+        return clean_text
 
-        return content.strip()
-
-    except urllib.error.HTTPError as http_err:
-        body = ""
-        try:
-            body = http_err.read().decode("utf-8", errors="replace")
-        except Exception:
-            pass
-        raise Exception(f"9Router API HTTP {http_err.code}: {body[:500]}")
-
-    except urllib.error.URLError as url_err:
-        raise Exception(f"9Router API connection failed: {url_err}")
-
-    except json.JSONDecodeError as json_err:
-        raise Exception(f"9Router API invalid JSON response: {json_err}")
-
+    except subprocess.TimeoutExpired:
+        raise Exception("Hermes CLI timed out after 120 seconds")
+    except FileNotFoundError:
+        raise Exception("Hermes CLI executable not found")
     except Exception as e:
-        raise Exception(f"Failed to call 9Router API: {e}")
+        raise Exception(f"Failed to call Hermes CLI: {e}")
+
+def _read_9router_response(resp) -> str:
+    """Read and classify one 9Router response without parsing blindly."""
+    try:
+        status = getattr(resp, "status", None)
+        headers = getattr(resp, "headers", {})
+        content_type = headers.get("Content-Type", "") if hasattr(headers, "get") else ""
+        raw_bytes = resp.read()
+        raw_text = raw_bytes.decode("utf-8", errors="replace")
+        head = raw_text[:120].replace("\n", " ").replace("\r", " ")
+        print(f"[{time.strftime('%H:%M:%S')}] [9ROUTER DIAG] status={status} content_type={content_type} body_len={len(raw_bytes)} head={head!r}")
+        if status != 200 or not raw_text.strip():
+            return ""
+        return raw_text
+    except Exception as read_err:
+        print(f"[{time.strftime('%H:%M:%S')}] [9ROUTER DIAG] read failed: {read_err}")
+        return ""
 
 def analyze_furniture_visualization_9router(image_url: str, user_prompt: str, current_design_state: dict) -> str:
     """Calls 9Router Vision API (ag/gemini-3.8-flash-high) to inspect furniture visualization objectively."""
     try:
-        nine_router_base = os.environ.get('NINE_ROUTER_BASE_URL', 'http://host.docker.internal:20128/v1').strip().rstrip('/')
+        nine_router_base = os.environ.get('NINE_ROUTER_BASE_URL', 'http://127.0.0.1:20128/v1').strip().rstrip('/')
         nine_router_key = os.environ.get('NINE_ROUTER_API_KEY', '')
         nine_router_vision_model = os.environ.get('NINE_ROUTER_VISION_MODEL', 'ag/gemini-3.8-flash-high')
 
@@ -392,8 +323,10 @@ def analyze_furniture_visualization_9router(image_url: str, user_prompt: str, cu
         )
 
         with urllib.request.urlopen(req, timeout=60) as resp:
-            resp_bytes = resp.read()
-            raw_text = resp_bytes.decode('utf-8')
+            raw_text = _read_9router_response(resp)
+            if not raw_text or not raw_text.strip():
+                print(f"[{time.strftime('%H:%M:%S')}] Warning: 9Router Vision empty response body")
+                return ""
 
             # Handle streaming chunks if returned as SSE
             if "data: " in raw_text:
@@ -410,8 +343,12 @@ def analyze_furniture_visualization_9router(image_url: str, user_prompt: str, cu
                             pass
                 return extracted_content.strip()
             else:
-                parsed_res = json.loads(raw_text)
-                return parsed_res.get('choices', [{}])[0].get('message', {}).get('content', '').strip()
+                try:
+                    parsed_res = json.loads(raw_text)
+                    return parsed_res.get('choices', [{}])[0].get('message', {}).get('content', '').strip()
+                except json.JSONDecodeError as jde:
+                    print(f"[{time.strftime('%H:%M:%S')}] Warning: 9Router Vision non-JSON body: {jde}; head={raw_text[:120]!r}")
+                    return ""
 
     except Exception as vision_err:
         print(f"[{time.strftime('%H:%M:%S')}] Warning: 9Router Vision analysis skipped/failed: {vision_err}")
@@ -502,46 +439,76 @@ def process_ai_job(job):
         top_product_image_url = None
         top_product_name = None
         try:
-            catalog_res = supabase.from_("products").select("id,name,category,subcategory,price,discount,stock,unit,image_url,images").order("created_at", desc=True).limit(20).execute()
+            # Fetch all active products (price > 0 or stock > 0) to maximize coverage
+            catalog_res = supabase.from_("products").select(
+                "id,name,category,subcategory,description,price,discount,stock,unit,image_url,images,arrival_type"
+            ).order("created_at", desc=True).limit(100).execute()
             catalog_items = catalog_res.data or []
 
-            # Simple keyword scoring for worker
-            user_tokens = user_prompt.lower().split()
-            def score_item(item):
-                s = 0
-                searchable = f"{item.get('name','')} {item.get('category','')} {item.get('subcategory','')} {item.get('description','')}".lower()
-                for t in user_tokens:
-                    if len(t) >= 3 and t in searchable:
-                        s += 2
-                return s
+            # Filter out placeholder/empty products
+            catalog_items = [
+                it for it in catalog_items
+                if it.get("name") and it.get("name", "").strip() not in ("", "-", " ")
+            ]
 
-            ranked_items = sorted(catalog_items, key=lambda it: (score_item(it), it.get('stock', 0)), reverse=True)
-            top_items = ranked_items[:20] if any(score_item(it) > 0 for it in ranked_items) else catalog_items[:20]
+            # Improved keyword scoring: normalize and match on multiple fields
+            def normalize_text(text: str) -> str:
+                return " ".join(text.lower().split())
+
+            user_norm = normalize_text(user_prompt)
+            user_tokens = [t for t in user_norm.split() if len(t) >= 2]
+
+            def score_item(item):
+                if not user_tokens:
+                    return 0
+                searchable = normalize_text(" ".join([
+                    str(item.get("name", "")),
+                    str(item.get("category", "")),
+                    str(item.get("subcategory", "")),
+                    str(item.get("description", "")),
+                    str(item.get("arrival_type", "")),
+                ]))
+                score = 0
+                for token in user_tokens:
+                    if token in searchable:
+                        score += 3
+                    elif len(token) >= 4:
+                        # partial match on word prefixes
+                        for word in searchable.split():
+                            if word.startswith(token[:4]):
+                                score += 1
+                                break
+                return score
+
+            ranked_items = sorted(catalog_items, key=lambda it: (score_item(it), it.get("stock", 0)), reverse=True)
+            # Take top 30 relevant items, or first 30 if no matches
+            top_items = ranked_items[:30] if any(score_item(it) > 0 for it in ranked_items) else catalog_items[:30]
 
             if ranked_items and score_item(ranked_items[0]) > 0:
                 top_item = ranked_items[0]
-                top_img = top_item.get('image_url') or (top_item.get('images') and top_item.get('images')[0])
+                top_img = top_item.get("image_url") or (top_item.get("images") and top_item.get("images")[0])
                 if top_img:
                     top_product_image_url = top_img
-                    top_product_name = top_item.get('name')
+                    top_product_name = top_item.get("name")
 
             compact_items = []
             for it in top_items:
-                price = int(it.get('price') or 0)
-                disc = int(it.get('discount') or 0)
-                images = it.get('images')
-                img = it.get('image_url') or (images[0] if isinstance(images, list) and images else '')
+                price = int(it.get("price") or 0)
+                disc = int(it.get("discount") or 0)
+                images = it.get("images")
+                img = it.get("image_url") or (images[0] if isinstance(images, list) and images else "")
                 compact_items.append({
-                    "id": it.get('id'),
-                    "name": it.get('name'),
-                    "subcategory": it.get('subcategory') or it.get('category'),
+                    "id": it.get("id"),
+                    "name": it.get("name"),
+                    "subcategory": it.get("subcategory") or it.get("category"),
                     "price": price,
                     "discount": disc,
                     "final_price": max(0, price - disc),
-                    "stock": it.get('stock', 0),
-                    "unit": it.get('unit', 'Pcs'),
-                    "description": it.get('description', ''),
-                    "image_url": img
+                    "stock": it.get("stock", 0),
+                    "unit": it.get("unit", "Pcs"),
+                    "description": it.get("description", ""),
+                    "image_url": img,
+                    "arrival_type": it.get("arrival_type", ""),
                 })
 
             catalog_context += json.dumps(compact_items, ensure_ascii=False, indent=2)
@@ -565,7 +532,7 @@ def process_ai_job(job):
         # Combine System Persona + State Context + Live Catalog + Vision Context + Attachment + User Prompt
         full_prompt = f"{SYSTEM_CONSULTANT_INSTRUCTION}\n\n{catalog_context}\n\n{state_context}{vision_context}{attachment_prefix}Pertanyaan/Instruksi Customer:\n{user_prompt}"
 
-        ai_response_text = call_nine_router_chat(full_prompt)
+        ai_response_text = call_hermes_cli(full_prompt)
 
         # Check if job was cancelled during LLM inference
         status_check = supabase.from_("ai_jobs").select("status, error").eq("id", job_id).maybe_single().execute()

@@ -1,0 +1,11 @@
+FILE DEPRECATED — JANGAN DIGUNAKAN
+
+Runner asli yang menjadi sumber utama:
+scripts/evaluate_40_questions.py
+
+Salinan ini dipindahkan ke lokasi arsip karena:
+- Potensi perhitungan ROOT, import, dan jalur dataset yang salah
+- Tidak boleh dijalankan
+- Dokumentasi hanya menunjuk ke runner asli
+
+Jika eksekusi ulang 40 pertanyaan diperlukan, gunakan runner asli di direktori scripts/.

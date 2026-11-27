@@ -43,3 +43,9 @@ rekap_paku.xlsx
 
 # Supabase local state
 supabase/.temp/
+
+# Temporary/package artifacts
+.DS_Store
+__MACOSX/
+__pycache__/
+*.py[cod]

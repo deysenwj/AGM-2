@@ -867,21 +867,32 @@ async function callNineRouterApi(baseUrl: string, apiKey: string, prompt: string
       signal: controller.signal
     });
     clearTimeout(timeoutId);
+    const contentType = resp.headers.get('content-type') || '';
+    const rawText = await resp.text();
+    console.log(`[9Router DIAG] HTTP ${resp.status}, content-type: ${contentType}, body_len: ${rawText.length}`);
+
     if (resp.ok) {
-      const data = await resp.json();
-      const text = data.choices?.[0]?.message?.content;
-      if (text && text.trim()) {
-        console.log('9Router LLM API returned response successfully');
-        return text.trim();
+      if (!rawText.trim()) {
+        console.warn('[9Router DIAG] Empty response body from 9Router API');
+        return null;
+      }
+      try {
+        const data = JSON.parse(rawText);
+        const text = data.choices?.[0]?.message?.content;
+        if (text && text.trim()) {
+          console.log('9Router LLM API returned response successfully');
+          return text.trim();
+        }
+      } catch (jsonErr: any) {
+        console.warn(`[9Router DIAG] Invalid JSON response: ${jsonErr.message}. Head: ${rawText.slice(0, 150)}`);
       }
     } else {
-      const err = await resp.text();
-      console.warn('9Router response non-ok:', resp.status, err);
+      console.warn(`[9Router DIAG] response non-ok: HTTP ${resp.status}, head: ${rawText.slice(0, 200)}`);
     }
   } catch (e: any) {
     clearTimeout(timeoutId);
     if (e.name === 'AbortError') {
-      console.warn('9Router API call timed out after 15s.');
+      console.warn('9Router API call timed out after 30s.');
     } else {
       console.warn('9Router API call failed:', e.message || e);
     }
